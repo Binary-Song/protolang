@@ -1,8 +1,9 @@
-
 #include <fstream>
 #include "lexer.h"
 #include "logger.h"
 #include "source_code.h"
+#include "parser.h"
+
 int main()
 {
 	std::ifstream         f(R"(D:\Projects\protolang\test\code.ptl)");
@@ -14,6 +15,10 @@ int main()
 	{
 		 logger.print(lexer.token);
 	}
+
+	protolang::Parser parser;
+
+
 	//logger.print_code_range({0,1}, {1,1});
 
 	//	protolang::Lexer lexer("01");
