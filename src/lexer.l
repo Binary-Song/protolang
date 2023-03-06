@@ -13,6 +13,10 @@
     keyword,
     id,
     op,
+    left_paren,
+    right_paren,
+    semicol,
+    str,
     comment,
     err_amb_int,
     err_unknown_char,
@@ -41,10 +45,17 @@ int_hex     0x([0-9a-fA-F]+)
 int_bin     0b([01]+)
 fp          {int_dec}"."[0-9]+
 blank       [ \n\t]+
-keyword     "var"|"func"|"struct"|"return"|"if"|"else"|"while"
+keyword     "var"|"func"|"struct"|"return"|"if"|"else"|"while"|"true"|"false"
 id          \p{PythonIdentifierStart}\p{PythonIdentifierPart}*
 op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"
 op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"
+
+dq          \"
+sq          '
+str_esc     [nts"'\\]
+str_sq      {sq}(\\{str_esc}|[^\\])*?{sq}
+str_dq      {dq}(\\{str_esc}|[^\\])*?{dq}
+
 comment_sl  "//".*\n
 comment_ml  "/*"(.|\n)*?"*/"
 
@@ -64,6 +75,9 @@ err_amb_int 0[0-9]+
 {id}            return vlex(Rule::id);
 {op2}           return vlex(Rule::op);
 {op1}           return vlex(Rule::op);
+"("             return vlex(Rule::left_paren);
+")"             return vlex(Rule::right_paren);
+";"             return vlex(Rule::semicol);
 {comment_sl}    // do nothing
 {comment_ml}    // do nothing
 

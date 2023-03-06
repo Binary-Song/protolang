@@ -1,25 +1,39 @@
 #include <fstream>
 #include "lexer.h"
 #include "logger.h"
-#include "source_code.h"
 #include "parser.h"
-
+#include "source_code.h"
+#include "token.h"
 int main()
 {
-	std::ifstream         f(R"(D:\Projects\protolang\test\code.ptl)");
-	protolang::SourceCode src(f);
-	protolang::Logger     logger(src, std::cout);
-	protolang::Lexer      lexer(src, logger);
-
-	while (lexer.lex() == 0)
+	try
 	{
-		 logger.print(lexer.token);
+		std::string   file_name = R"(D:\Projects\protolang\test\test2.ptl)";
+		std::ifstream f(file_name);
+		bool          file_good = f.good();
+		protolang::SourceCode src(f);
+		protolang::Logger     logger(src, std::cout);
+		protolang::Lexer      lexer(src, logger);
+
+		if (!file_good)
+			logger.log(protolang::FatalFileError(file_name, 'r'));
+
+		std::vector<protolang::Token> tokens = lexer.scan();
+		if (tokens.empty())
+			return 1;
+
+		protolang::Parser parser(tokens, logger);
+		auto              expr = parser.parse();
+		if (!expr)
+			return 1;
+
+		std::cout << expr->dump_json() << "\n";
 	}
-
-	protolang::Parser parser;
-
-
-	//logger.print_code_range({0,1}, {1,1});
+	catch (protolang::ExceptionFatalError error)
+	{
+		return 1;
+	}
+	// logger.print_code_range({0,1}, {1,1});
 
 	//	protolang::Lexer lexer("01");
 	//	int              code = lexer.lex();

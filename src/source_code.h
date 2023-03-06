@@ -5,7 +5,7 @@ namespace protolang
 class SourceCode
 {
 public:
-	SourceCode(std::istream &input)
+	explicit SourceCode(std::istream &input)
 	{
 		std::string line;
 		std::getline(input, line);
@@ -19,7 +19,7 @@ public:
 		lines.push_back(line);
 		str += line;
 		// 附送1行
-		lines.push_back("\n");
+		lines.emplace_back("\n");
 		str += "\n";
 	}
 

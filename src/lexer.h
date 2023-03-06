@@ -19,6 +19,23 @@ public:
 	Logger     &logger;
 	Token       token;
 
+	std::vector<Token> scan()
+	{
+		std::vector<Token> tokens;
+		int                ret;
+		while ((ret = lex()) == 0)
+		{
+			tokens.push_back(token);
+		}
+		if (ret == -1)
+		{
+			tokens.push_back(token);
+			return tokens;
+		}
+		else
+			return {};
+	}
+
 	using protolang_generated::Lexer::lex;
 
 protected:
@@ -49,6 +66,17 @@ protected:
 			break;
 		case Rule::op:
 			rule_op();
+			break;
+		case Rule::left_paren:
+			rule_paren(true);
+			break;
+		case Rule::right_paren:
+			rule_paren(false);
+			break;
+		case Rule::semicol:
+			rule_semicol();
+			break;
+		case Rule::str:
 			break;
 		case Rule::eof:
 			rule_eof();
@@ -116,6 +144,8 @@ protected:
 	}
 	void rule_op() { token = Token::make_op(text(), get_pos1(), get_pos2()); }
 	void rule_eof() { token = Token::make_eof(get_pos1()); };
+	void rule_paren(bool left) { token = Token::make_paren(left, get_pos1()); }
+	void rule_semicol() { token = Token::make_semicol(get_pos1()); }
 
 private:
 	Pos2D get_pos1() const { return {(u32)lineno() - 1, (u32)columno()}; }

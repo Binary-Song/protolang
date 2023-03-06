@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <iostream>
+#include "exceptions.h"
 #include "log.h"
 #include "source_code.h"
 namespace protolang
@@ -37,7 +38,13 @@ public:
 		out << level_name << " " << e.code() << ": ";
 		e.desc_ascii(out);
 		out << "\n";
-		print_code_range(e.start, e.end);
+		for (auto &&ref : e.code_refs)
+		{
+			print_code_ref(ref);
+		}
+
+		if (e.level() == Log::Level::Fatal)
+			throw ExceptionFatalError();
 	}
 
 	void print(const Token &token)
@@ -45,11 +52,19 @@ public:
 		out << "[" << token.first_pos.row << ":" << token.first_pos.column
 		    << "~" << token.last_pos.row << ":" << token.last_pos.column
 		    << "] T=" << (int)token.type << "\n";
-		print_code_range(token.first_pos, token.last_pos);
+		print_code_ref({token.first_pos, token.last_pos});
 	}
 
-	void print_code_range(const Pos2D &start, const Pos2D &end)
+	void print_code_ref(const CodeRef &ref)
 	{
+		// 输出第一行
+		if (!ref.comment.empty())
+			out << ref.comment << "\n";
+		// 输出后续
+
+		auto start = ref.first;
+		auto end   = ref.last;
+
 		std::string first_line   = src.lines[start.row];
 		int         lineno_width = digits(end.row + 1);
 		for (std::size_t i = start.row; i <= end.row; i++)
@@ -57,8 +72,8 @@ public:
 			std::string _this_line = src.lines[i];
 			std::string this_line(_this_line.begin(), _this_line.end() - 1);
 
-			out << std::setw(lineno_width) << i + 1 << " | "
-			    << this_line << "\n";
+			out << std::setw(lineno_width) << i + 1 << " | " << this_line
+			    << "\n";
 
 			// 决定当前行下划线的位置和长度
 			std::size_t underline_begin = lineno_width + 3;

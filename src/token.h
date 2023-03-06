@@ -21,6 +21,10 @@ public:
 		Id,
 		Keyword,
 		Op,
+		LeftParen,
+		RightParen,
+		SemiColumn,
+		Str,
 		Eof,
 	};
 
@@ -71,6 +75,28 @@ public:
 		return Token(Type::Op, firstPos, lastPos, 0, 0, str);
 	}
 
+	static Token make_paren(bool left, const Pos2D &pos)
+	{
+		return Token(left ? Type::LeftParen : Type::RightParen,
+		             pos,
+		             pos,
+		             0,
+		             0,
+		             left ? "(" : ")");
+	}
+
+	static Token make_semicol(const Pos2D &pos)
+	{
+		return Token(Type::SemiColumn, pos, pos, 0, 0, ";");
+	}
+
+	static Token make_str(const std::string &str,
+	                      const Pos2D       &firstPos,
+	                      const Pos2D       &lastPos)
+	{
+		return Token(Type::Str, firstPos, lastPos, 0, 0, str);
+	}
+
 	static Token make_eof(const Pos2D &pos)
 	{
 		return Token(Type::Eof, pos, pos, 0, 0);
@@ -88,6 +114,7 @@ private:
 	    , last_pos(lastPos)
 	    , int_data(intData)
 	    , fp_data(fpData)
+	    , str_data(std::move(strData))
 	{}
 };
 

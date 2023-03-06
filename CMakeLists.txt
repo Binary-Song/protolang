@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.23.1)
 project(Protolang LANGUAGES CXX)
 
 # 设置CMake变量 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(BUILD_TESTING "是否创建单元测试目标" OFF)
@@ -30,7 +30,7 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
 add_executable(Protolang
         ${SOURCE_FILES}
-        )
+        src/exceptions.h)
 
 # 设置reflex输出目录
 set(REFLEX_OUTPUT_DIR "${PROJECT_BINARY_DIR}/src_generated")
@@ -62,16 +62,16 @@ set_standard_flags(${CMAKE_PROJECT_NAME})
 
 
 # Google test
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-add_subdirectory("3rdparty/googletest-release-1.12.1")
-enable_testing()
-add_executable(
-        hello_test
-        "./test/test.cpp"
-)
-target_link_libraries(
-        hello_test
-        GTest::gtest_main
-)
-include(GoogleTest)
-gtest_discover_tests(hello_test)
+#set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+#add_subdirectory("3rdparty/googletest-release-1.12.1")
+#enable_testing()
+#add_executable(
+#        hello_test
+#        "./test/test.cpp"
+#)
+#target_link_libraries(
+#        hello_test
+#        GTest::gtest_main
+#)
+#include(GoogleTest)
+#gtest_discover_tests(hello_test)

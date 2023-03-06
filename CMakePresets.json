@@ -8,6 +8,7 @@
                 "dev": false
             },
             "binaryDir": "build/${presetName}"
+
         },
         {
             "name": "msvc",
@@ -32,11 +33,6 @@
             "architecture": "x64",
             "environment": {
                 "Qt5_DIR": "$env{Qt5_MSVC_64_DIR}"
-            },
-            "condition": {
-                "type": "notEquals",
-                "lhs": "$env{Qt5_MSVC_64_DIR}",
-                "rhs": ""
             }
         },
         {
@@ -48,11 +44,6 @@
             "architecture": "Win32",
             "environment": {
                 "Qt5_DIR": "$env{Qt5_MSVC_32_DIR}"
-            },
-            "condition": {
-                "type": "notEquals",
-                "lhs": "$env{Qt5_MSVC_32_DIR}",
-                "rhs": ""
             }
         },
         {
