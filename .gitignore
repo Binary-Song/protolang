@@ -1,0 +1,10 @@
+.vs
+build
+*.user
+x64
+Win32
+Doxyfile
+docs
+doc
+CMakeUserPresets.json
+.idea
