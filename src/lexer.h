@@ -76,6 +76,21 @@ protected:
 		case Rule::semicol:
 			rule_semicol();
 			break;
+		case Rule::col:
+			rule_col();
+			break;
+		case Rule::comma:
+			rule_comma();
+			break;
+		case Rule::arrow:
+			rule_arrow();
+			break;
+		case Rule::left_brace:
+			rule_left_brace();
+			break;
+		case Rule::right_brace:
+			rule_right_brace();
+			break;
 		case Rule::str:
 			break;
 		case Rule::eof:
@@ -140,12 +155,38 @@ protected:
 	void rule_id() { token = Token::make_id(text(), get_pos1(), get_pos2()); }
 	void rule_keyword()
 	{
-		token = Token::make_keyword(text(), get_pos1(), get_pos2());
+		token          = Token::make_keyword(text(), get_pos1(), get_pos2());
+		token.int_data = kw_map.at(text());
 	}
 	void rule_op() { token = Token::make_op(text(), get_pos1(), get_pos2()); }
 	void rule_eof() { token = Token::make_eof(get_pos1()); };
 	void rule_paren(bool left) { token = Token::make_paren(left, get_pos1()); }
-	void rule_semicol() { token = Token::make_semicol(get_pos1()); }
+	void rule_semicol()
+	{
+		token = Token::make_len1(Token::Type::SemiColumn, get_pos1(), ";");
+	}
+	void rule_comma()
+	{
+		token = Token::make_len1(Token::Type::Comma, get_pos1(), ",");
+	}
+	void rule_col()
+	{
+		token = Token::make_len1(Token::Type::Column, get_pos1(), ":");
+	}
+	void rule_arrow()
+	{
+		token = Token(Token::Type::Arrow, get_pos1(), get_pos2(), 0, 0, "->");
+	}
+	void rule_left_brace()
+	{
+		token =
+		    Token(Token::Type::LeftBrace, get_pos1(), get_pos2(), 0, 0, "{");
+	}
+	void rule_right_brace()
+	{
+		token =
+		    Token(Token::Type::RightBrace, get_pos1(), get_pos2(), 0, 0, "}");
+	}
 
 private:
 	Pos2D get_pos1() const { return {(u32)lineno() - 1, (u32)columno()}; }

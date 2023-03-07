@@ -17,10 +17,8 @@ public:
 	    , src(src)
 	{}
 
-	template <typename LogT>
-	void log(LogT &&_error)
+	void log(const Log &e)
 	{
-		Log        &e = _error;
 		std::string level_name;
 		switch (e.level())
 		{

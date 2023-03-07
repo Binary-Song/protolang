@@ -12,7 +12,11 @@ struct CodeRef
 	std::string comment;
 
 	CodeRef() = default;
-
+	CodeRef(const Pos2DRange &range, std::string comment = "")
+	    : first(range.first)
+	    , last(range.last)
+	    , comment(std::move(comment))
+	{}
 	CodeRef(const Pos2D &first, const Pos2D &last, string comment = "")
 	    : first(first)
 	    , last(last)
@@ -46,17 +50,17 @@ public:
 	Log(const Token &token, std::string comment = "")
 	    : Log(token.first_pos, token.last_pos, std::move(comment))
 	{}
-	virtual ~Log()                              = default;
-	virtual void  desc_ascii(std::ostream &out) = 0;
-	virtual Level level() const                 = 0;
-	virtual int   code() const                  = 0;
+	virtual ~Log()                                    = default;
+	virtual void  desc_ascii(std::ostream &out) const = 0;
+	virtual Level level() const                       = 0;
+	virtual int   code() const                        = 0;
 };
 
 class ErrorAmbiguousInt : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "The preceding `0` is redundant."
 		       " Use the `0o` prefix if you want an octal literal.";
@@ -69,7 +73,7 @@ class ErrorUnknownChar : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Unexpected character.";
 	}
@@ -85,7 +89,7 @@ public:
 	    : Log(token)
 	    , left(left)
 	{}
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Unmatched " << (left ? "left" : "right") << " parenthesis.";
 	}
@@ -97,12 +101,45 @@ class ErrorExpressionExpected : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Expression expected.";
 	}
 	virtual Level level() const override { return Level::Error; }
 	int           code() const override { return 1004; }
+};
+
+class ErrorUnexpectedToken : public Log
+{
+public:
+	using Log::Log;
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Unexpected token. ";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int           code() const override { return 1005; }
+};
+
+class ErrorSymbolRedefinition : public Log
+{
+public:
+	std::string symbol;
+	ErrorSymbolRedefinition(std::string symbol,
+	                        Pos2DRange  first,
+	                        Pos2DRange  second)
+	    : symbol(std::move(symbol))
+	{
+		this->code_refs.emplace_back(second, "redefined here");
+		this->code_refs.emplace_back(first, "previously defined here");
+	}
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Redefinition of symbol `" << symbol << "`.";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int           code() const override { return 1005; }
 };
 
 class FatalFileError : public Log
@@ -116,7 +153,7 @@ public:
 	    , op(operation)
 	{}
 
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		if (op == 'r')
 			out << "Cannot open file " << file_name;
@@ -126,7 +163,7 @@ public:
 			out << "Cannot access file " << file_name;
 	}
 	virtual Level level() const override { return Level::Fatal; }
-	int           code() const override { return 9001; }
+	int           code() const override { return 3001; }
 };
 
 } // namespace protolang
