@@ -19,6 +19,23 @@ public:
 	Logger     &logger;
 	Token       token;
 
+	std::vector<Token> scan()
+	{
+		std::vector<Token> tokens;
+		int                ret;
+		while ((ret = lex()) == 0)
+		{
+			tokens.push_back(token);
+		}
+		if (ret == -1)
+		{
+			tokens.push_back(token);
+			return tokens;
+		}
+		else
+			return {};
+	}
+
 	using protolang_generated::Lexer::lex;
 
 protected:
@@ -123,7 +140,8 @@ protected:
 	void rule_id() { token = Token::make_id(text(), get_pos1(), get_pos2()); }
 	void rule_keyword()
 	{
-		token = Token::make_keyword(text(), get_pos1(), get_pos2());
+		token          = Token::make_keyword(text(), get_pos1(), get_pos2());
+		token.int_data = kw_map.at(text());
 	}
 	void rule_op() { token = Token::make_op(text(), get_pos1(), get_pos2()); }
 	void rule_eof() { token = Token::make_eof(get_pos1()); };

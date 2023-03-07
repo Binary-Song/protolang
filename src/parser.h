@@ -49,7 +49,7 @@ private:
 
 	void sync()
 	{
-		while (curr().type != Token::Type::Eof)
+		while (!is_curr_eof())
 		{
 			index++;
 
@@ -58,6 +58,26 @@ private:
 				return; // 同步成功
 			}
 		}
+	}
+
+	uptr<Program> program()
+	{
+		std::vector<uptr<Decl>> vec;
+		while (!is_curr_eof())
+		{
+			vec.push_back(declaration());
+		}
+		return std::make_unique<Program>(std::move(vec));
+	}
+
+	uptr<Decl> declaration()
+	{
+
+	}
+
+	uptr<Stmt> statement()
+	{
+
 	}
 
 	uptr<Expr> expression() { return equality(); }
@@ -156,9 +176,20 @@ private:
 		}
 		else
 		{
-			logger.log(ErrorUnexpectedToken(curr()));
+			logger.log(ErrorExpressionExpected(curr()));
 		}
 		throw ExceptionPanic();
+	}
+
+	/*  辅助函数  */
+
+	bool is_curr_eof() const { return curr().type == Token::Type::Eof; }
+	bool is_curr_decl_keyword() const
+	{
+		if (curr().type != Token::Type::Keyword)
+			return false;
+		return (curr().int_data == KW_VAR || curr().int_data == KW_STRUCT ||
+		        curr().int_data == KW_CLASS || curr().int_data == KW_FUNC);
 	}
 
 	/// 看看curr是不是指定操作符之一。见match

@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <string>
 #include "types.h"
 namespace protolang
@@ -10,6 +11,34 @@ struct Pos2D
 	/// 列号（从0开始）
 	u32 column = 0;
 };
+
+enum Keyword
+{
+	KW_VAR,
+	KW_FUNC,
+	KW_STRUCT,
+	KW_CLASS,
+	KW_RETURN,
+	KW_IF,
+	KW_ELSE,
+	KW_WHILE,
+	KW_TRUE,
+	KW_FALSE,
+};
+
+static const std::map<std::string, Keyword> kw_map = {
+    {   "var",    KW_VAR},
+    {  "func",   KW_FUNC},
+    {"struct", KW_STRUCT},
+    { "class",  KW_CLASS},
+    {"return", KW_RETURN},
+    {    "if",     KW_IF},
+    {  "else",   KW_ELSE},
+    { "while",  KW_WHILE},
+    {  "true",   KW_TRUE},
+    { "false",  KW_FALSE},
+};
+
 struct Token
 {
 public:
@@ -65,7 +94,8 @@ public:
 	                          const Pos2D       &firstPos,
 	                          const Pos2D       &lastPos)
 	{
-		return Token(Type::Keyword, firstPos, lastPos, 0, 0, str);
+		if (str == "var")
+			return Token(Type::Keyword, firstPos, lastPos, 0, 0, str);
 	}
 
 	static Token make_op(const std::string &str,

@@ -93,13 +93,13 @@ public:
 	int           code() const override { return 1003; }
 };
 
-class ErrorUnexpectedToken : public Log
+class ErrorExpressionExpected : public Log
 {
 public:
 	using Log::Log;
 	virtual void desc_ascii(std::ostream &out) override
 	{
-		out << "Unexpected token.";
+		out << "Expression expected.";
 	}
 	virtual Level level() const override { return Level::Error; }
 	int           code() const override { return 1004; }

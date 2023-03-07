@@ -45,7 +45,7 @@ int_hex     0x([0-9a-fA-F]+)
 int_bin     0b([01]+)
 fp          {int_dec}"."[0-9]+
 blank       [ \n\t]+
-keyword     "var"|"func"|"struct"|"return"|"if"|"else"|"while"|"true"|"false"
+keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"false"
 id          \p{PythonIdentifierStart}\p{PythonIdentifierPart}*
 op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"
 op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"

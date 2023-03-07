@@ -8,31 +8,25 @@ int main()
 {
 	try
 	{
-		std::string   file_name = R"(D:\protolang-master\test\test2.ptl)";
+		std::string   file_name = R"(D:\Projects\protolang\test\test2.ptl)";
 		std::ifstream f(file_name);
 		bool          file_good = f.good();
-		protolang::SourceCode         src(f);
-		protolang::Logger             logger(src, std::cout);
-		protolang::Lexer              lexer(src, logger);
-		int                           ret;
-		std::vector<protolang::Token> tokens;
+		protolang::SourceCode src(f);
+		protolang::Logger     logger(src, std::cout);
+		protolang::Lexer      lexer(src, logger);
 
 		if (!file_good)
-		{
 			logger.log(protolang::FatalFileError(file_name, 'r'));
-		}
 
-		while ((ret = lexer.lex()) == 0)
-		{
-			tokens.push_back(lexer.token);
-		}
-		if (ret == -1)
-			tokens.push_back(lexer.token);
-		else
+		std::vector<protolang::Token> tokens = lexer.scan();
+		if (tokens.empty())
 			return 1;
 
 		protolang::Parser parser(tokens, logger);
 		auto              expr = parser.parse();
+		if (!expr)
+			return 1;
+
 		std::cout << expr->dump_json() << "\n";
 	}
 	catch (protolang::ExceptionFatalError error)
