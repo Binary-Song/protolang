@@ -8,9 +8,11 @@ int main()
 {
 	try
 	{
-		std::string   file_name = R"(D:\Projects\protolang\test\test2.ptl)";
-		std::ifstream f(file_name);
-		bool          file_good = f.good();
+		std::string file_name        = __FILE__ R"(\..\..\test\test2.ptl)";
+		std::string output_file_name = __FILE__ R"(\..\..\test\.dump.json)";
+
+		std::ifstream         f(file_name);
+		bool                  file_good = f.good();
 		protolang::SourceCode src(f);
 		protolang::Logger     logger(src, std::cout);
 		protolang::Lexer      lexer(src, logger);
@@ -23,11 +25,11 @@ int main()
 			return 1;
 
 		protolang::Parser parser(tokens, logger);
-		auto              expr = parser.parse();
-		if (!expr)
+		auto              prog = parser.parse();
+		if (!prog)
 			return 1;
 
-		std::cout << expr->dump_json() << "\n";
+		std::ofstream(output_file_name) << prog->dump_json() << "\n";
 	}
 	catch (protolang::ExceptionFatalError error)
 	{

@@ -16,6 +16,11 @@
     left_paren,
     right_paren,
     semicol,
+    col,
+    comma,
+    arrow,
+    left_brace,
+    right_brace,
     str,
     comment,
     err_amb_int,
@@ -49,7 +54,6 @@ keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"f
 id          \p{PythonIdentifierStart}\p{PythonIdentifierPart}*
 op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"
 op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"
-
 dq          \"
 sq          '
 str_esc     [nts"'\\]
@@ -73,11 +77,16 @@ err_amb_int 0[0-9]+
 {blank}         // do nothing
 {keyword}       return vlex(Rule::keyword);
 {id}            return vlex(Rule::id);
+"->"            return vlex(Rule::arrow);
 {op2}           return vlex(Rule::op);
 {op1}           return vlex(Rule::op);
 "("             return vlex(Rule::left_paren);
 ")"             return vlex(Rule::right_paren);
+"{"             return vlex(Rule::left_brace);
+"}"             return vlex(Rule::right_brace);
 ";"             return vlex(Rule::semicol);
+":"             return vlex(Rule::col);
+","             return vlex(Rule::comma);
 {comment_sl}    // do nothing
 {comment_ml}    // do nothing
 

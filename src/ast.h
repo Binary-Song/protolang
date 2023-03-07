@@ -1,19 +1,39 @@
 #pragma once
 #include <format>
 #include <utility>
+#include "env.h"
 #include "token.h"
 namespace protolang
 {
 
+template <typename T>
+inline std::string dump_json_for_vector_of_ptr(const std::vector<T> &data);
+template <typename T>
+inline std::string dump_json_for_vector(const std::vector<T> &data);
+
 struct Ast
 {
 public:
+	virtual ~Ast()                        = default;
 	virtual std::string dump_json() const = 0;
 };
 
 struct Expr : public Ast
 {
 public:
+	enum class ValueCat
+	{
+		Pending,
+		Lvalue,
+		Rvalue,
+	} value_cat;
+
+	bool is_lvalue() const { return value_cat == ValueCat::Lvalue; }
+	bool is_rvalue() const { return value_cat == ValueCat::Rvalue; }
+
+	explicit Expr(ValueCat valueCat = ValueCat::Pending)
+	    : value_cat(valueCat)
+	{}
 	virtual ~Expr() = default;
 };
 
@@ -95,23 +115,157 @@ public:
 	}
 };
 
+struct Decl : public Ast
+{
+	std::string name;
+
+	virtual uptr<NamedObject> declare() const = 0;
+
+	Decl() = default;
+	explicit Decl(string name)
+	    : name(std::move(name))
+	{}
+};
+
+struct DeclVar : public Decl
+{
+	std::string type;
+	uptr<Expr>  init;
+
+	DeclVar() = default;
+	DeclVar(std::string name, std::string type, uptr<Expr> init)
+	    : Decl(std::move(name))
+	    , type(std::move(type))
+	    , init(std::move(init))
+	{}
+
+	uptr<NamedObject> declare() const override
+	{
+		return uptr<NamedObject>(new NamedVar(name, type));
+	}
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "name":"{}", "type":"{}", "init":{} }})",
+		                   name,
+		                   type,
+		                   init->dump_json());
+	}
+};
+
+struct DeclParam : public Decl
+{
+	std::string type;
+
+	DeclParam() = default;
+	DeclParam(std::string name, std::string type)
+	    : Decl(std::move(name))
+	    , type(std::move(type))
+	{}
+
+	uptr<NamedObject> declare() const override
+	{
+		return uptr<NamedObject>(new NamedVar(name, type));
+	}
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "name":"{}", "type":"{}" }})", name, type);
+	}
+};
+
 struct Stmt : public Ast
 {};
 
-struct Decl : public Ast
-{};
-
-struct StmtExprStmt : public Ast
+struct StmtExpr : public Stmt
 {
 	uptr<Expr> expr;
 
-	explicit StmtExprStmt(uptr<Expr> expr)
+	explicit StmtExpr(uptr<Expr> expr)
 	    : expr(std::move(expr))
 	{}
 
 	std::string dump_json() const override
 	{
 		return std::format(R"({{ "expr":{} }})", expr->dump_json());
+	}
+};
+
+struct CompoundStmtElem : public Ast
+{
+
+	explicit CompoundStmtElem(uptr<Stmt> stmt)
+	    : _stmt(std::move(stmt))
+	{}
+
+	explicit CompoundStmtElem(uptr<DeclVar> var_decl)
+	    : _var_decl(std::move(var_decl))
+	{}
+
+	Stmt    *stmt() const { return _stmt.get(); }
+	DeclVar *var_decl() const { return _var_decl.get(); }
+
+	std::string dump_json() const override
+	{
+		if (stmt())
+			return stmt()->dump_json();
+		if (var_decl())
+			return var_decl()->dump_json();
+		return "null";
+	}
+
+private:
+	uptr<Stmt>    _stmt;
+	uptr<DeclVar> _var_decl;
+};
+
+struct StmtCompound : public Stmt
+{
+	uptr<Env>                           env = std::make_unique<Env>();
+	std::vector<uptr<CompoundStmtElem>> elems;
+
+	std::string dump_json() const override
+	{
+		return dump_json_for_vector_of_ptr(elems);
+	}
+};
+
+struct DeclFunc : public Decl
+{
+	std::vector<uptr<DeclParam>> params;
+	std::string                  return_type;
+	uptr<StmtCompound>           body;
+
+	DeclFunc() = default;
+	DeclFunc(std::string                  name,
+	         std::vector<uptr<DeclParam>> params,
+	         std::string                  return_type,
+	         uptr<StmtCompound>           body)
+	    : Decl(std::move(name))
+	    , params(std::move(params))
+	    , return_type(std::move(return_type))
+	    , body(std::move(body))
+	{}
+
+	uptr<NamedObject> declare() const override
+	{
+		NamedFunc *func = new NamedFunc();
+		func->name      = name;
+		for (auto &&param : params)
+		{
+			func->params.emplace_back(param->name, param->type);
+		}
+		func->return_type = return_type;
+		return uptr<NamedObject>(func);
+	}
+
+	std::string dump_json() const override
+	{
+		return std::format(
+		    R"({{ "name":"{}", "return_type":"{}", "body":{} }})",
+		    name,
+		    return_type,
+		    body->dump_json());
 	}
 };
 
@@ -125,18 +279,42 @@ struct Program : public Ast
 
 	std::string dump_json() const
 	{
-		std::string json;
-		for (auto &&item : decls)
-		{
-			json += item->dump_json();
-			json += ",";
-		}
-		if (json.ends_with(','))
-		{
-			json.pop_back();
-		}
-		return std::format(R"({{ "decls":[ {} ] }})", json);
+		return std::format(R"({{ "decls":[ {} ] }})",
+		                   dump_json_for_vector_of_ptr(decls));
 	}
 };
+
+template <typename T>
+std::string dump_json_for_vector_of_ptr(const vector<T> &data)
+{
+	std::string json = "[";
+	for (auto &&item : data)
+	{
+		json += item->dump_json();
+		json += ",";
+	}
+	if (json.ends_with(','))
+	{
+		json.pop_back();
+	}
+	json += "]";
+	return json;
+}
+template <typename T>
+std::string dump_json_for_vector(const vector<T> &data)
+{
+	std::string json = "[";
+	for (auto &&item : data)
+	{
+		json += item.dump_json();
+		json += ",";
+	}
+	if (json.ends_with(','))
+	{
+		json.pop_back();
+	}
+	json += "]";
+	return json;
+}
 
 } // namespace protolang

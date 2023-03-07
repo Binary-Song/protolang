@@ -46,17 +46,17 @@ public:
 	Log(const Token &token, std::string comment = "")
 	    : Log(token.first_pos, token.last_pos, std::move(comment))
 	{}
-	virtual ~Log()                              = default;
-	virtual void  desc_ascii(std::ostream &out) = 0;
-	virtual Level level() const                 = 0;
-	virtual int   code() const                  = 0;
+	virtual ~Log()                                    = default;
+	virtual void  desc_ascii(std::ostream &out) const = 0;
+	virtual Level level() const                       = 0;
+	virtual int   code() const                        = 0;
 };
 
 class ErrorAmbiguousInt : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "The preceding `0` is redundant."
 		       " Use the `0o` prefix if you want an octal literal.";
@@ -69,7 +69,7 @@ class ErrorUnknownChar : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Unexpected character.";
 	}
@@ -85,7 +85,7 @@ public:
 	    : Log(token)
 	    , left(left)
 	{}
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Unmatched " << (left ? "left" : "right") << " parenthesis.";
 	}
@@ -97,12 +97,24 @@ class ErrorExpressionExpected : public Log
 {
 public:
 	using Log::Log;
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Expression expected.";
 	}
 	virtual Level level() const override { return Level::Error; }
 	int           code() const override { return 1004; }
+};
+
+class ErrorUnexpectedToken:public Log
+{
+public:
+	using Log::Log;
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Unexpected token. ";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int           code() const override { return 1005; }
 };
 
 class FatalFileError : public Log
@@ -116,7 +128,7 @@ public:
 	    , op(operation)
 	{}
 
-	virtual void desc_ascii(std::ostream &out) override
+	virtual void desc_ascii(std::ostream &out) const override
 	{
 		if (op == 'r')
 			out << "Cannot open file " << file_name;
