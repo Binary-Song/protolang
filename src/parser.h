@@ -31,6 +31,8 @@ private:
 	size_t             index = 0;
 	Logger            &logger;
 	std::vector<Token> tokens = {};
+	uptr<Env>          global_env;
+	Env               *curr_env = nullptr;
 
 private:
 	const Token &curr() const { return tokens[index]; }
@@ -51,6 +53,9 @@ private:
 
 	uptr<Program> program()
 	{
+		global_env = std::make_unique<Env>(nullptr);
+		curr_env   = global_env.get();
+
 		std::vector<uptr<Decl>> vec;
 		while (!is_curr_eof())
 		{
@@ -95,7 +100,9 @@ private:
 		eat_op_or_panic("=");
 		auto init = expression();
 		eat_given_type_or_panic(Token::Type::SemiColumn, ";");
-		return uptr<DeclVar>(new DeclVar(name, type, std::move(init)));
+
+		auto decl = uptr<DeclVar>(new DeclVar(name, type, std::move(init)));
+		decl->declare()
 	}
 
 	uptr<DeclFunc> func_decl()
@@ -151,7 +158,9 @@ private:
 
 	uptr<StmtCompound> compound_statement()
 	{
-		auto stmt = std::make_unique<StmtCompound>();
+		auto env  = std::make_unique<Env>(curr_env);
+		curr_env  = env.get();
+		auto stmt = std::make_unique<StmtCompound>(std::move(env));
 		eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 		while (!is_curr_of_type(Token::Type::RightBrace))
 		{

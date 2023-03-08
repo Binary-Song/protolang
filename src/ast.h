@@ -221,8 +221,12 @@ private:
 
 struct StmtCompound : public Stmt
 {
-	uptr<Env>                           env = std::make_unique<Env>();
+	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
+
+	StmtCompound(uptr<Env> env)
+	    : env(std::move(env))
+	{}
 
 	std::string dump_json() const override
 	{

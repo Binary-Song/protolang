@@ -1,11 +1,14 @@
+
+var a : int = 0;
+
 func myfunc1(i: int , j: int) -> int
 {
     var a : int = 2+ 100 * 100;
-    var b : int = 10
+    var b : int = 10;
     1+1*(33);
 }
 
-func myfunc2(i: int , j: int) ->
+func myfunc2(i: i09iu09u , j: int) -> f3214
 {
     1*1;
 }

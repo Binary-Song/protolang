@@ -29,7 +29,9 @@ int main()
 		if (!prog)
 			return 1;
 
-		std::ofstream(output_file_name) << prog->dump_json() << "\n";
+		//		std::ofstream(output_file_name)
+		//
+		std::cout << prog->dump_json() << "\n";
 	}
 	catch (protolang::ExceptionFatalError error)
 	{
