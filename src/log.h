@@ -17,13 +17,13 @@ struct CodeRef
 	    , last(range.last)
 	    , comment(std::move(comment))
 	{}
-	CodeRef(const Pos2D &first, const Pos2D &last, string comment = "")
+	CodeRef(const Pos2D &first, const Pos2D &last, std::string comment = "")
 	    : first(first)
 	    , last(last)
 	    , comment(std::move(comment))
 	{}
 
-	explicit CodeRef(const Token &token, string comment = "")
+	explicit CodeRef(const Token &token, std:: string comment = "")
 	    : CodeRef(token.first_pos, token.last_pos, std::move(comment))
 	{}
 };

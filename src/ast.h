@@ -1,16 +1,37 @@
 #pragma once
 #include <format>
+#include <functional>
 #include <utility>
-#include "env.h"
+#include <vector>
 #include "token.h"
+#include "util.h"
 namespace protolang
 {
+
+class Env;
 
 struct Ast
 {
 public:
 	virtual ~Ast()                        = default;
 	virtual std::string dump_json() const = 0;
+};
+
+struct TypeExpr : public Ast
+{
+public:
+	virtual std::string id() const = 0;
+	bool equals(const TypeExpr &other) { return id() == other.id(); }
+};
+
+struct TypeExprIdent : public TypeExpr
+{
+	std::string name;
+	explicit TypeExprIdent(std::string name)
+	    : name(std::move(name))
+	{}
+	virtual std::string dump_json() const override { return '"' + name + '"'; }
+	virtual std::string id() const override;
 };
 
 struct Expr : public Ast
@@ -26,7 +47,7 @@ public:
 	bool is_lvalue() const { return value_cat == ValueCat::Lvalue; }
 	bool is_rvalue() const { return value_cat == ValueCat::Rvalue; }
 
-	explicit Expr(ValueCat valueCat = ValueCat::Pending)
+	explicit Expr(ValueCat valueCat)
 	    : value_cat(valueCat)
 	{}
 	virtual ~Expr() = default;
@@ -35,13 +56,14 @@ public:
 struct ExprBinary : public Expr
 {
 public:
-	uptr<Expr> left;
-	uptr<Expr> right;
-	Token      op;
+	uptr<Expr>  left;
+	uptr<Expr>  right;
+	std::string op;
 
 public:
-	ExprBinary(uptr<Expr> left, Token op, uptr<Expr> right)
-	    : left(std::move(left))
+	ExprBinary(ValueCat cat, uptr<Expr> left, std::string op, uptr<Expr> right)
+	    : Expr(cat)
+	    , left(std::move(left))
 	    , op(std::move(op))
 	    , right(std::move(right))
 	{}
@@ -49,7 +71,7 @@ public:
 	std::string dump_json() const override
 	{
 		return std::format(R"({{ "op":"{}", "left":{}, "right":{} }})",
-		                   op.str_data,
+		                   op,
 		                   left->dump_json(),
 		                   right->dump_json());
 	}
@@ -58,19 +80,62 @@ public:
 struct ExprUnary : public Expr
 {
 public:
-	uptr<Expr> right;
-	Token      op;
+	bool        prefix;
+	uptr<Expr>  right;
+	std::string op;
 
 public:
-	ExprUnary(uptr<Expr> right, Token op)
-	    : right(std::move(right))
+	ExprUnary(ValueCat cat, bool prefix, uptr<Expr> right, std::string op)
+	    : Expr(cat)
+	    , prefix(prefix)
+	    , right(std::move(right))
 	    , op(std::move(op))
 	{}
 
 	std::string dump_json() const override
 	{
 		return std::format(
-		    R"({{ "op":"{}", "right":{} }})", op.str_data, right->dump_json());
+		    R"({{ "op": "{}", "right":{} }})", op, right->dump_json());
+	}
+};
+
+struct ExprCall : public Expr
+{
+public:
+	uptr<Expr>              callee;
+	std::vector<uptr<Expr>> args;
+
+public:
+	ExprCall(uptr<Expr>              callee,
+	         std::vector<uptr<Expr>> args,
+	         ValueCat                cat = ValueCat::Rvalue)
+	    : Expr(cat)
+	    , callee(std::move(callee))
+	    , args(std::move(args))
+	{}
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "callee": {}, "args": {} }})",
+		                   callee->dump_json(),
+		                   dump_json_for_vector_of_ptr(args));
+	}
+};
+
+struct ExprIndex : public ExprCall
+{
+public:
+	ExprIndex(uptr<Expr>              callee,
+	          std::vector<uptr<Expr>> args,
+	          ValueCat                cat = ValueCat::Lvalue)
+	    : ExprCall(std::move(callee), std::move(args), cat)
+	{}
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "indexed": {}, "args": {} }})",
+		                   callee->dump_json(),
+		                   dump_json_for_vector_of_ptr(args));
 	}
 };
 
@@ -81,8 +146,9 @@ public:
 	uptr<Expr> expr;
 
 public:
-	explicit ExprGroup(uptr<Expr> expr)
-	    : expr(std::move(expr))
+	explicit ExprGroup(uptr<Expr> _expr)
+	    : Expr(_expr->value_cat)
+	    , expr(std::move(_expr))
 	{}
 
 	std::string dump_json() const override
@@ -98,7 +164,8 @@ public:
 
 public:
 	explicit ExprLiteral(const Token &token)
-	    : token(token)
+	    : Expr(ValueCat::Rvalue)
+	    , token(token)
 	{}
 
 	std::string dump_json() const override
@@ -110,65 +177,91 @@ public:
 	}
 };
 
-struct Decl : public Ast
+struct ExprIdent : public Expr
 {
+public:
 	std::string name;
 
+public:
+	explicit ExprIdent(std::string name)
+	    : Expr(ValueCat::Lvalue)
+	    , name(std::move(name))
+	{}
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "id": "{}"  }})", name);
+	}
+};
+
+class NamedObject;
+struct NamedObjectProperties;
+
+enum class DeclType
+{
+	Var,
+	Param,
+	Func,
+};
+
+struct Decl : public Ast
+{
+	std::string               name;
 	virtual uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const = 0;
+	    const NamedObjectProperties &props) const = 0;
+	virtual DeclType decl_type() const            = 0;
 
 	Decl() = default;
-	explicit Decl(string name)
+	explicit Decl(std::string name)
 	    : name(std::move(name))
 	{}
 };
 
 struct DeclVar : public Decl
 {
-	std::string type;
-	uptr<Expr>  init;
+	uptr<TypeExpr> type;
+	uptr<Expr>     init;
 
 	DeclVar() = default;
-	DeclVar(std::string name, std::string type, uptr<Expr> init)
+	DeclVar(std::string name, uptr<TypeExpr> type, uptr<Expr> init)
 	    : Decl(std::move(name))
 	    , type(std::move(type))
 	    , init(std::move(init))
 	{}
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		return uptr<NamedObject>(new NamedVar(props, name, type));
-	}
+	    const NamedObjectProperties &props) const override;
+
+	DeclType decl_type() const override { return DeclType::Var; }
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "name":"{}", "type":"{}", "init":{} }})",
+		return std::format(R"({{ "name":"{}", "type": {} , "init":{} }})",
 		                   name,
-		                   type,
+		                   type->dump_json(),
 		                   init->dump_json());
 	}
 };
 
 struct DeclParam : public Decl
 {
-	std::string type;
+	uptr<TypeExpr> type;
 
 	DeclParam() = default;
-	DeclParam(std::string name, std::string type)
+	DeclParam(std::string name, uptr<TypeExpr> type)
 	    : Decl(std::move(name))
 	    , type(std::move(type))
 	{}
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		return uptr<NamedObject>(new NamedVar(props, name, type));
-	}
+	    const NamedObjectProperties &props) const override;
+
+	DeclType decl_type() const override { return DeclType::Param; }
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "name":"{}", "type":"{}" }})", name, type);
+		return std::format(
+		    R"({{ "name":"{}", "type": {}  }})", name, type->dump_json());
 	}
 };
 
@@ -219,12 +312,10 @@ private:
 
 struct StmtCompound : public Stmt
 {
-	std::shared_ptr<Env>                env;
+	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
 
-	StmtCompound(uptr<Env> env)
-	    : env(std::move(env))
-	{}
+	StmtCompound(uptr<Env> env);
 
 	std::string dump_json() const override
 	{
@@ -235,38 +326,25 @@ struct StmtCompound : public Stmt
 struct DeclFunc : public Decl
 {
 	std::vector<uptr<DeclParam>> params;
-	std::string                  return_type;
+	uptr<TypeExpr>               return_type;
 	uptr<StmtCompound>           body;
 
 	DeclFunc() = default;
 	DeclFunc(std::string                  name,
 	         std::vector<uptr<DeclParam>> params,
-	         std::string                  return_type,
-	         uptr<StmtCompound>           body)
-	    : Decl(std::move(name))
-	    , params(std::move(params))
-	    , return_type(std::move(return_type))
-	    , body(std::move(body))
-	{}
+	         uptr<TypeExpr>               return_type,
+	         uptr<StmtCompound>           body);
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		std::vector<NamedVar> func_params;
-		for (auto &&param : params)
-		{
-			func_params.emplace_back(props, param->name, param->type);
-		}
-		return std::make_unique<NamedFunc>(
-		    props, name, return_type, std::move(func_params));
-	}
+	    const NamedObjectProperties &props) const override;
+	DeclType decl_type() const override { return DeclType::Func; }
 
 	std::string dump_json() const override
 	{
 		return std::format(
-		    R"({{ "name":"{}", "return_type":"{}", "body":{} }})",
+		    R"({{ "name":"{}", "return_type": {} , "body":{} }})",
 		    name,
-		    return_type,
+		    return_type->dump_json(),
 		    body->dump_json());
 	}
 };

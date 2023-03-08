@@ -45,7 +45,7 @@ static const std::map<std::string, Keyword> kw_map = {
     { "false",  KW_FALSE},
 };
 
-static std::string kw_map_rev(Keyword kw)
+inline std::string kw_map_rev(Keyword kw)
 {
 	for (auto &&kv : kw_map)
 	{
@@ -72,6 +72,8 @@ public:
 		RightParen,
 		LeftBrace,
 		RightBrace,
+		LeftBracket,
+		RightBracket,
 		SemiColumn,
 		Column,
 		Comma,

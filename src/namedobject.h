@@ -1,41 +1,45 @@
 #pragma once
 #include <string>
 #include <utility>
+#include "ast.h"
+#include "token.h"
 #include "typedef.h"
 namespace protolang
 {
 
+struct NamedObjectProperties
+{
+	Pos2DRange ident_pos;
+	Pos2DRange available_pos;
+};
+
 class NamedObject
 {
 public:
-	/// 第一个该具名实体生效的token的位置
+	using Properties = NamedObjectProperties;
+
+	Properties  props;
 	std::string name;
 
-	struct Properties
-	{
-		Pos2DRange available_pos;
-		Pos2DRange ident_pos;
-	} props;
-
-public:
-	explicit NamedObject(const Properties &props, std::string name)
-	    : props(props)
-	    , name(std::move(name))
+	NamedObject(std::string name, const Properties &props)
+	    : name(std::move(name))
+	    , props(props)
 	{}
-	virtual ~NamedObject()                = default;
+
+	virtual ~NamedObject() = default;
 	virtual std::string dump_json() const = 0;
 };
 
 class NamedVar : public NamedObject
 {
 public:
-	std::string type;
+	TypeExpr *type;
 
-	NamedVar(const Properties &props, std::string name, std::string type)
-	    : NamedObject(props, std::move(name))
-
-	    , type(std::move(type))
+	NamedVar(Properties props, std::string name, TypeExpr *type)
+	    : NamedObject(std::move(name), props)
+	    , type(type)
 	{}
+
 	virtual std::string dump_json() const
 	{
 		return std::format(R"({{ "name": "{}", "type": "{}" }})", name, type);
@@ -45,17 +49,18 @@ public:
 class NamedFunc : public NamedObject
 {
 public:
-	std::string           return_type;
+	TypeExpr             *return_type;
 	std::vector<NamedVar> params;
 
-	NamedFunc(const Properties       &props,
-	          string                  name,
-	          string                  returnType,
-	          const vector<NamedVar> &params)
-	    : NamedObject(props, std::move(name))
-	    , return_type(std::move(returnType))
+	NamedFunc(const Properties            &props,
+	          const std::string           &name,
+	          TypeExpr                    *returnType,
+	          const std::vector<NamedVar> &params)
+	    : NamedObject(name, props)
+	    , return_type(returnType)
 	    , params(params)
 	{}
+
 	virtual std::string dump_json() const
 	{
 		return std::format(

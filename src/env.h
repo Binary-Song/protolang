@@ -1,5 +1,4 @@
 #pragma once
-#include <format>
 #include <map>
 #include <string>
 #include <utility>
@@ -9,9 +8,6 @@ namespace protolang
 {
 class Env
 {
-public:
-	Env *parent;
-
 public:
 	explicit Env(Env *parent)
 	    : parent(parent)
@@ -35,7 +31,6 @@ public:
 		}
 		return parent->get(name);
 	}
-
 	std::string dump_json() const
 	{
 		std::vector<NamedObject *> vals;
@@ -45,31 +40,30 @@ public:
 		}
 		if (parent)
 			return std::format(R"({{ "this": {}, "parent": {} }})",
-			                   dump_json_for_vector_of_ptr(vals),
-			                   parent->dump_json());
+				               dump_json_for_vector_of_ptr(vals),
+				               parent->dump_json());
 		else
 			return std::format(R"({{ "this": {} }})",
-			                   dump_json_for_vector_of_ptr(vals));
+				               dump_json_for_vector_of_ptr(vals));
 	}
-
 private:
-	std::map<std::string, uptr<NamedObject>> symbol_table = {};
+	Env                                     *parent;
+	std::map<std::string, uptr<NamedObject>> symbol_table;
 };
 
 struct EnvGuard
 {
-	EnvGuard(Env *&currEnv, Env *newEnv)
-	    : old(currEnv)
-	    , curr_env(currEnv)
+	Env *&curr_env;
+	Env  *old_env;
+
+	EnvGuard(Env *&curr_env, Env *new_env)
+	    : curr_env(curr_env)
 	{
-		currEnv = newEnv;
+		old_env  = curr_env;
+		curr_env = new_env;
 	}
 
-	~EnvGuard() { curr_env = old; }
-
-private:
-	Env  *old;
-	Env *&curr_env;
+	~EnvGuard() { curr_env = old_env; }
 };
 
 } // namespace protolang

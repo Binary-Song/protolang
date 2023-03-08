@@ -91,6 +91,12 @@ protected:
 		case Rule::right_brace:
 			rule_right_brace();
 			break;
+		case Rule::left_bracket:
+			rule_left_bracket();
+			break;
+		case Rule::right_bracket:
+			rule_right_bracket();
+			break;
 		case Rule::str:
 			break;
 		case Rule::eof:
@@ -186,6 +192,16 @@ protected:
 	{
 		token =
 		    Token(Token::Type::RightBrace, get_pos1(), get_pos2(), 0, 0, "}");
+	}
+	void rule_left_bracket()
+	{
+		token =
+		    Token(Token::Type::LeftBracket, get_pos1(), get_pos2(), 0, 0, "[");
+	}
+	void rule_right_bracket()
+	{
+		token =
+		    Token(Token::Type::RightBracket, get_pos1(), get_pos2(), 0, 0, "]");
 	}
 
 private:

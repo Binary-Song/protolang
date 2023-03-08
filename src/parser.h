@@ -3,19 +3,33 @@
 #include <memory>
 #include <vector>
 #include "ast.h"
+#include "env.h"
 #include "exceptions.h"
 #include "token.h"
 /*
-expression     → equality ;
+expression     → assignment
+assignment    -> equality "=" assignment
+               | equality
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
-               | primary ;
+               | unary_post
+unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *
+member_access -> primary ( "." primary )*
 primary        → NUMBER | STRING | "true" | "false" | "nil"
+               | id
                | "(" expression ")" ;
-*/
+
+type_expr      -> "func" "(" type_expr "," type_expr "," ... ")" -> type_expr
+                | ident
+                | ident < type_expr [, type_expr ...] >
+
+ a.b().c()
+ ===
+ (((a.b)()).c)()
+ */
 namespace protolang
 {
 class Parser
@@ -91,6 +105,13 @@ private:
 		exit(1);
 	}
 
+	uptr<TypeExpr> type_expr()
+	{
+		eat_ident_or_panic("type");
+		auto type_name = prev();
+		return std::make_unique<TypeExprIdent>(type_name.str_data);
+	}
+
 	uptr<DeclVar> var_decl()
 	{
 		// var a : int = 2;
@@ -98,17 +119,18 @@ private:
 		auto name_token = eat_ident_or_panic();
 		auto name       = name_token.str_data;
 		eat_given_type_or_panic(Token::Type::Column, ":");
-		auto type = eat_ident_or_panic().str_data;
+		auto type = type_expr();
 		eat_op_or_panic("=");
 		auto init = expression();
 		eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
 		// 产生符号表记录
-		NamedObject::Properties p;
+		NamedObjectProperties p;
 		p.ident_pos     = name_token.range();
 		p.available_pos = curr().range();
 		return add_name_to_curr_env(
-		    std::make_unique<DeclVar>(name, type, std::move(init)), p);
+		    std::make_unique<DeclVar>(name, std::move(type), std::move(init)),
+		    p);
 	}
 
 	uptr<DeclFunc> func_decl()
@@ -127,8 +149,9 @@ private:
 		{
 			auto param_name = eat_ident_or_panic().str_data;
 			eat_given_type_or_panic(Token::Type::Column, ":");
-			auto type = eat_ident_or_panic().str_data;
-			params.push_back(std::make_unique<DeclParam>(param_name, type));
+			auto type = type_expr();
+			params.push_back(
+			    std::make_unique<DeclParam>(param_name, std::move(type)));
 			// 下一个必须是`,`或者`)`
 			if (!is_curr_of_type(Token::Type::RightParen))
 			{
@@ -137,14 +160,14 @@ private:
 		}
 		eat_given_type_or_panic(Token::Type::RightParen, ")");
 		eat_given_type_or_panic(Token::Type::Arrow, "->");
-		auto return_type = eat_ident_or_panic().str_data;
+		auto return_type = type_expr();
 		auto body        = compound_statement();
 
 		auto decl = std::make_unique<DeclFunc>(std::move(func_name),
 		                                       std::move(params),
 		                                       std::move(return_type),
 		                                       std::move(body));
-		NamedObject::Properties props;
+		NamedObjectProperties props;
 		props.ident_pos     = func_name_tok.range();
 		props.available_pos = curr().range();
 		return add_name_to_curr_env(std::move(decl), props);
@@ -152,8 +175,8 @@ private:
 
 	// 加入符号表
 	template <typename DeclType>
-	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>                 decl,
-	                                    const NamedObject::Properties &props)
+	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>               decl,
+	                                    const NamedObjectProperties &props)
 	{
 
 		auto        named_obj = decl->declare(props);
@@ -214,7 +237,21 @@ private:
 		return stmt;
 	}
 
-	uptr<Expr> expression() { return equality(); }
+	uptr<Expr> expression() { return assignment(); }
+
+	uptr<Expr> assignment()
+	{
+		uptr<Expr> left = equality();
+		if (eat_if_is_given_op({"="}))
+		{
+			uptr<Expr> right = assignment();
+			return uptr<Expr>(new ExprBinary(Expr::ValueCat::Lvalue,
+			                                 std::move(left),
+			                                 "=",
+			                                 std::move(right)));
+		}
+		return left;
+	}
 
 	uptr<Expr> equality()
 	{
@@ -223,8 +260,10 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = comparison();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
@@ -236,8 +275,10 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = term();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
@@ -249,41 +290,100 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = factor();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
 
 	uptr<Expr> factor()
 	{
-		uptr<Expr> expr = unary();
+		uptr<Expr> expr = unary_pre();
 		while (eat_if_is_given_op({"*", "/", "%"}))
 		{
 			Token      op    = prev();
-			uptr<Expr> right = unary();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			uptr<Expr> right = unary_pre();
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
 
-	uptr<Expr> unary()
+	uptr<Expr> unary_pre()
 	{
 		if (eat_if_is_given_op({"!", "-"}))
 		{
-			Token      op    = prev();
-			uptr<Expr> right = unary();
-			return uptr<Expr>(new ExprUnary(std::move(right), std::move(op)));
+			auto       op    = prev().str_data;
+			uptr<Expr> right = unary_pre();
+			return uptr<Expr>(new ExprUnary(
+			    Expr::ValueCat::Rvalue, true, std::move(right), std::move(op)));
 		}
 		else
 		{
-			return primary();
+			return unary_post();
 		}
+	}
+
+	uptr<Expr> unary_post()
+	{
+		uptr<Expr> operand = member_access();
+		// matrix[1][2](arg1, arg2)
+		while (eat_if_is_given_type(
+		    {Token::Type::LeftParen, Token::Type::LeftBracket}))
+		{
+			bool        isCall = (prev().type == Token::Type::LeftParen);
+			Token::Type rightDelim =
+			    isCall ? Token::Type::RightParen : Token::Type::RightBracket;
+
+			std::vector<uptr<Expr>> args;
+			// arg1, arg2,)
+			// arg1, arg2 )
+			while (!is_curr_of_type(rightDelim))
+			{
+				auto expr = expression();
+				args.push_back(std::move(expr));
+				if (!is_curr_of_type(rightDelim))
+				{
+					// 不是右括号就必须是逗号
+					// 是逗号，就吃掉
+					eat_given_type_or_panic(Token::Type::Comma, ",");
+				}
+				// 是右括号就结束
+			}
+			// 吃掉右括号
+			eat_given_type_or_panic(rightDelim, isCall ? ")" : "]");
+			if (isCall)
+				operand = uptr<Expr>(
+				    new ExprCall(std::move(operand), std::move(args)));
+			else
+				operand = uptr<Expr>(
+				    new ExprIndex(std::move(operand), std::move(args)));
+		}
+		return operand;
+	}
+
+	uptr<Expr> member_access()
+	{
+		uptr<Expr> expr = primary();
+		while (eat_if_is_given_op({"."}))
+		{
+			uptr<Expr> rhs = primary();
+			expr           = uptr<Expr>(new ExprBinary(
+                Expr::ValueCat::Lvalue, std::move(expr), ".", std::move(rhs)));
+		}
+		return expr;
 	}
 
 	uptr<Expr> primary()
 	{
+		if (eat_if_is_given_type({Token::Type::Id}))
+		{
+			return uptr<Expr>(new ExprIdent(prev().str_data));
+		}
 		if (eat_if_is_given_type(
 		        {Token::Type::Str, Token::Type::Int, Token::Type::Fp}))
 		{
@@ -400,9 +500,9 @@ private:
 		    "`" + kw_map_rev(kw) + "`");
 	}
 
-	const Token &eat_ident_or_panic()
+	const Token &eat_ident_or_panic(const std::string &expected = "identifier")
 	{
-		return eat_given_type_or_panic(Token::Type::Id, "identifier", false);
+		return eat_given_type_or_panic(Token::Type::Id, expected, false);
 	}
 
 	/// 看看curr是不是指定操作符之一。
