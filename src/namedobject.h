@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
+#include <utility>
 #include "typedef.h"
+#include "ast.h"
 namespace protolang
 {
 class NamedObject
@@ -14,8 +16,8 @@ public:
 		Pos2DRange available_pos;
 	} props;
 
-	NamedObject(const  std::string &name, const Properties &props)
-	    : name(name)
+	NamedObject(std::string name, const Properties &props)
+	    : name(std::move(name))
 	    , props(props)
 	{}
 
@@ -25,9 +27,9 @@ public:
 class NamedVar : public NamedObject
 {
 public:
-	std::string type;
+	TypeExpr *type;
 
-	NamedVar(Properties props, std::string name, std::string type)
+	NamedVar(Properties props, std::string name, TypeExpr *type)
 	    : NamedObject(std::move(name), props)
 	    , type(std::move(type))
 	{}
@@ -39,12 +41,12 @@ public:
 	std::string           return_type;
 	std::vector<NamedVar> params;
 
-	NamedFunc(const Properties &props,
-	          const  std::string           &name,
-	          const  std::string           &returnType,
-	          const  std::vector<NamedVar> &params)
+	NamedFunc(const Properties            &props,
+	          const std::string           &name,
+	          std::string                  returnType,
+	          const std::vector<NamedVar> &params)
 	    : NamedObject(name, props)
-	    , return_type(returnType)
+	    , return_type(std::move(returnType))
 	    , params(params)
 	{}
 };

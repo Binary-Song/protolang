@@ -15,6 +15,10 @@ unary          → ( "!" | "-" ) unary
                | primary ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
+
+type_expr      -> "func" "(" type_expr "," type_expr "," ... ")" -> type_expr
+                | ident
+                | ident < type_expr [, type_expr ...] >
 */
 namespace protolang
 {
@@ -91,6 +95,13 @@ private:
 		exit(1);
 	}
 
+	uptr<TypeExpr> type_expr()
+	{
+		eat_ident_or_panic("type");
+		auto type_name = prev();
+		return std::make_unique<TypeExprIdent>(type_name.str_data);
+	}
+
 	uptr<DeclVar> var_decl()
 	{
 		// var a : int = 2;
@@ -98,7 +109,7 @@ private:
 		auto name_token = eat_ident_or_panic();
 		auto name       = name_token.str_data;
 		eat_given_type_or_panic(Token::Type::Column, ":");
-		auto type = eat_ident_or_panic().str_data;
+		auto type = type_expr();
 		eat_op_or_panic("=");
 		auto init = expression();
 		eat_given_type_or_panic(Token::Type::SemiColumn, ";");
@@ -400,9 +411,9 @@ private:
 		    "`" + kw_map_rev(kw) + "`");
 	}
 
-	const Token &eat_ident_or_panic()
+	const Token &eat_ident_or_panic(const std::string &expected = "identifier")
 	{
-		return eat_given_type_or_panic(Token::Type::Id, "identifier", false);
+		return eat_given_type_or_panic(Token::Type::Id, expected, false);
 	}
 
 	/// 看看curr是不是指定操作符之一。

@@ -1,9 +1,12 @@
 #pragma once
 #include <format>
+#include <functional>
 #include <utility>
 #include "env.h"
+#include "namedobject.h"
 #include "token.h"
 #include "util.h"
+#include <vector>
 namespace protolang
 {
 
@@ -12,6 +15,20 @@ struct Ast
 public:
 	virtual ~Ast()                        = default;
 	virtual std::string dump_json() const = 0;
+};
+
+struct TypeExpr : public Ast
+{
+public:
+};
+
+struct TypeExprIdent : public TypeExpr
+{
+	std::string id;
+	explicit TypeExprIdent(std::string id)
+	    : id(std::move(id))
+	{}
+	virtual std::string dump_json() const override { return '"' + id + '"'; }
 };
 
 struct Expr : public Ast
@@ -114,23 +131,24 @@ public:
 struct Decl : public Ast
 {
 	std::string name;
+	std::vector<std::function<void()>> callbacks;
 
 	virtual uptr<NamedObject> declare(
 	    const NamedObject::Properties &props) const = 0;
 
 	Decl() = default;
-	explicit Decl( std::string name)
+	explicit Decl(std::string name)
 	    : name(std::move(name))
 	{}
 };
 
 struct DeclVar : public Decl
 {
-	std::string type;
-	uptr<Expr>  init;
+	uptr<TypeExpr> type;
+	uptr<Expr>     init;
 
 	DeclVar() = default;
-	DeclVar(std::string name, std::string type, uptr<Expr> init)
+	DeclVar(std::string name, uptr<TypeExpr> type, uptr<Expr> init)
 	    : Decl(std::move(name))
 	    , type(std::move(type))
 	    , init(std::move(init))
@@ -139,7 +157,7 @@ struct DeclVar : public Decl
 	uptr<NamedObject> declare(
 	    const NamedObject::Properties &props) const override
 	{
-		return uptr<NamedObject>(new NamedVar(props, name, type));
+		return uptr<NamedObject>(new NamedVar(props, name, type.get()));
 	}
 
 	std::string dump_json() const override
