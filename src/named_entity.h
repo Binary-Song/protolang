@@ -7,46 +7,59 @@
 namespace protolang
 {
 
-struct NamedObjectProperties
+struct NamedEntityProperties
 {
 	Pos2DRange ident_pos;
 	Pos2DRange available_pos;
 };
 
-class NamedObject
+enum class NamedEntityType
+{
+	NamedVar,
+	NamedFunc,
+};
+
+class NamedEntity
 {
 public:
-	using Properties = NamedObjectProperties;
+	using Properties = NamedEntityProperties;
 
 	Properties  props;
 	std::string name;
 
-	NamedObject(std::string name, const Properties &props)
+	NamedEntity(std::string name, const Properties &props)
 	    : name(std::move(name))
 	    , props(props)
 	{}
 
-	virtual ~NamedObject() = default;
-	virtual std::string dump_json() const = 0;
+	virtual ~NamedEntity()                            = default;
+	virtual std::string     dump_json() const         = 0;
+	virtual NamedEntityType named_entity_type() const = 0;
 };
 
-class NamedVar : public NamedObject
+class NamedVar : public NamedEntity
 {
 public:
 	TypeExpr *type;
 
 	NamedVar(Properties props, std::string name, TypeExpr *type)
-	    : NamedObject(std::move(name), props)
+	    : NamedEntity(std::move(name), props)
 	    , type(type)
 	{}
 
 	virtual std::string dump_json() const
 	{
-		return std::format(R"({{ "name": "{}", "type": "{}" }})", name, type);
+		return std::format(
+		    R"({{ "name": "{}", "type": "{}" }})", name, type->dump_json());
+	}
+
+	NamedEntityType named_entity_type() const override
+	{
+		return NamedEntityType::NamedVar;
 	}
 };
 
-class NamedFunc : public NamedObject
+class NamedFunc : public NamedEntity
 {
 public:
 	TypeExpr             *return_type;
@@ -56,7 +69,7 @@ public:
 	          const std::string           &name,
 	          TypeExpr                    *returnType,
 	          const std::vector<NamedVar> &params)
-	    : NamedObject(name, props)
+	    : NamedEntity(name, props)
 	    , return_type(returnType)
 	    , params(params)
 	{}
@@ -66,8 +79,13 @@ public:
 		return std::format(
 		    R"({{ "name": "{}", "return": "{}", "params": {} }})",
 		    name,
-		    return_type,
+		    return_type->dump_json(),
 		    dump_json_for_vector(params));
+	}
+
+	NamedEntityType named_entity_type() const override
+	{
+		return NamedEntityType::NamedFunc;
 	}
 };
 

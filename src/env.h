@@ -2,7 +2,7 @@
 #include <map>
 #include <string>
 #include <utility>
-#include "namedobject.h"
+#include "named_entity.h"
 #include "typedef.h"
 namespace protolang
 {
@@ -13,42 +13,56 @@ public:
 	    : parent(parent)
 	{}
 
-	[[nodiscard]] bool add(const std::string &name, uptr<NamedObject> obj)
+	[[nodiscard]] bool add(const std::string &name, uptr<NamedEntity> obj)
 	{
 		if (symbol_table.contains(name))
 		{
 			return false;
 		}
-		symbol_table[name] = std::move(obj);
+		entities.push_back(std::move(obj));
+		symbol_table[name] = obj.get();
 		return true;
 	}
 
-	NamedObject *get(const std::string &name) const
+	[[nodiscard]] bool add_alias(const std::string &alias,
+	                             const std::string &to)
+	{
+		// todo: 不许创建除了type-alias以外的alias。
+		NamedEntity *target = get(to);
+		if (symbol_table.contains(alias) || target == nullptr)
+			return false;
+		symbol_table[alias] = target;
+		return true;
+	}
+
+	NamedEntity *get(const std::string &name) const
 	{
 		if (symbol_table.contains(name))
 		{
-			return symbol_table.at(name).get();
+			return symbol_table.at(name);
 		}
 		return parent->get(name);
 	}
 	std::string dump_json() const
 	{
-		std::vector<NamedObject *> vals;
+		std::vector<NamedEntity *> vals;
 		for (auto &&kv : symbol_table)
 		{
-			vals.push_back(kv.second.get());
+			vals.push_back(kv.second);
 		}
 		if (parent)
 			return std::format(R"({{ "this": {}, "parent": {} }})",
-				               dump_json_for_vector_of_ptr(vals),
-				               parent->dump_json());
+			                   dump_json_for_vector_of_ptr(vals),
+			                   parent->dump_json());
 		else
 			return std::format(R"({{ "this": {} }})",
-				               dump_json_for_vector_of_ptr(vals));
+			                   dump_json_for_vector_of_ptr(vals));
 	}
+
 private:
-	Env                                     *parent;
-	std::map<std::string, uptr<NamedObject>> symbol_table;
+	Env                                 *parent;
+	std::vector<uptr<NamedEntity>>       entities;
+	std::map<std::string, NamedEntity *> symbol_table;
 };
 
 struct EnvGuard

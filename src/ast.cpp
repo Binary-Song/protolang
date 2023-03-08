@@ -3,18 +3,24 @@
 //
 #include "ast.h"
 #include "env.h"
-#include "namedobject.h"
+#include "named_entity.h"
+#include "type.h"
 namespace protolang
 {
-uptr<NamedObject> DeclVar::declare(const NamedObject::Properties &props) const
+Expr::Expr(Env *env)
+    : Ast(env)
+{}
+Expr::~Expr() {}
+
+uptr<NamedEntity> VarDecl::declare(const NamedEntity::Properties &props) const
 {
-	return uptr<NamedObject>(new NamedVar(props, name, type.get()));
+	return uptr<NamedEntity>(new NamedVar(props, name, type.get()));
 }
-uptr<NamedObject> DeclParam::declare(const NamedObject::Properties &props) const
+uptr<NamedEntity> ParamDecl::declare(const NamedEntity::Properties &props) const
 {
-	return uptr<NamedObject>(new NamedVar(props, name, type.get()));
+	return uptr<NamedEntity>(new NamedVar(props, name, type.get()));
 }
-uptr<NamedObject> DeclFunc::declare(const NamedObject::Properties &props) const
+uptr<NamedEntity> FuncDecl::declare(const NamedEntity::Properties &props) const
 {
 	std::vector<NamedVar> func_params;
 	for (auto &&param : params)
@@ -25,23 +31,18 @@ uptr<NamedObject> DeclFunc::declare(const NamedObject::Properties &props) const
 	    props, name, return_type.get(), std::move(func_params));
 }
 
-DeclFunc::DeclFunc(std::string                  name,
-                   std::vector<uptr<DeclParam>> params,
+FuncDecl::FuncDecl(std::string                  name,
+                   std::vector<uptr<ParamDecl>> params,
                    uptr<TypeExpr>               return_type,
-                   uptr<StmtCompound>           body)
+                   uptr<CompoundStmt>           body)
     : Decl(std::move(name))
     , params(std::move(params))
     , return_type(std::move(return_type))
     , body(std::move(body))
 {}
 
-StmtCompound::StmtCompound(uptr<Env> env)
+CompoundStmt::CompoundStmt(uptr<Env> env)
     : env(std::move(env))
 {}
-
-std::string TypeExprIdent::id() const
-{
-	return name;
-}
 
 } // namespace protolang

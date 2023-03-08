@@ -1,32 +1,37 @@
 #pragma once
 #include "ast.h"
+#include "env.h"
 namespace protolang
 {
 
 class TypeChecker
 {
 public:
+
+	explicit TypeChecker(Env *root_env)
+	    : root_env(root_env)
+	{}
+
 	void check(const Program *program)
 	{
 		for (auto &&decl : program->decls)
 		{
-			switch (decl->decl_type())
-			{
-			case DeclType::Var:
-				check_var(dynamic_cast<const DeclVar &>(*decl)) break;
-			case DeclType::Func:
-				check_func(dynamic_cast<const DeclFunc &>(*decl));
-				break;
-			}
+			decl->check_type(this);
 		}
 	}
 
 private:
-	void check_var(const DeclVar &decl)
+
+	Env *root_env;
+
+private:
+	void check_var(const VarDecl &decl)
 	{
-		if(decl.init->)
+		//	if(decl.init->)
 	}
-	void check_func(const DeclFunc &decl) {}
+	void check_func(const FuncDecl &decl) {}
+
+	void annotate_expr(Expr *expr) {}
 };
 
 } // namespace protolang
