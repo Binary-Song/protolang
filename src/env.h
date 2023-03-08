@@ -37,4 +37,19 @@ private:
 	std::map<std::string, uptr<NamedObject>> symbol_table;
 };
 
+struct EnvGuard
+{
+	Env *&curr_env;
+	Env  *old_env;
+
+	EnvGuard(Env *&curr_env, Env *new_env)
+	    : curr_env(curr_env)
+	{
+		old_env  = curr_env;
+		curr_env = new_env;
+	}
+
+	~EnvGuard() { curr_env = old_env; }
+};
+
 } // namespace protolang

@@ -3,13 +3,9 @@
 #include <utility>
 #include "env.h"
 #include "token.h"
+#include "util.h"
 namespace protolang
 {
-
-template <typename T>
-inline std::string dump_json_for_vector_of_ptr(const std::vector<T> &data);
-template <typename T>
-inline std::string dump_json_for_vector(const std::vector<T> &data);
 
 struct Ast
 {
@@ -119,10 +115,11 @@ struct Decl : public Ast
 {
 	std::string name;
 
-	virtual uptr<NamedObject> declare() const = 0;
+	virtual uptr<NamedObject> declare(
+	    const NamedObject::Properties &props) const = 0;
 
 	Decl() = default;
-	explicit Decl(string name)
+	explicit Decl( std::string name)
 	    : name(std::move(name))
 	{}
 };
@@ -139,9 +136,10 @@ struct DeclVar : public Decl
 	    , init(std::move(init))
 	{}
 
-	uptr<NamedObject> declare() const override
+	uptr<NamedObject> declare(
+	    const NamedObject::Properties &props) const override
 	{
-		return uptr<NamedObject>(new NamedVar(name, type));
+		return uptr<NamedObject>(new NamedVar(props, name, type));
 	}
 
 	std::string dump_json() const override
@@ -163,9 +161,10 @@ struct DeclParam : public Decl
 	    , type(std::move(type))
 	{}
 
-	uptr<NamedObject> declare() const override
+	uptr<NamedObject> declare(
+	    const NamedObject::Properties &props) const override
 	{
-		return uptr<NamedObject>(new NamedVar(name, type));
+		return uptr<NamedObject>(new NamedVar(props, name, type));
 	}
 
 	std::string dump_json() const override
@@ -251,16 +250,16 @@ struct DeclFunc : public Decl
 	    , body(std::move(body))
 	{}
 
-	uptr<NamedObject> declare() const override
+	uptr<NamedObject> declare(
+	    const NamedObject::Properties &props) const override
 	{
-		NamedFunc *func = new NamedFunc();
-		func->name      = name;
+		std::vector<NamedVar> func_params;
 		for (auto &&param : params)
 		{
-			func->params.emplace_back(param->name, param->type);
+			func_params.emplace_back(props, param->name, param->type);
 		}
-		func->return_type = return_type;
-		return uptr<NamedObject>(func);
+		return std::make_unique<NamedFunc>(
+		    props, name, return_type, std::move(func_params));
 	}
 
 	std::string dump_json() const override
@@ -287,38 +286,5 @@ struct Program : public Ast
 		                   dump_json_for_vector_of_ptr(decls));
 	}
 };
-
-template <typename T>
-std::string dump_json_for_vector_of_ptr(const vector<T> &data)
-{
-	std::string json = "[";
-	for (auto &&item : data)
-	{
-		json += item->dump_json();
-		json += ",";
-	}
-	if (json.ends_with(','))
-	{
-		json.pop_back();
-	}
-	json += "]";
-	return json;
-}
-template <typename T>
-std::string dump_json_for_vector(const vector<T> &data)
-{
-	std::string json = "[";
-	for (auto &&item : data)
-	{
-		json += item.dump_json();
-		json += ",";
-	}
-	if (json.ends_with(','))
-	{
-		json.pop_back();
-	}
-	json += "]";
-	return json;
-}
 
 } // namespace protolang

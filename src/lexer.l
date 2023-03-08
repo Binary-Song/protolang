@@ -2,7 +2,6 @@
   #include <cstdio>
   #include <iostream>
   #include <iomanip>
-  using namespace std;
   enum class Rule
   {
     int_dec,

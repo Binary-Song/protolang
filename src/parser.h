@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include <vector>
 #include "ast.h"
 #include "exceptions.h"
@@ -28,11 +29,11 @@ public:
 	uptr<Program> parse() { return program(); }
 
 private:
-	size_t             index = 0;
-	Logger            &logger;
-	std::vector<Token> tokens = {};
-	uptr<Env>          global_env;
-	Env               *curr_env = nullptr;
+	size_t               index = 0;
+	Logger              &logger;
+	std::vector<Token>   tokens = {};
+	std::unique_ptr<Env> root_env;
+	Env                 *curr_env = nullptr;
 
 private:
 	const Token &curr() const { return tokens[index]; }
@@ -53,8 +54,8 @@ private:
 
 	uptr<Program> program()
 	{
-		global_env = std::make_unique<Env>(nullptr);
-		curr_env   = global_env.get();
+		root_env = std::make_unique<Env>(nullptr);
+		curr_env = root_env.get();
 
 		std::vector<uptr<Decl>> vec;
 		while (!is_curr_eof())
@@ -79,7 +80,7 @@ private:
 					return func_decl();
 				}
 				logger.log(
-				    ErrorUnexpectedToken(curr(), "`var` or `func` expected"));
+				    ErrorUnexpectedToken(curr(), "declaration expected"));
 				throw ExceptionPanic();
 			}
 			catch (const ExceptionPanic &)
@@ -94,22 +95,29 @@ private:
 	{
 		// var a : int = 2;
 		eat_keyword_or_panic(Keyword::KW_VAR);
-		auto name = eat_ident_or_panic().str_data;
+		auto name_token = eat_ident_or_panic();
+		auto name       = name_token.str_data;
 		eat_given_type_or_panic(Token::Type::Column, ":");
 		auto type = eat_ident_or_panic().str_data;
 		eat_op_or_panic("=");
 		auto init = expression();
 		eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
-		auto decl = uptr<DeclVar>(new DeclVar(name, type, std::move(init)));
-		decl->declare()
+		// 产生符号表记录
+		NamedObject::Properties p;
+		p.ident_pos     = name_token.range();
+		p.available_pos = curr().range();
+		return add_name_to_curr_env(
+		    std::make_unique<DeclVar>(name, type, std::move(init)), p);
 	}
 
 	uptr<DeclFunc> func_decl()
 	{
 		// func foo(arg1: int, arg2: int) -> int { ... }
 		eat_keyword_or_panic(KW_FUNC);
-		auto name = eat_ident_or_panic().str_data;
+		Token       func_name_tok = eat_ident_or_panic();
+		std::string func_name     = func_name_tok.str_data;
+
 		eat_given_type_or_panic(Token::Type::LeftParen, "(");
 
 		std::vector<uptr<DeclParam>> params;
@@ -131,10 +139,37 @@ private:
 		eat_given_type_or_panic(Token::Type::Arrow, "->");
 		auto return_type = eat_ident_or_panic().str_data;
 		auto body        = compound_statement();
-		return std::make_unique<DeclFunc>(std::move(name),
-		                                  std::move(params),
-		                                  std::move(return_type),
-		                                  std::move(body));
+
+		auto decl = std::make_unique<DeclFunc>(std::move(func_name),
+		                                       std::move(params),
+		                                       std::move(return_type),
+		                                       std::move(body));
+		NamedObject::Properties props;
+		props.ident_pos     = func_name_tok.range();
+		props.available_pos = curr().range();
+		return add_name_to_curr_env(std::move(decl), props);
+	}
+
+	// 加入符号表
+	template <typename DeclType>
+	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>                 decl,
+	                                    const NamedObject::Properties &props)
+	{
+
+		auto        named_obj = decl->declare(props);
+		std::string name      = named_obj->name;
+		if (curr_env->add(name, std::move(named_obj)))
+		{
+			//			std::ofstream(R"(D:\Projects\protolang\test\.dump.json)")
+			//			    << curr_env->dump_json() << "\n";
+			return decl;
+		}
+		else
+		{
+			logger.log(ErrorSymbolRedefinition(
+			    name, curr_env->get(name)->props.ident_pos, props.ident_pos));
+			throw ExceptionPanic();
+		}
 	}
 
 	uptr<Stmt> statement()
@@ -158,9 +193,9 @@ private:
 
 	uptr<StmtCompound> compound_statement()
 	{
-		auto env  = std::make_unique<Env>(curr_env);
-		curr_env  = env.get();
-		auto stmt = std::make_unique<StmtCompound>(std::move(env));
+		auto     env = std::make_unique<Env>(curr_env);
+		EnvGuard guard(curr_env, env.get());
+		auto     stmt = std::make_unique<StmtCompound>(std::move(env));
 		eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 		while (!is_curr_of_type(Token::Type::RightBrace))
 		{

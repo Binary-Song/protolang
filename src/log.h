@@ -12,14 +12,18 @@ struct CodeRef
 	std::string comment;
 
 	CodeRef() = default;
-
-	CodeRef(const Pos2D &first, const Pos2D &last, string comment = "")
+	CodeRef(const Pos2DRange &range, std::string comment = "")
+	    : first(range.first)
+	    , last(range.last)
+	    , comment(std::move(comment))
+	{}
+	CodeRef(const Pos2D &first, const Pos2D &last, std::string comment = "")
 	    : first(first)
 	    , last(last)
 	    , comment(std::move(comment))
 	{}
 
-	explicit CodeRef(const Token &token, string comment = "")
+	explicit CodeRef(const Token &token, std:: string comment = "")
 	    : CodeRef(token.first_pos, token.last_pos, std::move(comment))
 	{}
 };
@@ -105,13 +109,34 @@ public:
 	int           code() const override { return 1004; }
 };
 
-class ErrorUnexpectedToken:public Log
+class ErrorUnexpectedToken : public Log
 {
 public:
 	using Log::Log;
 	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "Unexpected token. ";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int           code() const override { return 1005; }
+};
+
+class ErrorSymbolRedefinition : public Log
+{
+public:
+	std::string symbol;
+	ErrorSymbolRedefinition(std::string symbol,
+	                        Pos2DRange  first,
+	                        Pos2DRange  second)
+	    : symbol(std::move(symbol))
+	{
+		this->code_refs.emplace_back(second, "redefined here");
+		this->code_refs.emplace_back(first, "previously defined here");
+	}
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Redefinition of symbol `" << symbol << "`.";
 	}
 	virtual Level level() const override { return Level::Error; }
 	int           code() const override { return 1005; }
@@ -138,7 +163,7 @@ public:
 			out << "Cannot access file " << file_name;
 	}
 	virtual Level level() const override { return Level::Fatal; }
-	int           code() const override { return 9001; }
+	int           code() const override { return 3001; }
 };
 
 } // namespace protolang

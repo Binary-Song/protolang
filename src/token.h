@@ -12,6 +12,11 @@ struct Pos2D
 	/// 列号（从0开始）
 	u32 column = 0;
 };
+struct Pos2DRange
+{
+	Pos2D first;
+	Pos2D last;
+};
 
 enum Keyword
 {
@@ -86,6 +91,7 @@ public:
 	/// 最后一个字符的位置
 	Pos2D last_pos;
 
+
 public:
 	Token() = default;
 	Token(Type         type,
@@ -101,6 +107,8 @@ public:
 	    , fp_data(fpData)
 	    , str_data(std::move(strData))
 	{}
+	Pos2DRange range() const { return {first_pos, last_pos}; }
+
 	static Token make_int(u64 val, const Pos2D &firstPos, const Pos2D &lastPos)
 	{
 		return Token(Type::Int, firstPos, lastPos, val, 0);
