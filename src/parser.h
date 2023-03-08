@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include "ast.h"
+#include "env.h"
 #include "exceptions.h"
 #include "token.h"
 /*
@@ -115,11 +116,12 @@ private:
 		eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
 		// 产生符号表记录
-		NamedObject::Properties p;
+		NamedObjectProperties p;
 		p.ident_pos     = name_token.range();
 		p.available_pos = curr().range();
 		return add_name_to_curr_env(
-		    std::make_unique<DeclVar>(name, type, std::move(init)), p);
+		    std::make_unique<DeclVar>(name, std::move(type), std::move(init)),
+		    p);
 	}
 
 	uptr<DeclFunc> func_decl()
@@ -138,8 +140,9 @@ private:
 		{
 			auto param_name = eat_ident_or_panic().str_data;
 			eat_given_type_or_panic(Token::Type::Column, ":");
-			auto type = eat_ident_or_panic().str_data;
-			params.push_back(std::make_unique<DeclParam>(param_name, type));
+			auto type = type_expr();
+			params.push_back(
+			    std::make_unique<DeclParam>(param_name, std::move(type)));
 			// 下一个必须是`,`或者`)`
 			if (!is_curr_of_type(Token::Type::RightParen))
 			{
@@ -148,14 +151,14 @@ private:
 		}
 		eat_given_type_or_panic(Token::Type::RightParen, ")");
 		eat_given_type_or_panic(Token::Type::Arrow, "->");
-		auto return_type = eat_ident_or_panic().str_data;
+		auto return_type = type_expr();
 		auto body        = compound_statement();
 
 		auto decl = std::make_unique<DeclFunc>(std::move(func_name),
 		                                       std::move(params),
 		                                       std::move(return_type),
 		                                       std::move(body));
-		NamedObject::Properties props;
+		NamedObjectProperties props;
 		props.ident_pos     = func_name_tok.range();
 		props.available_pos = curr().range();
 		return add_name_to_curr_env(std::move(decl), props);
@@ -163,8 +166,8 @@ private:
 
 	// 加入符号表
 	template <typename DeclType>
-	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>                 decl,
-	                                    const NamedObject::Properties &props)
+	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>               decl,
+	                                    const NamedObjectProperties &props)
 	{
 
 		auto        named_obj = decl->declare(props);

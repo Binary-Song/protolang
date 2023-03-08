@@ -2,13 +2,13 @@
 #include <format>
 #include <functional>
 #include <utility>
-#include "env.h"
-#include "namedobject.h"
+#include <vector>
 #include "token.h"
 #include "util.h"
-#include <vector>
 namespace protolang
 {
+
+class Env;
 
 struct Ast
 {
@@ -127,14 +127,15 @@ public:
 		                   token.fp_data);
 	}
 };
-
+class NamedObject;
+struct NamedObjectProperties;
 struct Decl : public Ast
 {
-	std::string name;
+	std::string                        name;
 	std::vector<std::function<void()>> callbacks;
 
 	virtual uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const = 0;
+	    const NamedObjectProperties &props) const = 0;
 
 	Decl() = default;
 	explicit Decl(std::string name)
@@ -155,39 +156,34 @@ struct DeclVar : public Decl
 	{}
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		return uptr<NamedObject>(new NamedVar(props, name, type.get()));
-	}
+	    const NamedObjectProperties &props) const override;
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "name":"{}", "type":"{}", "init":{} }})",
+		return std::format(R"({{ "name":"{}", "type": {} , "init":{} }})",
 		                   name,
-		                   type,
+		                   type->dump_json(),
 		                   init->dump_json());
 	}
 };
 
 struct DeclParam : public Decl
 {
-	std::string type;
+	uptr<TypeExpr> type;
 
 	DeclParam() = default;
-	DeclParam(std::string name, std::string type)
+	DeclParam(std::string name, uptr<TypeExpr> type)
 	    : Decl(std::move(name))
 	    , type(std::move(type))
 	{}
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		return uptr<NamedObject>(new NamedVar(props, name, type));
-	}
+	    const NamedObjectProperties &props) const override;
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "name":"{}", "type":"{}" }})", name, type);
+		return std::format(
+		    R"({{ "name":"{}", "type": {}  }})", name, type->dump_json());
 	}
 };
 
@@ -241,9 +237,7 @@ struct StmtCompound : public Stmt
 	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
 
-	StmtCompound(uptr<Env> env)
-	    : env(std::move(env))
-	{}
+	StmtCompound(uptr<Env> env);
 
 	std::string dump_json() const override
 	{
@@ -254,13 +248,13 @@ struct StmtCompound : public Stmt
 struct DeclFunc : public Decl
 {
 	std::vector<uptr<DeclParam>> params;
-	std::string                  return_type;
+	uptr<TypeExpr>               return_type;
 	uptr<StmtCompound>           body;
 
 	DeclFunc() = default;
 	DeclFunc(std::string                  name,
 	         std::vector<uptr<DeclParam>> params,
-	         std::string                  return_type,
+	         uptr<TypeExpr>               return_type,
 	         uptr<StmtCompound>           body)
 	    : Decl(std::move(name))
 	    , params(std::move(params))
@@ -269,23 +263,14 @@ struct DeclFunc : public Decl
 	{}
 
 	uptr<NamedObject> declare(
-	    const NamedObject::Properties &props) const override
-	{
-		std::vector<NamedVar> func_params;
-		for (auto &&param : params)
-		{
-			func_params.emplace_back(props, param->name, param->type);
-		}
-		return std::make_unique<NamedFunc>(
-		    props, name, return_type, std::move(func_params));
-	}
+	    const NamedObjectProperties &props) const override;
 
 	std::string dump_json() const override
 	{
 		return std::format(
-		    R"({{ "name":"{}", "return_type":"{}", "body":{} }})",
+		    R"({{ "name":"{}", "return_type": {} , "body":{} }})",
 		    name,
-		    return_type,
+		    return_type->dump_json(),
 		    body->dump_json());
 	}
 };
