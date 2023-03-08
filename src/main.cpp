@@ -8,7 +8,7 @@ int main()
 {
 	try
 	{
-		std::string file_name        = __FILE__ R"(\..\..\test\test2.ptl)";
+		std::string file_name        = __FILE__ R"(\..\..\test\test3.ptl)";
 		std::string output_file_name = __FILE__ R"(\..\..\test\.dump.json)";
 
 		std::ifstream         f(file_name);
@@ -31,7 +31,7 @@ int main()
 
 		//		std::ofstream(output_file_name)
 		//
-		std::cout << prog->dump_json() << "\n";
+		std::ofstream(output_file_name) << prog->dump_json() << "\n";
 	}
 	catch (protolang::ExceptionFatalError error)
 	{

@@ -72,6 +72,8 @@ public:
 		RightParen,
 		LeftBrace,
 		RightBrace,
+		LeftBracket,
+		RightBracket,
 		SemiColumn,
 		Column,
 		Comma,

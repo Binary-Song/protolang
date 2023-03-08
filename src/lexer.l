@@ -20,6 +20,8 @@
     arrow,
     left_brace,
     right_brace,
+    left_bracket,
+    right_bracket,
     str,
     comment,
     err_amb_int,
@@ -51,7 +53,7 @@ fp          {int_dec}"."[0-9]+
 blank       [ \n\t]+
 keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"false"
 id          \p{PythonIdentifierStart}\p{PythonIdentifierPart}*
-op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"
+op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"|"."
 op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"
 dq          \"
 sq          '
@@ -83,6 +85,8 @@ err_amb_int 0[0-9]+
 ")"             return vlex(Rule::right_paren);
 "{"             return vlex(Rule::left_brace);
 "}"             return vlex(Rule::right_brace);
+"["             return vlex(Rule::left_bracket);
+"]"             return vlex(Rule::right_bracket);
 ";"             return vlex(Rule::semicol);
 ":"             return vlex(Rule::col);
 ","             return vlex(Rule::comma);

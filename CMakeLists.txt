@@ -30,7 +30,7 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
 add_executable(Protolang
         ${SOURCE_FILES}
-        src/exceptions.h src/env.h src/namedobject.h src/ast.cpp)
+        src/exceptions.h src/env.h src/namedobject.h src/ast.cpp src/typechecker.h)
 
 # 设置reflex输出目录
 set(REFLEX_OUTPUT_DIR "${PROJECT_BINARY_DIR}/src_generated")

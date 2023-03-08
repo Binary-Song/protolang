@@ -7,20 +7,29 @@
 #include "exceptions.h"
 #include "token.h"
 /*
-expression     → equality ;
+expression     → assignment
+assignment    -> equality "=" assignment
+               | equality
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
-               | primary ;
+               | unary_post
+unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *
+member_access -> primary ( "." primary )*
 primary        → NUMBER | STRING | "true" | "false" | "nil"
+               | id
                | "(" expression ")" ;
 
 type_expr      -> "func" "(" type_expr "," type_expr "," ... ")" -> type_expr
                 | ident
                 | ident < type_expr [, type_expr ...] >
-*/
+
+ a.b().c()
+ ===
+ (((a.b)()).c)()
+ */
 namespace protolang
 {
 class Parser
@@ -228,7 +237,21 @@ private:
 		return stmt;
 	}
 
-	uptr<Expr> expression() { return equality(); }
+	uptr<Expr> expression() { return assignment(); }
+
+	uptr<Expr> assignment()
+	{
+		uptr<Expr> left = equality();
+		if (eat_if_is_given_op({"="}))
+		{
+			uptr<Expr> right = assignment();
+			return uptr<Expr>(new ExprBinary(Expr::ValueCat::Lvalue,
+			                                 std::move(left),
+			                                 "=",
+			                                 std::move(right)));
+		}
+		return left;
+	}
 
 	uptr<Expr> equality()
 	{
@@ -237,8 +260,10 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = comparison();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
@@ -250,8 +275,10 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = term();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
@@ -263,41 +290,100 @@ private:
 		{
 			Token      op    = prev();
 			uptr<Expr> right = factor();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
 
 	uptr<Expr> factor()
 	{
-		uptr<Expr> expr = unary();
+		uptr<Expr> expr = unary_pre();
 		while (eat_if_is_given_op({"*", "/", "%"}))
 		{
 			Token      op    = prev();
-			uptr<Expr> right = unary();
-			expr             = uptr<Expr>(
-                new ExprBinary(std::move(expr), op, std::move(right)));
+			uptr<Expr> right = unary_pre();
+			expr             = uptr<Expr>(new ExprBinary(Expr::ValueCat::Rvalue,
+                                             std::move(expr),
+                                             op.str_data,
+                                             std::move(right)));
 		}
 		return expr;
 	}
 
-	uptr<Expr> unary()
+	uptr<Expr> unary_pre()
 	{
 		if (eat_if_is_given_op({"!", "-"}))
 		{
-			Token      op    = prev();
-			uptr<Expr> right = unary();
-			return uptr<Expr>(new ExprUnary(std::move(right), std::move(op)));
+			auto       op    = prev().str_data;
+			uptr<Expr> right = unary_pre();
+			return uptr<Expr>(new ExprUnary(
+			    Expr::ValueCat::Rvalue, true, std::move(right), std::move(op)));
 		}
 		else
 		{
-			return primary();
+			return unary_post();
 		}
+	}
+
+	uptr<Expr> unary_post()
+	{
+		uptr<Expr> operand = member_access();
+		// matrix[1][2](arg1, arg2)
+		while (eat_if_is_given_type(
+		    {Token::Type::LeftParen, Token::Type::LeftBracket}))
+		{
+			bool        isCall = (prev().type == Token::Type::LeftParen);
+			Token::Type rightDelim =
+			    isCall ? Token::Type::RightParen : Token::Type::RightBracket;
+
+			std::vector<uptr<Expr>> args;
+			// arg1, arg2,)
+			// arg1, arg2 )
+			while (!is_curr_of_type(rightDelim))
+			{
+				auto expr = expression();
+				args.push_back(std::move(expr));
+				if (!is_curr_of_type(rightDelim))
+				{
+					// 不是右括号就必须是逗号
+					// 是逗号，就吃掉
+					eat_given_type_or_panic(Token::Type::Comma, ",");
+				}
+				// 是右括号就结束
+			}
+			// 吃掉右括号
+			eat_given_type_or_panic(rightDelim, isCall ? ")" : "]");
+			if (isCall)
+				operand = uptr<Expr>(
+				    new ExprCall(std::move(operand), std::move(args)));
+			else
+				operand = uptr<Expr>(
+				    new ExprIndex(std::move(operand), std::move(args)));
+		}
+		return operand;
+	}
+
+	uptr<Expr> member_access()
+	{
+		uptr<Expr> expr = primary();
+		while (eat_if_is_given_op({"."}))
+		{
+			uptr<Expr> rhs = primary();
+			expr           = uptr<Expr>(new ExprBinary(
+                Expr::ValueCat::Lvalue, std::move(expr), ".", std::move(rhs)));
+		}
+		return expr;
 	}
 
 	uptr<Expr> primary()
 	{
+		if (eat_if_is_given_type({Token::Type::Id}))
+		{
+			return uptr<Expr>(new ExprIdent(prev().str_data));
+		}
 		if (eat_if_is_given_type(
 		        {Token::Type::Str, Token::Type::Int, Token::Type::Fp}))
 		{

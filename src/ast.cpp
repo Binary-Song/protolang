@@ -2,8 +2,8 @@
 // Created by wps on 2023/3/8.
 //
 #include "ast.h"
-#include "namedobject.h"
 #include "env.h"
+#include "namedobject.h"
 namespace protolang
 {
 uptr<NamedObject> DeclVar::declare(const NamedObject::Properties &props) const
@@ -24,7 +24,24 @@ uptr<NamedObject> DeclFunc::declare(const NamedObject::Properties &props) const
 	return std::make_unique<NamedFunc>(
 	    props, name, return_type.get(), std::move(func_params));
 }
-StmtCompound::StmtCompound(uptr<Env> env)
-	: env(std::move(env))
+
+DeclFunc::DeclFunc(std::string                  name,
+                   std::vector<uptr<DeclParam>> params,
+                   uptr<TypeExpr>               return_type,
+                   uptr<StmtCompound>           body)
+    : Decl(std::move(name))
+    , params(std::move(params))
+    , return_type(std::move(return_type))
+    , body(std::move(body))
 {}
+
+StmtCompound::StmtCompound(uptr<Env> env)
+    : env(std::move(env))
+{}
+
+std::string TypeExprIdent::id() const
+{
+	return name;
+}
+
 } // namespace protolang
