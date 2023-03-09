@@ -74,6 +74,7 @@ public:
 		return true;
 	}
 
+	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	[[nodiscard]] NamedEntity *get_one(const Ident &ident) const
 	{
 		std::string name = ident.name;
@@ -89,12 +90,18 @@ public:
 			logger.log(ErrorAmbiguousSymbol(ident.name, ident.location));
 			throw ExceptionPanic();
 		}
-		// 一个都没有
+		// 一个都没有，问爹要
+		if (parent)
+		{
+			return parent->get_one(ident);
+		}
+		// 没有爹，哭
 		logger.log(ErrorUndefinedSymbol(ident.name, ident.location));
 		throw ExceptionPanic();
 	}
 
-	[[nodiscard]] std::vector<NamedEntity *> get(const Ident &ident) const
+	/// 返回标识符对应的所有实体，包括子级和父级中所有同名实体
+	[[nodiscard]] std::vector<NamedEntity *> get_all(const Ident &ident) const
 	{
 		std::vector<NamedEntity *> result;
 		std::string                name = ident.name;
@@ -102,6 +109,12 @@ public:
 		for (auto iter = begin; iter != end; ++iter)
 		{
 			result.push_back(iter->second);
+		}
+		// 如果有爹，加上爹的
+		if (parent)
+		{
+			auto parents = parent->get_all(ident);
+			result.insert(result.end(), parents.begin(), parents.end());
 		}
 		return result;
 	}

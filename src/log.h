@@ -17,6 +17,9 @@ enum class LogCode
 	ErrorUndefinedSymbol,
 	ErrorAmbiguousSymbol,
 	FatalFileError,
+	ErrorSymbolIsNotAType,
+	ErrorNoMatchingOverload,
+	ErrorMultipleMatchingOverload,
 };
 
 struct CodeRef
@@ -74,6 +77,9 @@ class LogWithSymbol : public Log
 {
 public:
 	std::string symbol;
+	explicit LogWithSymbol(Ident ident)
+	    : LogWithSymbol(ident.name, ident.location)
+	{}
 	explicit LogWithSymbol(std::string symbol, const Pos2DRange &location)
 	    : symbol(std::move(symbol))
 	{
@@ -192,6 +198,49 @@ public:
 	}
 	virtual Level level() const override { return Level::Error; }
 	int code() const override { return (int)LogCode::ErrorAmbiguousSymbol; }
+};
+
+class ErrorSymbolIsNotAType : public LogWithSymbol
+{
+public:
+	std::string symbol;
+	using LogWithSymbol::LogWithSymbol;
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Symbol `" << symbol << "` is not a type.";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorSymbolIsNotAType; }
+};
+
+class ErrorNoMatchingOverload : public LogWithSymbol
+{
+	std::string symbol;
+	using LogWithSymbol::LogWithSymbol;
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Arguments cannot fit in parameters. ";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorNoMatchingOverload; }
+};
+
+class ErrorMultipleMatchingOverload : public LogWithSymbol
+{
+	std::string symbol;
+	using LogWithSymbol::LogWithSymbol;
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Multiple matching overloads.";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorMultipleMatchingOverload;
+	}
 };
 
 class FatalFileError : public Log

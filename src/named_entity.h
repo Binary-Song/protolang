@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "token.h"
 #include "typedef.h"
+#include "type.h"
 namespace protolang
 {
 
@@ -17,6 +18,7 @@ enum class NamedEntityType
 {
 	NamedVar,
 	NamedFunc,
+	NamedType,
 };
 
 class NamedEntity
@@ -86,6 +88,24 @@ public:
 	NamedEntityType named_entity_type() const override
 	{
 		return NamedEntityType::NamedFunc;
+	}
+};
+
+class NamedType : public NamedEntity
+{
+public:
+	NamedType(const Properties &props, const Ident &ident)
+	    : NamedEntity(ident, props)
+	{}
+
+	virtual std::string dump_json() const
+	{
+		return std::format(R"({{ "ident": {}  }})", ident.dump_json());
+	}
+
+	NamedEntityType named_entity_type() const override
+	{
+		return NamedEntityType::NamedType;
 	}
 };
 

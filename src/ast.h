@@ -4,7 +4,9 @@
 #include <utility>
 #include <vector>
 #include "token.h"
+#include "type.h"
 #include "util.h"
+
 namespace protolang
 {
 class Type;
@@ -45,6 +47,19 @@ public:
 	explicit TypeExpr(Env *env)
 	    : Ast(env)
 	{}
+
+	Type *type(TypeChecker *tc)
+	{
+		if (cached_type == nullptr)
+		{
+			cached_type = solve_type(tc);
+		}
+		return cached_type.get();
+	}
+
+private:
+	virtual uptr<Type> solve_type(TypeChecker *tc) = 0;
+	uptr<Type>         cached_type;
 };
 
 struct IdentTypeExpr : public TypeExpr
@@ -58,6 +73,8 @@ struct IdentTypeExpr : public TypeExpr
 	{
 		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
 	}
+
+	uptr<Type> solve_type(TypeChecker *tc) override;
 };
 
 struct Expr : public Ast
@@ -77,14 +94,25 @@ public:
 
 	explicit Expr(Env *env);
 	virtual ~Expr();
-	virtual uptr<Type> eval_type(TypeChecker *)
+
+	Type *type(TypeChecker *tc)
+	{
+		if (cached_type == nullptr)
+		{
+			cached_type = solve_type(tc);
+		}
+		return cached_type.get();
+	}
+
+private:
+	uptr<Type> cached_type = {};
+
+private:
+	virtual uptr<Type> solve_type(TypeChecker *tc)
 	{
 		exit(1);
 		return {};
 	}
-
-private:
-	uptr<Type> type = {};
 };
 
 struct BinaryExpr : public Expr
@@ -110,7 +138,7 @@ public:
 		                   right->dump_json());
 	}
 
-	virtual uptr<Type> eval_type(TypeChecker *);
+	virtual uptr<Type> solve_type(TypeChecker *tc);
 };
 
 struct UnaryExpr : public Expr
@@ -135,7 +163,7 @@ public:
 		                   right->dump_json());
 	}
 
-	virtual uptr<Type> eval_type(TypeChecker *);
+	virtual uptr<Type> solve_type(TypeChecker *);
 };
 
 struct CallExpr : public Expr
@@ -158,7 +186,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> eval_type(TypeChecker *);
+	virtual uptr<Type> solve_type(TypeChecker *);
 };
 
 struct BracketExpr : public CallExpr
@@ -175,7 +203,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> eval_type(TypeChecker *);
+	virtual uptr<Type> solve_type(TypeChecker *);
 };
 
 /// 括号

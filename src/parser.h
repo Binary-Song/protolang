@@ -41,7 +41,11 @@ public:
 	    , logger(logger)
 	{}
 
-	uptr<Program> parse() { return program(); }
+	uptr<Program> parse()
+	{
+
+		return program();
+	}
 
 private:
 	size_t             index = 0;
