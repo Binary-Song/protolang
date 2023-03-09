@@ -78,9 +78,7 @@ private:
 	uptr<FuncDecl> func_decl();
 
 	// 加入符号表
-	template <typename DeclType>
-	uptr<DeclType> add_name_to_curr_env(uptr<DeclType>               decl,
-	                                    const NamedEntityProperties &props);
+	void add_name_to_curr_env(Decl *decl, const NamedEntityProperties &props);
 
 	uptr<Stmt> statement();
 

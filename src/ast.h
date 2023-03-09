@@ -16,11 +16,27 @@ struct Ast
 {
 public:
 	Env *env;
+
+public:
 	explicit Ast(Env *env)
 	    : env(env)
 	{}
 	virtual ~Ast()                        = default;
 	virtual std::string dump_json() const = 0;
+};
+struct Ident
+{
+	std::string name;
+	Pos2DRange  location;
+
+public:
+	Ident() {}
+
+	Ident(std::string name, const Pos2DRange &location)
+	    : name(std::move(name))
+	    , location(location)
+	{}
+	std::string dump_json() const { return '"' + name + '"'; }
 };
 
 struct TypeExpr : public Ast
@@ -33,12 +49,15 @@ public:
 
 struct IdentTypeExpr : public TypeExpr
 {
-	std::string name;
-	explicit IdentTypeExpr(Env *env, std::string name)
+	Ident ident;
+	explicit IdentTypeExpr(Env *env, Ident ident)
 	    : TypeExpr(env)
-	    , name(std::move(name))
+	    , ident(std::move(ident))
 	{}
-	virtual std::string dump_json() const override { return '"' + name + '"'; }
+	virtual std::string dump_json() const override
+	{
+		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
+	}
 };
 
 struct Expr : public Ast
@@ -51,30 +70,32 @@ public:
 		Rvalue,
 	};
 
-	ValueCat   value_cat = {};
-	uptr<Type> type      = {};
+	ValueCat value_cat = {};
 
 	bool is_lvalue() const { return value_cat == ValueCat::Lvalue; }
 	bool is_rvalue() const { return value_cat == ValueCat::Rvalue; }
 
 	explicit Expr(Env *env);
 	virtual ~Expr();
-	virtual uptr<Type> get_type(TypeChecker *)
+	virtual uptr<Type> eval_type(TypeChecker *)
 	{
 		exit(1);
 		return {};
 	}
+
+private:
+	uptr<Type> type = {};
 };
 
 struct BinaryExpr : public Expr
 {
 public:
-	uptr<Expr>  left;
-	uptr<Expr>  right;
-	std::string op;
+	uptr<Expr> left;
+	uptr<Expr> right;
+	Ident      op;
 
 public:
-	BinaryExpr(Env *env, uptr<Expr> left, std::string op, uptr<Expr> right)
+	BinaryExpr(Env *env, uptr<Expr> left, Ident op, uptr<Expr> right)
 	    : Expr(env)
 	    , left(std::move(left))
 	    , op(std::move(op))
@@ -83,24 +104,24 @@ public:
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "op":"{}", "left":{}, "right":{} }})",
-		                   op,
+		return std::format(R"({{ "op": {} , "left":{}, "right":{} }})",
+		                   op.dump_json(),
 		                   left->dump_json(),
 		                   right->dump_json());
 	}
 
-	virtual uptr<Type> get_type(TypeChecker *);
+	virtual uptr<Type> eval_type(TypeChecker *);
 };
 
 struct UnaryExpr : public Expr
 {
 public:
-	bool        prefix;
-	uptr<Expr>  right;
-	std::string op;
+	bool       prefix;
+	uptr<Expr> right;
+	Ident      op;
 
 public:
-	UnaryExpr(Env *env, bool prefix, uptr<Expr> right, std::string op)
+	UnaryExpr(Env *env, bool prefix, uptr<Expr> right, Ident op)
 	    : Expr(env)
 	    , prefix(prefix)
 	    , right(std::move(right))
@@ -109,11 +130,12 @@ public:
 
 	std::string dump_json() const override
 	{
-		return std::format(
-		    R"({{ "op": "{}", "right":{} }})", op, right->dump_json());
+		return std::format(R"({{ "op":  {} , "right":{} }})",
+		                   op.dump_json(),
+		                   right->dump_json());
 	}
 
-	virtual uptr<Type> get_type(TypeChecker *);
+	virtual uptr<Type> eval_type(TypeChecker *);
 };
 
 struct CallExpr : public Expr
@@ -136,7 +158,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> get_type(TypeChecker *);
+	virtual uptr<Type> eval_type(TypeChecker *);
 };
 
 struct BracketExpr : public CallExpr
@@ -153,7 +175,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> get_type(TypeChecker *);
+	virtual uptr<Type> eval_type(TypeChecker *);
 };
 
 /// 括号
@@ -197,29 +219,30 @@ public:
 struct IdentExpr : public Expr
 {
 public:
-	std::string name;
+	Ident ident;
 
 public:
-	explicit IdentExpr(Env *env, std::string name)
+	explicit IdentExpr(Env *env, Ident ident)
 	    : Expr(env)
-	    , name(std::move(name))
+	    , ident(std::move(ident))
 	{}
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "id": "{}"  }})", name);
+		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
 	}
 };
 
 struct Decl : public Ast
 {
-	std::string               name;
+	Ident                     ident;
 	virtual uptr<NamedEntity> declare(
 	    const NamedEntityProperties &props) const = 0;
 
 	Decl() = default;
-	explicit Decl(std::string name)
-	    : name(std::move(name))
+	explicit Decl(Env *env, Ident ident)
+	    : Ast(env)
+	    , ident(ident)
 	{}
 
 	virtual void check_type(TypeChecker *) = 0;
@@ -231,8 +254,8 @@ struct VarDecl : public Decl
 	uptr<Expr>     init;
 
 	VarDecl() = default;
-	VarDecl(std::string name, uptr<TypeExpr> type, uptr<Expr> init)
-	    : Decl(std::move(name))
+	VarDecl(Env *env, Ident ident, uptr<TypeExpr> type, uptr<Expr> init)
+	    : Decl(env, ident)
 	    , type(std::move(type))
 	    , init(std::move(init))
 	{}
@@ -242,8 +265,8 @@ struct VarDecl : public Decl
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "name":"{}", "type": {} , "init":{} }})",
-		                   name,
+		return std::format(R"({{ "ident":"{}", "type": {} , "init":{} }})",
+		                   ident.dump_json(),
 		                   type->dump_json(),
 		                   init->dump_json());
 	}
@@ -256,8 +279,8 @@ struct ParamDecl : public Decl
 	uptr<TypeExpr> type;
 
 	ParamDecl() = default;
-	ParamDecl(std::string name, uptr<TypeExpr> type)
-	    : Decl(std::move(name))
+	ParamDecl(Env *env, Ident ident, uptr<TypeExpr> type)
+	    : Decl(env, ident)
 	    , type(std::move(type))
 	{}
 
@@ -266,8 +289,9 @@ struct ParamDecl : public Decl
 
 	std::string dump_json() const override
 	{
-		return std::format(
-		    R"({{ "name":"{}", "type": {}  }})", name, type->dump_json());
+		return std::format(R"({{ "name":"{}", "type": {}  }})",
+		                   ident.dump_json(),
+		                   type->dump_json());
 	}
 
 	void check_type(TypeChecker *) override {}
@@ -275,7 +299,7 @@ struct ParamDecl : public Decl
 
 struct Stmt : public Ast
 {
-	Stmt(Env *env)
+	explicit Stmt(Env *env)
 	    : Ast(env)
 	{}
 };
@@ -284,8 +308,9 @@ struct ExprStmt : public Stmt
 {
 	uptr<Expr> expr;
 
-	explicit ExprStmt(uptr<Expr> expr)
-	    : expr(std::move(expr))
+	explicit ExprStmt(Env *env, uptr<Expr> expr)
+	    : Stmt(env)
+	    , expr(std::move(expr))
 	{}
 
 	std::string dump_json() const override
@@ -297,12 +322,14 @@ struct ExprStmt : public Stmt
 struct CompoundStmtElem : public Ast
 {
 
-	explicit CompoundStmtElem(uptr<Stmt> stmt)
-	    : _stmt(std::move(stmt))
+	explicit CompoundStmtElem(Env *env, uptr<Stmt> stmt)
+	    : Ast(env)
+	    , _stmt(std::move(stmt))
 	{}
 
-	explicit CompoundStmtElem(uptr<VarDecl> var_decl)
-	    : _var_decl(std::move(var_decl))
+	explicit CompoundStmtElem(Env *env, uptr<VarDecl> var_decl)
+	    : Ast(env)
+	    , _var_decl(std::move(var_decl))
 	{}
 
 	Stmt    *stmt() const { return _stmt.get(); }
@@ -327,7 +354,7 @@ struct CompoundStmt : public Stmt
 	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
 
-	CompoundStmt(uptr<Env> env);
+	explicit CompoundStmt(Env *enclosing_env, uptr<Env> this_env);
 
 	std::string dump_json() const override
 	{
@@ -342,7 +369,8 @@ struct FuncDecl : public Decl
 	uptr<CompoundStmt>           body;
 
 	FuncDecl() = default;
-	FuncDecl(std::string                  name,
+	FuncDecl(Env                         *env,
+	         Ident                        name,
 	         std::vector<uptr<ParamDecl>> params,
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
@@ -352,11 +380,10 @@ struct FuncDecl : public Decl
 
 	std::string dump_json() const override
 	{
-		return std::format(
-		    R"({{ "name":"{}", "return_type": {} , "body":{} }})",
-		    name,
-		    return_type->dump_json(),
-		    body->dump_json());
+		return std::format(R"({{ "ident":{}, "return_type": {} , "body":{} }})",
+		                   ident.dump_json(),
+		                   return_type->dump_json(),
+		                   body->dump_json());
 	}
 	void check_type(TypeChecker *) override {}
 };

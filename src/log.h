@@ -5,6 +5,20 @@
 #include "token.h"
 namespace protolang
 {
+
+enum class LogCode
+{
+	ErrorAmbiguousInt = 1001,
+	ErrorUnknownChar,
+	ErrorParenMismatch,
+	ErrorExpressionExpected,
+	ErrorUnexpectedToken,
+	ErrorSymbolRedefinition,
+	ErrorUndefinedSymbol,
+	ErrorAmbiguousSymbol,
+	FatalFileError,
+};
+
 struct CodeRef
 {
 	Pos2D       first;
@@ -23,7 +37,7 @@ struct CodeRef
 	    , comment(std::move(comment))
 	{}
 
-	explicit CodeRef(const Token &token, std:: string comment = "")
+	explicit CodeRef(const Token &token, std::string comment = "")
 	    : CodeRef(token.first_pos, token.last_pos, std::move(comment))
 	{}
 };
@@ -56,6 +70,17 @@ public:
 	virtual int   code() const                        = 0;
 };
 
+class LogWithSymbol : public Log
+{
+public:
+	std::string symbol;
+	explicit LogWithSymbol(std::string symbol, const Pos2DRange &location)
+	    : symbol(std::move(symbol))
+	{
+		code_refs.push_back({location.first, location.last, ""});
+	}
+};
+
 class ErrorAmbiguousInt : public Log
 {
 public:
@@ -66,7 +91,7 @@ public:
 		       " Use the `0o` prefix if you want an octal literal.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1001; }
+	int code() const override { return (int)LogCode::ErrorAmbiguousInt; }
 };
 
 class ErrorUnknownChar : public Log
@@ -78,7 +103,7 @@ public:
 		out << "Unexpected character.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1002; }
+	int code() const override { return (int)LogCode::ErrorUnknownChar; }
 };
 
 class ErrorParenMismatch : public Log
@@ -94,7 +119,7 @@ public:
 		out << "Unmatched " << (left ? "left" : "right") << " parenthesis.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1003; }
+	int code() const override { return (int)LogCode::ErrorParenMismatch; }
 };
 
 class ErrorExpressionExpected : public Log
@@ -106,7 +131,7 @@ public:
 		out << "Expression expected.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1004; }
+	int code() const override { return (int)LogCode::ErrorExpressionExpected; }
 };
 
 class ErrorUnexpectedToken : public Log
@@ -118,7 +143,7 @@ public:
 		out << "Unexpected token. ";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1005; }
+	int code() const override { return (int)LogCode::ErrorUnexpectedToken; }
 };
 
 class ErrorSymbolRedefinition : public Log
@@ -139,7 +164,34 @@ public:
 		out << "Redefinition of symbol `" << symbol << "`.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int           code() const override { return 1005; }
+	int code() const override { return (int)LogCode::ErrorSymbolRedefinition; }
+};
+
+class ErrorUndefinedSymbol : public LogWithSymbol
+{
+public:
+	using LogWithSymbol::LogWithSymbol;
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Undefined symbol `" << symbol << "`.";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorUndefinedSymbol; }
+};
+
+class ErrorAmbiguousSymbol : public LogWithSymbol
+{
+public:
+	std::string symbol;
+	using LogWithSymbol::LogWithSymbol;
+
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << "Symbol `" << symbol << "` is ambiguous.";
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorAmbiguousSymbol; }
 };
 
 class FatalFileError : public Log
@@ -163,7 +215,7 @@ public:
 			out << "Cannot access file " << file_name;
 	}
 	virtual Level level() const override { return Level::Fatal; }
-	int           code() const override { return 3001; }
+	int           code() const override { return (int)LogCode::FatalFileError; }
 };
 
 } // namespace protolang

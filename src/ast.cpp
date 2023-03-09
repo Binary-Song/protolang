@@ -14,35 +14,38 @@ Expr::~Expr() {}
 
 uptr<NamedEntity> VarDecl::declare(const NamedEntity::Properties &props) const
 {
-	return uptr<NamedEntity>(new NamedVar(props, name, type.get()));
+	return uptr<NamedEntity>(new NamedVar(props, ident, type.get()));
 }
+
 uptr<NamedEntity> ParamDecl::declare(const NamedEntity::Properties &props) const
 {
-	return uptr<NamedEntity>(new NamedVar(props, name, type.get()));
+	return uptr<NamedEntity>(new NamedVar(props, ident, type.get()));
 }
+
 uptr<NamedEntity> FuncDecl::declare(const NamedEntity::Properties &props) const
 {
 	std::vector<NamedVar> func_params;
 	for (auto &&param : params)
 	{
-		func_params.emplace_back(props, param->name, param->type.get());
+		func_params.emplace_back(props, param->ident, param->type.get());
 	}
 	return std::make_unique<NamedFunc>(
-	    props, name, return_type.get(), std::move(func_params));
+	    props, ident, return_type.get(), std::move(func_params));
 }
 
-FuncDecl::FuncDecl(std::string                  name,
+FuncDecl::FuncDecl(Env                         *env,
+                   Ident                        name,
                    std::vector<uptr<ParamDecl>> params,
                    uptr<TypeExpr>               return_type,
                    uptr<CompoundStmt>           body)
-    : Decl(std::move(name))
+    : Decl(env, std::move(name))
     , params(std::move(params))
     , return_type(std::move(return_type))
     , body(std::move(body))
 {}
 
-CompoundStmt::CompoundStmt(uptr<Env> env)
-    : env(std::move(env))
+CompoundStmt::CompoundStmt(Env *enclosing_env, uptr<Env> _env)
+    : Stmt(enclosing_env)
+    , env(std::move(_env))
 {}
-
 } // namespace protolang
