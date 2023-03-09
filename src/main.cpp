@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "source_code.h"
 #include "token.h"
+#include "typechecker.h"
 int main()
 {
 	try
@@ -29,9 +30,10 @@ int main()
 		if (!prog)
 			return 1;
 
-		//		std::ofstream(output_file_name)
-		//
-		std::ofstream(output_file_name) << prog->dump_json() << "\n";
+		protolang::TypeChecker type_checker{logger};
+		type_checker.set_program(prog.get());
+		type_checker.add_builtin_facility();
+		type_checker.check();
 	}
 	catch (protolang::ExceptionFatalError error)
 	{

@@ -7,7 +7,7 @@ IdentType::IdentType(NamedType *namedType)
     : named_type(namedType)
 {}
 
-bool IdentType::is_compatible_with(const Type *argt) const
+bool IdentType::can_accept(const Type *argt) const
 {
 	switch (argt->type_type())
 	{
@@ -17,6 +17,10 @@ bool IdentType::is_compatible_with(const Type *argt) const
 	}
 	}
 	return false;
+}
+std::string IdentType::full_name() const
+{
+	return named_type->ident.name;
 }
 
 } // namespace protolang

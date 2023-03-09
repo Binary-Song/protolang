@@ -1,4 +1,5 @@
 #pragma once
+#include <format>
 #include <string>
 #include <utility>
 #include <vector>
@@ -8,6 +9,8 @@ namespace protolang
 
 enum class LogCode
 {
+	/// ERROR
+
 	ErrorAmbiguousInt = 1001,
 	ErrorUnknownChar,
 	ErrorParenMismatch,
@@ -16,16 +19,20 @@ enum class LogCode
 	ErrorSymbolRedefinition,
 	ErrorUndefinedSymbol,
 	ErrorAmbiguousSymbol,
-	FatalFileError,
 	ErrorSymbolIsNotAType,
 	ErrorNoMatchingOverload,
 	ErrorMultipleMatchingOverload,
+	ErrorTypeMismatch,
+
+	/// FATAL
+
+	FatalFileError = 4001,
 };
 
 struct CodeRef
 {
-	Pos2D       first;
-	Pos2D       last;
+	Pos2D       first = {static_cast<u32>(-1), static_cast<u32>(-1)};
+	Pos2D       last  = {static_cast<u32>(-1), static_cast<u32>(-1)};
 	std::string comment;
 
 	CodeRef() = default;
@@ -43,6 +50,12 @@ struct CodeRef
 	explicit CodeRef(const Token &token, std::string comment = "")
 	    : CodeRef(token.first_pos, token.last_pos, std::move(comment))
 	{}
+
+	bool operator==(const CodeRef &rhs) const
+	{
+		return first == rhs.first && last == rhs.last && comment == rhs.comment;
+	}
+	bool operator!=(const CodeRef &rhs) const { return !(rhs == *this); }
 };
 
 class Log
@@ -241,6 +254,33 @@ class ErrorMultipleMatchingOverload : public LogWithSymbol
 	{
 		return (int)LogCode::ErrorMultipleMatchingOverload;
 	}
+};
+
+class ErrorTypeMismatch : public Log
+{
+public:
+	std::string param_type, arg_type;
+	ErrorTypeMismatch(std::string arg_type,
+	                  Pos2DRange  arg_range,
+	                  std::string param_type,
+	                  Pos2DRange  param_range)
+	    : param_type(param_type)
+	    , arg_type(arg_type)
+	{
+		code_refs.push_back(
+		    CodeRef{arg_range, //
+		            std::format("actual type `{}`", arg_type)});
+		code_refs.push_back(
+		    CodeRef{param_range, //
+		            std::format("expected type `{}`", param_type)});
+	}
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << std::format(
+		    "Type mismatch. Cannot fit a `{}` into `{}`", arg_type, param_type);
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorTypeMismatch; }
 };
 
 class FatalFileError : public Log

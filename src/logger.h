@@ -1,7 +1,9 @@
 #pragma once
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include "exceptions.h"
+#include "ident.h"
 #include "log.h"
 #include "source_code.h"
 namespace protolang
@@ -55,6 +57,9 @@ public:
 
 	void print_code_ref(const CodeRef &ref)
 	{
+		if (ref == CodeRef{})
+			return;
+
 		// 输出第一行
 		if (!ref.comment.empty())
 			out << ref.comment << "\n";

@@ -1,15 +1,16 @@
 #pragma once
+#include <cassert>
 #include <format>
 #include <functional>
 #include <utility>
 #include <vector>
+#include "ident.h"
 #include "token.h"
 #include "type.h"
 #include "util.h"
-
 namespace protolang
 {
-class Type;
+struct Type;
 class Env;
 class NamedEntity;
 struct NamedEntityProperties;
@@ -23,22 +24,13 @@ public:
 	explicit Ast(Env *env)
 	    : env(env)
 	{}
-	virtual ~Ast()                        = default;
+	virtual ~Ast() = default;
+	virtual void check_type(TypeChecker * )
+	{
+		/* todo: 实现 */
+		assert("Not implemented" && false);
+	}
 	virtual std::string dump_json() const = 0;
-};
-struct Ident
-{
-	std::string name;
-	Pos2DRange  location;
-
-public:
-	Ident() {}
-
-	Ident(std::string name, const Pos2DRange &location)
-	    : name(std::move(name))
-	    , location(location)
-	{}
-	std::string dump_json() const { return '"' + name + '"'; }
 };
 
 struct TypeExpr : public Ast
@@ -53,13 +45,17 @@ public:
 		if (cached_type == nullptr)
 		{
 			cached_type = solve_type(tc);
+			assert(cached_type); // 解析出来的类型不能是空
 		}
 		return cached_type.get();
 	}
 
 private:
+	uptr<Type> cached_type;
+
+private:
 	virtual uptr<Type> solve_type(TypeChecker *tc) = 0;
-	uptr<Type>         cached_type;
+	void               check_type(TypeChecker *tc) override { type(tc); }
 };
 
 struct IdentTypeExpr : public TypeExpr
@@ -73,7 +69,6 @@ struct IdentTypeExpr : public TypeExpr
 	{
 		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
 	}
-
 	uptr<Type> solve_type(TypeChecker *tc) override;
 };
 
@@ -103,14 +98,16 @@ public:
 		}
 		return cached_type.get();
 	}
+	void check_type(TypeChecker *tc) override { type(tc); }
 
 private:
 	uptr<Type> cached_type = {};
 
 private:
-	virtual uptr<Type> solve_type(TypeChecker *tc)
+	virtual uptr<Type> solve_type(TypeChecker *)
 	{
-		exit(1);
+		// todo: 实现
+		assert(false);
 		return {};
 	}
 };
@@ -163,7 +160,7 @@ public:
 		                   right->dump_json());
 	}
 
-	virtual uptr<Type> solve_type(TypeChecker *);
+	// virtual uptr<Type> solve_type(TypeChecker *) ;
 };
 
 struct CallExpr : public Expr
@@ -186,7 +183,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> solve_type(TypeChecker *);
+	// virtual uptr<Type> solve_type(TypeChecker *);
 };
 
 struct BracketExpr : public CallExpr
@@ -203,7 +200,7 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	virtual uptr<Type> solve_type(TypeChecker *);
+	// virtual uptr<Type> solve_type(TypeChecker *);
 };
 
 /// 括号
@@ -242,6 +239,8 @@ public:
 		                   token.int_data,
 		                   token.fp_data);
 	}
+
+	uptr<Type> solve_type(TypeChecker *tc) override;
 };
 
 struct IdentExpr : public Expr
@@ -272,8 +271,6 @@ struct Decl : public Ast
 	    : Ast(env)
 	    , ident(ident)
 	{}
-
-	virtual void check_type(TypeChecker *) = 0;
 };
 
 struct VarDecl : public Decl
@@ -322,7 +319,10 @@ struct ParamDecl : public Decl
 		                   type->dump_json());
 	}
 
-	void check_type(TypeChecker *) override {}
+	void check_type(TypeChecker *) override
+	{
+		// todo: 实现
+	}
 };
 
 struct Stmt : public Ast
@@ -345,6 +345,8 @@ struct ExprStmt : public Stmt
 	{
 		return std::format(R"({{ "expr":{} }})", expr->dump_json());
 	}
+
+	void check_type(TypeChecker *tc) override { expr->check_type(tc); }
 };
 
 struct CompoundStmtElem : public Ast
@@ -371,6 +373,14 @@ struct CompoundStmtElem : public Ast
 			return var_decl()->dump_json();
 		return "null";
 	}
+	void check_type(TypeChecker *tc) override
+	{
+		if (stmt())
+			stmt()->check_type(tc);
+		if (var_decl())
+			var_decl()->check_type(tc);
+		assert(false); // 没考虑这么多
+	}
 
 private:
 	uptr<Stmt>    _stmt;
@@ -387,6 +397,14 @@ struct CompoundStmt : public Stmt
 	std::string dump_json() const override
 	{
 		return dump_json_for_vector_of_ptr(elems);
+	}
+
+	void check_type(TypeChecker *tc) override
+	{
+		for (auto &&elem : elems)
+		{
+			elem->check_type(tc);
+		}
 	}
 };
 
@@ -413,7 +431,13 @@ struct FuncDecl : public Decl
 		                   return_type->dump_json(),
 		                   body->dump_json());
 	}
-	void check_type(TypeChecker *) override {}
+
+	void check_type(TypeChecker *tc) override
+	{
+		// todo: params 如果有默认值，可能还得check一下
+		// todo: return 必须check
+		body->check_type(tc);
+	}
 };
 
 struct Program : public Ast
@@ -427,6 +451,14 @@ struct Program : public Ast
 	{
 		return std::format(R"({{ "decls":[ {} ] }})",
 		                   dump_json_for_vector_of_ptr(decls));
+	}
+
+	void check_type(TypeChecker *tc) override
+	{
+		for (auto &&decl : decls)
+		{
+			decl->check_type(tc);
+		}
 	}
 };
 

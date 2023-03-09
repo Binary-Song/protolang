@@ -5,6 +5,7 @@
 #include "ast.h"
 #include "env.h"
 #include "exceptions.h"
+#include "ident.h"
 #include "logger.h"
 #include "token.h"
 /*
@@ -41,11 +42,7 @@ public:
 	    , logger(logger)
 	{}
 
-	uptr<Program> parse()
-	{
-
-		return program();
-	}
+	uptr<Program> parse() { return program(); }
 
 private:
 	size_t             index = 0;
@@ -80,9 +77,6 @@ private:
 	uptr<VarDecl> var_decl();
 
 	uptr<FuncDecl> func_decl();
-
-	// 加入符号表
-	void add_name_to_curr_env(Decl *decl, const NamedEntityProperties &props);
 
 	uptr<Stmt> statement();
 

@@ -48,4 +48,5 @@ CompoundStmt::CompoundStmt(Env *enclosing_env, uptr<Env> _env)
     : Stmt(enclosing_env)
     , env(std::move(_env))
 {}
+
 } // namespace protolang

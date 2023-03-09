@@ -17,7 +17,7 @@ public:
 	    , logger(logger)
 	{}
 
-	void add(uptr<NamedEntity> obj)
+	void add_non_func(uptr<NamedEntity> obj)
 	{
 		// 禁止用add添加函数，请用add_overload替代
 		assert(dynamic_cast<NamedFunc *>(obj.get()) == nullptr);
@@ -33,12 +33,11 @@ public:
 		entities.push_back(std::move(obj));
 	}
 
-	[[nodiscard]] void add_alias(const Ident       &alias,
-	                             const std::string &target_name)
+	[[nodiscard]] void add_alias(const Ident &alias, const Ident &target_name)
 	{
 		// todo: 不许创建除了type-alias以外的alias。
 		// 目前能为任何无歧义的名字创建别名
-		NamedEntity *target = get_one(alias);
+		NamedEntity *target = get_one(target_name);
 		if (symbol_table.contains(alias.name))
 		{
 			auto [begin, _] = symbol_table.equal_range(alias.name);
@@ -49,7 +48,7 @@ public:
 		symbol_table.insert({alias.name, target});
 	}
 
-	[[nodiscard]] bool add_overload(uptr<NamedFunc> named_func)
+	[[nodiscard]] void add_func(uptr<NamedFunc> named_func)
 	{
 		// todo: 检查overload不能互相冲突，造成二义性调用
 
@@ -64,14 +63,17 @@ public:
 				if (iter->second->named_entity_type() !=
 				    NamedEntityType::NamedFunc)
 				{
-					return false;
+					logger.log(
+					    ErrorSymbolRedefinition(named_func->ident.name,
+					                            iter->second->ident.location,
+					                            named_func->ident.location));
+					throw ExceptionPanic();
 				}
 			}
 			// ok: 有重名，但是函数
 		}
 		symbol_table.insert({named_func->ident.name, named_func.get()});
 		entities.push_back(std::move(named_func)); // 不可早move!
-		return true;
 	}
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象

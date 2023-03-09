@@ -11,6 +11,12 @@ struct Pos2D
 	u32 row    = 0;
 	/// 列号（从0开始）
 	u32 column = 0;
+
+	bool operator==(const Pos2D &rhs) const
+	{
+		return row == rhs.row && column == rhs.column;
+	}
+	bool operator!=(const Pos2D &rhs) const { return !(rhs == *this); }
 };
 struct Pos2DRange
 {
@@ -92,7 +98,6 @@ public:
 	Pos2D first_pos;
 	/// 最后一个字符的位置
 	Pos2D last_pos;
-
 
 public:
 	Token() = default;

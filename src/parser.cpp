@@ -31,7 +31,9 @@ uptr<VarDecl> Parser::var_decl()
                                           Ident(name, name_token.range()),
                                           std::move(type),
                                           std::move(init));
-	add_name_to_curr_env(decl.get(), p);
+
+	curr_env->add_non_func(decl->declare(p));
+
 	return decl;
 }
 
@@ -43,9 +45,10 @@ uptr<ExprStmt> Parser::expression_statement()
 }
 uptr<CompoundStmt> Parser::compound_statement()
 {
-	auto     env  = std::make_unique<Env>(curr_env, logger);
-	auto     stmt = std::make_unique<CompoundStmt>(curr_env, std::move(env));
-	EnvGuard guard(curr_env, env.get());
+	auto     env     = std::make_unique<Env>(curr_env, logger);
+	auto     env_ptr = env.get();
+	auto     stmt    = std::make_unique<CompoundStmt>(curr_env, std::move(env));
+	EnvGuard guard(curr_env, env_ptr);
 	eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 	while (!is_curr_of_type(Token::Type::RightBrace))
 	{
@@ -311,7 +314,9 @@ uptr<FuncDecl> Parser::func_decl()
 	NamedEntityProperties props;
 	props.ident_pos     = func_name_tok.range();
 	props.available_pos = curr().range();
-	add_name_to_curr_env(decl.get(), props);
+
+	uptr<NamedFunc>   named_func = uptr<NamedFunc>(dynamic_cast<NamedFunc *>( decl->declare(props).release()));
+	curr_env->add_func(std::move(named_func));
 	return decl;
 }
 uptr<TypeExpr> Parser::type_expr()
@@ -346,12 +351,7 @@ uptr<Program> Parser::program()
 	return std::make_unique<Program>(std::move(vec), std::move(root_env_uptr));
 }
 
-void Parser::add_name_to_curr_env(Decl                        *decl,
-                                  const NamedEntityProperties &props)
-{
-	uptr<NamedEntity> named_entity = decl->declare(props);
-	std::string       name         = named_entity->ident.name;
-	curr_env->add(std::move(named_entity));
-}
+
+
 
 } // namespace protolang
