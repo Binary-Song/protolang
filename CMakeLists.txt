@@ -27,10 +27,11 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 
 
 # 创建target：Protolang
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/src/*.h")
 add_executable(Protolang
         ${SOURCE_FILES}
-         )
+        src/named_entity.cpp)
 
 # 设置reflex输出目录
 set(REFLEX_OUTPUT_DIR "${PROJECT_BINARY_DIR}/src_generated")

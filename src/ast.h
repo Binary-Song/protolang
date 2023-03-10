@@ -15,17 +15,21 @@ class Env;
 class NamedEntity;
 struct NamedEntityProperties;
 class TypeChecker;
+
 struct Ast
 {
 public:
-	Env *env;
+	Env       *env;
+	Pos2DRange range;
 
 public:
-	explicit Ast(Env *env)
+	explicit Ast(Env *env, Pos2DRange range)
 	    : env(env)
+	    , range(std::move(range))
 	{}
+
 	virtual ~Ast() = default;
-	virtual void check_type(TypeChecker * )
+	virtual void check_type(TypeChecker *)
 	{
 		/* todo: 实现 */
 		assert("Not implemented" && false);
@@ -33,47 +37,50 @@ public:
 	virtual std::string dump_json() const = 0;
 };
 
-struct TypeExpr : public Ast
+struct TypeExpr : public Ast, public ITyped
 {
-public:
-	explicit TypeExpr(Env *env)
-	    : Ast(env)
-	{}
-
-	Type *type(TypeChecker *tc)
-	{
-		if (cached_type == nullptr)
-		{
-			cached_type = solve_type(tc);
-			assert(cached_type); // 解析出来的类型不能是空
-		}
-		return cached_type.get();
-	}
-
+	// 数据
 private:
 	uptr<Type> cached_type;
 
+	// 函数
+public:
+	explicit TypeExpr(Env *env, Pos2DRange range)
+	    : Ast(env, range)
+	{}
+
 private:
-	virtual uptr<Type> solve_type(TypeChecker *tc) = 0;
-	void               check_type(TypeChecker *tc) override { type(tc); }
+	void check_type(TypeChecker *tc) override { this->get_type(tc); }
+
+	// ITyped
+	uptr<Type> &get_cached_type() override { return cached_type; }
 };
 
 struct IdentTypeExpr : public TypeExpr
 {
+	// 数据
+public:
 	Ident ident;
+
+	// 函数
+public:
 	explicit IdentTypeExpr(Env *env, Ident ident)
-	    : TypeExpr(env)
+	    : TypeExpr(env, ident.location)
 	    , ident(std::move(ident))
 	{}
-	virtual std::string dump_json() const override
+	std::string dump_json() const override
 	{
-		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
+		return std::format(R"({{ "ident":  {}   }})", ident.dump_json());
 	}
-	uptr<Type> solve_type(TypeChecker *tc) override;
+
+private:
+	// ITyped
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
-struct Expr : public Ast
+struct Expr : public Ast, public ITyped
 {
+	// 类
 public:
 	enum class ValueCat
 	{
@@ -82,46 +89,41 @@ public:
 		Rvalue,
 	};
 
-	ValueCat value_cat = {};
+	// 数据
+public:
+	ValueCat value_cat = ValueCat::Pending;
+
+private:
+	uptr<Type> cached_type;
+
+	// 函数
+public:
+	explicit Expr(Env *env, Pos2DRange range);
+	virtual ~Expr();
 
 	bool is_lvalue() const { return value_cat == ValueCat::Lvalue; }
 	bool is_rvalue() const { return value_cat == ValueCat::Rvalue; }
 
-	explicit Expr(Env *env);
-	virtual ~Expr();
-
-	Type *type(TypeChecker *tc)
-	{
-		if (cached_type == nullptr)
-		{
-			cached_type = solve_type(tc);
-		}
-		return cached_type.get();
-	}
-	void check_type(TypeChecker *tc) override { type(tc); }
+	void check_type(TypeChecker *tc) override { get_type(tc); }
 
 private:
-	uptr<Type> cached_type = {};
-
-private:
-	virtual uptr<Type> solve_type(TypeChecker *)
-	{
-		// todo: 实现
-		assert(false);
-		return {};
-	}
+	// ITyped
+	uptr<Type> &get_cached_type() override { return cached_type; }
 };
 
 struct BinaryExpr : public Expr
 {
+	// 数据
 public:
 	uptr<Expr> left;
 	uptr<Expr> right;
 	Ident      op;
 
+	// 函数
 public:
-	BinaryExpr(Env *env, uptr<Expr> left, Ident op, uptr<Expr> right)
-	    : Expr(env)
+	BinaryExpr(
+	    Env *env, Pos2DRange range, uptr<Expr> left, Ident op, uptr<Expr> right)
+	    : Expr(env, range)
 	    , left(std::move(left))
 	    , op(std::move(op))
 	    , right(std::move(right))
@@ -129,27 +131,32 @@ public:
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "op": {} , "left":{}, "right":{} }})",
+		return std::format(R"({{ "op":{} , "left":{}, "right":{} }})",
 		                   op.dump_json(),
 		                   left->dump_json(),
 		                   right->dump_json());
 	}
 
-	virtual uptr<Type> solve_type(TypeChecker *tc);
+private:
+	// ITyped
+	virtual uptr<Type> solve_type(TypeChecker *tc) const;
 };
 
 struct UnaryExpr : public Expr
 {
+	// 数据
 public:
 	bool       prefix;
-	uptr<Expr> right;
+	uptr<Expr> operand;
 	Ident      op;
 
+	// 函数
 public:
-	UnaryExpr(Env *env, bool prefix, uptr<Expr> right, Ident op)
-	    : Expr(env)
+	UnaryExpr(
+	    Env *env, Pos2DRange range, bool prefix, uptr<Expr> operand, Ident op)
+	    : Expr(env, range)
 	    , prefix(prefix)
-	    , right(std::move(right))
+	    , operand(std::move(operand))
 	    , op(std::move(op))
 	{}
 
@@ -157,24 +164,32 @@ public:
 	{
 		return std::format(R"({{ "op":  {} , "right":{} }})",
 		                   op.dump_json(),
-		                   right->dump_json());
+		                   operand->dump_json());
 	}
 
-	// virtual uptr<Type> solve_type(TypeChecker *) ;
+public:
+	// ITyped
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
 struct CallExpr : public Expr
 {
+	// 数据
 public:
 	uptr<Expr>              callee;
 	std::vector<uptr<Expr>> args;
 
 public:
-	CallExpr(Env *env, uptr<Expr> callee, std::vector<uptr<Expr>>)
-	    : Expr(env)
+	CallExpr(Env                    *env,
+	         Pos2DRange              range,
+	         uptr<Expr>              callee,
+	         std::vector<uptr<Expr>> args)
+	    : Expr(env, range)
 	    , callee(std::move(callee))
 	    , args(std::move(args))
 	{}
+
+	std::vector<Type *> arg_types(TypeChecker *tc) const;
 
 	std::string dump_json() const override
 	{
@@ -183,14 +198,19 @@ public:
 		                   dump_json_for_vector_of_ptr(args));
 	}
 
-	// virtual uptr<Type> solve_type(TypeChecker *);
+public:
+	// ITyped
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
 struct BracketExpr : public CallExpr
 {
 public:
-	BracketExpr(Env *env, uptr<Expr> callee, std::vector<uptr<Expr>> args)
-	    : CallExpr(env, std::move(callee), std::move(args))
+	BracketExpr(Env                    *env,
+	            Pos2DRange              range,
+	            uptr<Expr>              callee,
+	            std::vector<uptr<Expr>> args)
+	    : CallExpr(env, range, std::move(callee), std::move(args))
 	{}
 
 	std::string dump_json() const override
@@ -203,22 +223,31 @@ public:
 	// virtual uptr<Type> solve_type(TypeChecker *);
 };
 
-/// 括号
-struct GroupedExpr : public Expr
+struct MemberAccessExpr : public Expr
 {
+	// 数据
 public:
-	uptr<Expr> expr;
+	uptr<Expr> left;
+	Ident      member;
 
+	// 函数
 public:
-	explicit GroupedExpr(Env *env, uptr<Expr> _expr)
-	    : Expr(env)
-	    , expr(std::move(_expr))
+	MemberAccessExpr(Env *env, Pos2DRange range, uptr<Expr> left, Ident member)
+	    : Expr(env, range)
+	    , left(std::move(left))
+	    , member(std::move(member))
 	{}
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "grouped":{} }})", expr->dump_json());
+		return std::format(R"({{ "left":{}, "member":{} }})",
+		                   left->dump_json(),
+		                   member.dump_json());
 	}
+
+private:
+	// ITyped
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
 struct LiteralExpr : public Expr
@@ -228,7 +257,7 @@ public:
 
 public:
 	explicit LiteralExpr(Env *env, const Token &token)
-	    : Expr(env)
+	    : Expr(env, token.range())
 	    , token(token)
 	{}
 
@@ -240,7 +269,7 @@ public:
 		                   token.fp_data);
 	}
 
-	uptr<Type> solve_type(TypeChecker *tc) override;
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
 struct IdentExpr : public Expr
@@ -250,7 +279,7 @@ public:
 
 public:
 	explicit IdentExpr(Env *env, Ident ident)
-	    : Expr(env)
+	    : Expr(env, ident.location)
 	    , ident(std::move(ident))
 	{}
 
@@ -258,6 +287,8 @@ public:
 	{
 		return std::format(R"({{ "ident": "{}"  }})", ident.dump_json());
 	}
+
+	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
 struct Decl : public Ast
@@ -267,8 +298,8 @@ struct Decl : public Ast
 	    const NamedEntityProperties &props) const = 0;
 
 	Decl() = default;
-	explicit Decl(Env *env, Ident ident)
-	    : Ast(env)
+	explicit Decl(Env *env, Pos2DRange range, Ident ident)
+	    : Ast(env, range)
 	    , ident(ident)
 	{}
 };
@@ -279,8 +310,12 @@ struct VarDecl : public Decl
 	uptr<Expr>     init;
 
 	VarDecl() = default;
-	VarDecl(Env *env, Ident ident, uptr<TypeExpr> type, uptr<Expr> init)
-	    : Decl(env, ident)
+	VarDecl(Env           *env,
+	        Pos2DRange     range,
+	        Ident          ident,
+	        uptr<TypeExpr> type,
+	        uptr<Expr>     init)
+	    : Decl(env, range, ident)
 	    , type(std::move(type))
 	    , init(std::move(init))
 	{}
@@ -304,8 +339,8 @@ struct ParamDecl : public Decl
 	uptr<TypeExpr> type;
 
 	ParamDecl() = default;
-	ParamDecl(Env *env, Ident ident, uptr<TypeExpr> type)
-	    : Decl(env, ident)
+	ParamDecl(Env *env, Pos2DRange range, Ident ident, uptr<TypeExpr> type)
+	    : Decl(env, range, ident)
 	    , type(std::move(type))
 	{}
 
@@ -327,8 +362,8 @@ struct ParamDecl : public Decl
 
 struct Stmt : public Ast
 {
-	explicit Stmt(Env *env)
-	    : Ast(env)
+	explicit Stmt(Env *env, Pos2DRange range)
+	    : Ast(env, range)
 	{}
 };
 
@@ -336,8 +371,8 @@ struct ExprStmt : public Stmt
 {
 	uptr<Expr> expr;
 
-	explicit ExprStmt(Env *env, uptr<Expr> expr)
-	    : Stmt(env)
+	explicit ExprStmt(Env *env, Pos2DRange range, uptr<Expr> expr)
+	    : Stmt(env, range)
 	    , expr(std::move(expr))
 	{}
 
@@ -353,12 +388,12 @@ struct CompoundStmtElem : public Ast
 {
 
 	explicit CompoundStmtElem(Env *env, uptr<Stmt> stmt)
-	    : Ast(env)
+	    : Ast(env, stmt->range)
 	    , _stmt(std::move(stmt))
 	{}
 
 	explicit CompoundStmtElem(Env *env, uptr<VarDecl> var_decl)
-	    : Ast(env)
+	    : Ast(env, var_decl->range)
 	    , _var_decl(std::move(var_decl))
 	{}
 
@@ -377,9 +412,10 @@ struct CompoundStmtElem : public Ast
 	{
 		if (stmt())
 			stmt()->check_type(tc);
-		if (var_decl())
+		else if (var_decl())
 			var_decl()->check_type(tc);
-		assert(false); // 没考虑这么多
+		else
+			assert(false); // 没考虑这么多
 	}
 
 private:
@@ -392,7 +428,10 @@ struct CompoundStmt : public Stmt
 	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
 
-	explicit CompoundStmt(Env *enclosing_env, uptr<Env> this_env);
+	CompoundStmt(Env                                *enclosing_env,
+	             Pos2DRange                          range,
+	             uptr<Env>                           _env,
+	             std::vector<uptr<CompoundStmtElem>> elems);
 
 	std::string dump_json() const override
 	{
@@ -416,6 +455,7 @@ struct FuncDecl : public Decl
 
 	FuncDecl() = default;
 	FuncDecl(Env                         *env,
+	         Pos2DRange                   range,
 	         Ident                        name,
 	         std::vector<uptr<ParamDecl>> params,
 	         uptr<TypeExpr>               return_type,

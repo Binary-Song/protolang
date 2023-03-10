@@ -213,15 +213,23 @@ public:
 	int code() const override { return (int)LogCode::ErrorAmbiguousSymbol; }
 };
 
-class ErrorSymbolIsNotAType : public LogWithSymbol
+class ErrorSymbolKindIncorrect : public LogWithSymbol
 {
 public:
-	std::string symbol;
-	using LogWithSymbol::LogWithSymbol;
+	std::string expected;
+	std::string got;
+
+	explicit ErrorSymbolKindIncorrect(Ident       ident,
+	                                  std::string expected,
+	                                  std::string got)
+	    : LogWithSymbol(ident.name, ident.location)
+	    , expected(expected)
+	    , got(got)
+	{}
 
 	virtual void desc_ascii(std::ostream &out) const override
 	{
-		out << "Symbol `" << symbol << "` is not a type.";
+		out << std::format("Expected {}, got {}.", expected, got);
 	}
 	virtual Level level() const override { return Level::Error; }
 	int code() const override { return (int)LogCode::ErrorSymbolIsNotAType; }
@@ -267,17 +275,30 @@ public:
 	    : param_type(param_type)
 	    , arg_type(arg_type)
 	{
-		code_refs.push_back(
-		    CodeRef{arg_range, //
-		            std::format("actual type `{}`", arg_type)});
+		code_refs.push_back(CodeRef{arg_range, //
+		                            std::format("actual type `{}`", arg_type)});
 		code_refs.push_back(
 		    CodeRef{param_range, //
 		            std::format("expected type `{}`", param_type)});
 	}
+
 	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << std::format(
 		    "Type mismatch. Cannot fit a `{}` into `{}`", arg_type, param_type);
+	}
+	virtual Level level() const override { return Level::Error; }
+	int code() const override { return (int)LogCode::ErrorTypeMismatch; }
+};
+
+class ErrorNotCallable : public Log
+{
+public:
+	std::string  actual_type;
+	virtual void desc_ascii(std::ostream &out) const override
+	{
+		out << std::format("Trying to call on type `{}` which is not callable",
+		                   actual_type);
 	}
 	virtual Level level() const override { return Level::Error; }
 	int code() const override { return (int)LogCode::ErrorTypeMismatch; }

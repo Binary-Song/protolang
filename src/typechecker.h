@@ -20,22 +20,19 @@ public:
 		root_env      = _program->root_env.get();
 	}
 	void check();
-	void add_builtin_facility();
-
 	bool check_args(NamedFunc *func, const std::vector<Type *> &arg_types);
 	NamedFunc *overload_resolution(Env                       *env,
 	                               const Ident               &func,
 	                               const std::vector<Type *> &arg_types);
-	Type      *get_builtin_type(const std::string &name);
+
+	Type *get_builtin_type(const std::string &name)
+	{
+		return root_env->get_builtin_type(name, this);
+	}
 
 private:
-	Program                              *program;
-	Env                                  *root_env;
-	std::map<std::string, uptr<TypeExpr>> builtin_type_exprs;
-
-private:
-	void add_builtin_op(const std::string &op, IdentTypeExpr *operand_type);
-	void add_builtin_type(const std::string &name);
+	Program *program  = nullptr;
+	Env     *root_env = nullptr;
 };
 
 } // namespace protolang

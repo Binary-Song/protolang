@@ -32,7 +32,6 @@ int main()
 
 		protolang::TypeChecker type_checker{logger};
 		type_checker.set_program(prog.get());
-		type_checker.add_builtin_facility();
 		type_checker.check();
 	}
 	catch (protolang::ExceptionFatalError error)

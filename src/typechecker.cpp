@@ -7,7 +7,6 @@ namespace protolang
 
 void TypeChecker::check()
 {
-
 	for (auto &&decl : program->decls)
 	{
 		try
@@ -27,7 +26,7 @@ bool TypeChecker::check_args(NamedFunc                 *func,
 	size_t argc = func->params.size();
 	for (size_t i = 0; i < argc; i++)
 	{
-		auto p = func->params[i].type->type(this);
+		auto p = func->params[i].get_type(this);
 		auto a = arg_types[i];
 		if (!p->can_accept(a))
 		{
@@ -64,53 +63,6 @@ NamedFunc *TypeChecker::overload_resolution(
 	return fits[0];
 }
 
-void TypeChecker::add_builtin_facility()
-{
-	// todo: name添加顺序的问题，parse比他还快！
-
-	// 创建 int double
-	add_builtin_type("Int");
-	add_builtin_type("Double");
-
-	// 创建 加法
-	add_builtin_op(
-	    "+", dynamic_cast<IdentTypeExpr *>(builtin_type_exprs["Int"].get()));
-	add_builtin_op(
-	    "+", dynamic_cast<IdentTypeExpr *>(builtin_type_exprs["Double"].get()));
-}
-
-void TypeChecker::add_builtin_op(const std::string &op,
-                                 IdentTypeExpr     *operand_type)
-{
-
-	auto props       = NamedEntityProperties();
-	auto ident       = Ident(op, {});
-	auto return_type = operand_type;
-	auto params      = {
-        NamedVar{{}, Ident{"lhs", {}}, operand_type},
-        NamedVar{{}, Ident{"rhs", {}}, operand_type},
-    };
-
-	auto new_func      = new NamedFunc(props, ident, return_type, params);
-	auto new_func_uptr = uptr<NamedFunc>(new_func);
-	root_env->add_func(std::move(new_func_uptr));
-}
-
-void TypeChecker::add_builtin_type(const std::string &name)
-{
-	// add types
-	uptr<NamedType> named_type = std::make_unique<NamedType>(
-	    NamedEntityProperties{}, Ident(name, Pos2DRange{}));
-	root_env->add_non_func(std::move(named_type));
-
-	uptr<IdentTypeExpr> type_expr =
-	    std::make_unique<IdentTypeExpr>(root_env, Ident{name, {}});
-	this->builtin_type_exprs[name] = (std::move(type_expr));
-}
-Type *TypeChecker::get_builtin_type(const std::string &name)
-{
-	return builtin_type_exprs.at(name)->type(this);
-}
 /*
  *
  *             AST 相关虚函数实现
@@ -129,27 +81,70 @@ void VarDecl::check_type(TypeChecker *tc)
 	}
 }
 
-uptr<Type> BinaryExpr::solve_type(TypeChecker *tc)
+uptr<Type> BinaryExpr::solve_type(TypeChecker *tc) const
 {
-	auto       lhs_type = this->left->type(tc); 
-	auto       rhs_type = this->right->type(tc);  
+	auto       lhs_type = this->left->get_type(tc);
+	auto       rhs_type = this->right->get_type(tc);
 	NamedFunc *func = tc->overload_resolution(env, op, {lhs_type, rhs_type});
-	return func->return_type->type(tc)->clone();
+	return func->return_type->get_type(tc)->clone();
 }
 
-uptr<Type> IdentTypeExpr::solve_type(TypeChecker *tc)
+uptr<Type> UnaryExpr::solve_type(TypeChecker *tc) const
 {
-	NamedEntity *ent = this->env->get_one(ident);
-	if (ent->named_entity_type() != NamedEntityType::NamedType)
+	auto       operand_type = this->operand->get_type(tc);
+	NamedFunc *func         = tc->overload_resolution(env, op, {operand_type});
+	return func->return_type->get_type(tc)->clone();
+}
+
+uptr<Type> CallExpr::solve_type(TypeChecker *tc) const
+{
+	// non-member call: func(1,2,3)
+	// member call:
+	// - a.func(1,2,3)
+	// - (((a.b).c).func)(1,2,3)
+	// 如何判断是不是调用成员函数？
+	// 1. 看callee是不是MemberAccessExpr
+	// 2. 如果是，看member是不是成员函数类型（而不是成员函数指针等callable对象）
+	// 3. 如果是，那没跑了，直接按成员函数法调用。
+	// todo: 实现成员函数
+	// 另外，如果callee是个名字，则执行overload resolution，
+	// 如果callee是个表达式，则用不着执行overload resolution.
+
+	if (auto ident_expr = dynamic_cast<IdentExpr *>(callee.get()))
 	{
-		// 存在这个名字，但根本不是个类型，你把它当类型用是吧TNND
-		tc->logger.log(ErrorSymbolIsNotAType(this->ident));
-		throw ExceptionPanic();
+		NamedFunc *func =
+		    tc->overload_resolution(env, ident_expr->ident, arg_types());
+		return func->return_type->get_type(tc)->clone();
 	}
-	// 是type
-	NamedType *type = dynamic_cast<NamedType *>(ent);
+	else
+	{
+		if (auto func_type = dynamic_cast<FuncType *>(callee->get_type(tc)))
+		{
+			return func_type->return_type->clone();
+		}
+		else
+		{
+			ErrorNotCallable e;
+			e.actual_type = callee->get_type(tc)->full_name();
+			e.code_refs.push_back(CodeRef(callee->range, "callee:"));
+			tc->logger.log(e);
+			throw ExceptionPanic();
+		}
+	}
+}
+
+uptr<Type> MemberAccessExpr::solve_type(TypeChecker *) const
+{
+	NamedType *type = this->env->get_one<NamedType>(ident);
 	return std::make_unique<IdentType>(type);
 }
+
+uptr<Type> IdentTypeExpr::solve_type(TypeChecker *) const
+{
+	NamedType *type = this->env->get_one<NamedType>(ident);
+	return std::make_unique<IdentType>(type);
+}
+
 uptr<Type> LiteralExpr::solve_type(TypeChecker *tc)
 {
 	if (token.type == Token::Type::Int)
@@ -163,4 +158,20 @@ uptr<Type> LiteralExpr::solve_type(TypeChecker *tc)
 	assert(false); // 没有这种literal
 	return nullptr;
 }
+
+uptr<Type> IdentExpr::solve_type(TypeChecker *tc)
+{
+	NamedEntity *entity = env->get_one(this->ident);
+	switch (entity->named_entity_type())
+	{
+	case NamedEntityType::NamedVar:
+		return env->get_one<NamedVar>(ident)->type->type(tc)->clone();
+	case NamedEntityType::NamedFunc:
+		return env->get_one<NamedFunc>(ident)->type(tc)->clone();
+	default:
+		env->logger.log(ErrorSymbolKindIncorrect(ident, "non-type", "type"));
+		throw ExceptionPanic();
+	}
+}
+
 } // namespace protolang

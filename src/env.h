@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <concepts>
 #include <map>
 #include <string>
 #include <utility>
@@ -11,6 +12,9 @@ namespace protolang
 {
 class Env
 {
+public:
+	Logger                                   &logger;
+
 public:
 	explicit Env(Env *parent, Logger &logger)
 	    : parent(parent)
@@ -77,7 +81,10 @@ public:
 	}
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
-	[[nodiscard]] NamedEntity *get_one(const Ident &ident) const
+	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
+	template <typename T = NamedEntity>
+	    requires std::derived_from<T, NamedEntity>
+	T *get_one(const Ident &ident) const
 	{
 		std::string name = ident.name;
 		if (symbol_table.contains(name))
@@ -86,7 +93,23 @@ public:
 			if (std::distance(begin, end) == 1)
 			{
 				// ok 正好找到1个
-				return begin->second;
+				// 检查它是不是T类型
+				NamedEntity *ent = begin->second;
+				if constexpr (std::is_same_v<T, NamedEntity>)
+				{
+					return ent;
+				}
+				else
+				{
+					if (auto t = dynamic_cast<T *>(ent))
+						return t;
+
+					logger.log(ErrorSymbolKindIncorrect(
+					    ident,
+					    to_string(T::static_type()),
+					    to_string(ent->named_entity_type())));
+					throw ExceptionPanic();
+				}
 			}
 			// 得到的是一堆函数重载
 			logger.log(ErrorAmbiguousSymbol(ident.name, ident.location));
@@ -95,7 +118,7 @@ public:
 		// 一个都没有，问爹要
 		if (parent)
 		{
-			return parent->get_one(ident);
+			return parent->get_one<T>(ident);
 		}
 		// 没有爹，哭
 		logger.log(ErrorUndefinedSymbol(ident.name, ident.location));
@@ -121,6 +144,24 @@ public:
 		return result;
 	}
 
+	void add_built_in_facility()
+	{
+		// 创建 int double
+		add_builtin_type("Int");
+		add_builtin_type("Double");
+
+		// 创建 加法
+		add_builtin_op(
+		    "+", dynamic_cast<IdentTypeExpr *>(builtin_exprs["Int"].get()));
+		add_builtin_op(
+		    "+", dynamic_cast<IdentTypeExpr *>(builtin_exprs["Double"].get()));
+	}
+
+	Type *get_builtin_type(const std::string &name, TypeChecker *tc)
+	{
+		return builtin_exprs.at(name)->type(tc);
+	}
+
 	std::string dump_json() const
 	{
 		std::vector<NamedEntity *> vals;
@@ -139,9 +180,37 @@ public:
 
 private:
 	Env                                      *parent;
-	Logger                                   &logger;
 	std::vector<uptr<NamedEntity>>            entities;
 	std::multimap<std::string, NamedEntity *> symbol_table;
+	std::map<std::string, uptr<TypeExpr>>     builtin_exprs;
+
+private:
+	void add_builtin_op(const std::string &op, IdentTypeExpr *operand_type)
+	{
+		auto props       = NamedEntityProperties();
+		auto ident       = Ident(op, {});
+		auto return_type = operand_type;
+		auto params      = {
+            NamedVar{{}, Ident{"lhs", {}}, operand_type},
+            NamedVar{{}, Ident{"rhs", {}}, operand_type},
+        };
+
+		auto new_func      = new NamedFunc(props, ident, return_type, params);
+		auto new_func_uptr = uptr<NamedFunc>(new_func);
+		this->add_func(std::move(new_func_uptr));
+	}
+
+	void add_builtin_type(const std::string &name)
+	{
+		// add types
+		uptr<NamedType> named_type = std::make_unique<NamedType>(
+		    NamedEntityProperties{}, Ident(name, Pos2DRange{}));
+		this->add_non_func(std::move(named_type));
+
+		uptr<IdentTypeExpr> type_expr =
+		    std::make_unique<IdentTypeExpr>(this, Ident{name, {}});
+		this->builtin_exprs[name] = (std::move(type_expr));
+	}
 };
 
 struct EnvGuard

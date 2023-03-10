@@ -18,7 +18,7 @@ term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
                | unary_post
-unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *
+unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *     // 调用、下标
 member_access -> primary ( "." primary )*
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | id

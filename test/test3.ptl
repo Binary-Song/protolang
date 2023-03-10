@@ -1,4 +1,7 @@
 func a() -> void
 {
-    var b : Int = 1 + 2.0;
+    var b : Int = 1 + 2;
+    var c : Double = 1.1 + b;
+    var d : Double = e*3;
+    var e : Double = 4;
 }

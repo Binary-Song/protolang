@@ -5,16 +5,16 @@
 
 namespace protolang
 {
-Program::Program(std::vector<uptr<Decl>> decls, uptr<Env> root_env)
-    : Ast(root_env.get())
-    , decls(std::move(decls))
-    , root_env(std::move(root_env))
-{}
+
+static Pos2DRange union_range(const Pos2DRange &first, const Pos2DRange &second)
+{
+	return Pos2DRange{first.first, second.last};
+}
 
 uptr<VarDecl> Parser::var_decl()
 {
 	// var a : int = 2;
-	eat_keyword_or_panic(Keyword::KW_VAR);
+	auto var_token  = eat_keyword_or_panic(Keyword::KW_VAR);
 	auto name_token = eat_ident_or_panic();
 	auto name       = name_token.str_data;
 	eat_given_type_or_panic(Token::Type::Column, ":");
@@ -27,10 +27,12 @@ uptr<VarDecl> Parser::var_decl()
 	NamedEntityProperties p;
 	p.ident_pos     = name_token.range();
 	p.available_pos = curr().range();
-	auto decl       = std::make_unique<VarDecl>(curr_env,
-                                          Ident(name, name_token.range()),
-                                          std::move(type),
-                                          std::move(init));
+	auto decl =
+	    std::make_unique<VarDecl>(curr_env,
+	                              union_range(var_token.range(), init->range),
+	                              Ident(name, name_token.range()),
+	                              std::move(type),
+	                              std::move(init));
 
 	curr_env->add_non_func(decl->declare(p));
 
@@ -39,34 +41,41 @@ uptr<VarDecl> Parser::var_decl()
 
 uptr<ExprStmt> Parser::expression_statement()
 {
-	auto expr = expression();
-	eat_given_type_or_panic(Token::Type::SemiColumn, ";");
-	return std::make_unique<ExprStmt>(curr_env, std::move(expr));
+	auto expr     = expression();
+	auto semi_col = eat_given_type_or_panic(Token::Type::SemiColumn, ";");
+	return std::make_unique<ExprStmt>(
+	    curr_env, union_range(expr->range, semi_col.range()), std::move(expr));
 }
 uptr<CompoundStmt> Parser::compound_statement()
 {
-	auto     env     = std::make_unique<Env>(curr_env, logger);
-	auto     env_ptr = env.get();
-	auto     stmt    = std::make_unique<CompoundStmt>(curr_env, std::move(env));
-	EnvGuard guard(curr_env, env_ptr);
-	eat_given_type_or_panic(Token::Type::LeftBrace, "{");
+	auto     new_env       = std::make_unique<Env>(curr_env, logger);
+	auto     new_env_ptr   = new_env.get();
+	auto     enclosing_env = curr_env;
+	EnvGuard guard(curr_env, new_env_ptr);
+	std::vector<uptr<CompoundStmtElem>> elems;
+	auto left_brace = eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 	while (!is_curr_of_type(Token::Type::RightBrace))
 	{
 		if (is_curr_keyword(Keyword::KW_VAR))
 		{
 			auto elem =
 			    std::make_unique<CompoundStmtElem>(curr_env, var_decl());
-			stmt->elems.push_back(std::move(elem));
+			elems.push_back(std::move(elem));
 		}
 		else
 		{
 			auto elem =
 			    std::make_unique<CompoundStmtElem>(curr_env, statement());
-			stmt->elems.push_back(std::move(elem));
+			elems.push_back(std::move(elem));
 		}
 	}
-	eat_given_type_or_panic(Token::Type::RightBrace, "}");
-	return stmt;
+	auto right_brace = eat_given_type_or_panic(Token::Type::RightBrace, "}");
+	auto stmt =
+	    new CompoundStmt(enclosing_env,
+	                     union_range(left_brace.range(), right_brace.range()),
+	                     std::move(new_env_ptr),
+	                     std::move(elems));
+	return uptr<CompoundStmt>(stmt);
 }
 uptr<Expr> Parser::expression()
 {
@@ -80,6 +89,7 @@ uptr<Expr> Parser::assignment()
 		Token      op    = prev();
 		uptr<Expr> right = assignment();
 		return uptr<Expr>(new BinaryExpr(curr_env,
+		                                 union_range(left->range, right->range),
 		                                 std::move(left),
 		                                 Ident(op.str_data, op.range()),
 		                                 std::move(right)));
@@ -94,6 +104,7 @@ uptr<Expr> Parser::equality()
 		Token      op    = prev();
 		uptr<Expr> right = comparison();
 		expr             = uptr<Expr>(new BinaryExpr(curr_env,
+                                         union_range(expr->range, right->range),
                                          std::move(expr),
                                          Ident(op.str_data, op.range()),
                                          std::move(right)));
@@ -108,6 +119,7 @@ uptr<Expr> Parser::comparison()
 		Token      op    = prev();
 		uptr<Expr> right = term();
 		expr             = uptr<Expr>(new BinaryExpr(curr_env,
+                                         union_range(expr->range, right->range),
                                          std::move(expr),
                                          Ident(op.str_data, op.range()),
                                          std::move(right)));
@@ -122,6 +134,7 @@ uptr<Expr> Parser::term()
 		Token      op    = prev();
 		uptr<Expr> right = factor();
 		expr             = uptr<Expr>(new BinaryExpr(curr_env,
+                                         union_range(expr->range, right->range),
                                          std::move(expr),
                                          Ident(op.str_data, op.range()),
                                          std::move(right)));
@@ -136,6 +149,7 @@ uptr<Expr> Parser::factor()
 		Token      op    = prev();
 		uptr<Expr> right = unary_pre();
 		expr             = uptr<Expr>(new BinaryExpr(curr_env,
+                                         union_range(expr->range, right->range),
                                          std::move(expr),
                                          Ident(op.str_data, op.range()),
                                          std::move(right)));
@@ -149,6 +163,7 @@ uptr<Expr> Parser::unary_pre()
 		auto       op    = prev();
 		uptr<Expr> right = unary_pre();
 		return uptr<Expr>(new UnaryExpr(curr_env, //
+		                                union_range(op.range(), right->range),
 		                                true,
 		                                std::move(right),
 		                                Ident(op.str_data, op.range())));
@@ -185,13 +200,20 @@ uptr<Expr> Parser::unary_post()
 			// 是右括号就结束
 		}
 		// 吃掉右括号
-		eat_given_type_or_panic(rightDelim, isCall ? ")" : "]");
+		auto right_bound =
+		    eat_given_type_or_panic(rightDelim, isCall ? ")" : "]");
 		if (isCall)
 			operand = uptr<Expr>(
-			    new CallExpr(curr_env, std::move(operand), std::move(args)));
+			    new CallExpr(curr_env,
+			                 union_range(operand->range, right_bound.range()),
+			                 std::move(operand),
+			                 std::move(args)));
 		else
-			operand = uptr<Expr>(
-			    new BracketExpr(curr_env, std::move(operand), std::move(args)));
+			operand = uptr<Expr>(new BracketExpr(
+			    curr_env,
+			    union_range(operand->range, right_bound.range()),
+			    std::move(operand),
+			    std::move(args)));
 	}
 	return operand;
 }
@@ -200,12 +222,13 @@ uptr<Expr> Parser::member_access()
 	uptr<Expr> expr = primary();
 	while (eat_if_is_given_op({"."}))
 	{
-		auto       op  = prev();
-		uptr<Expr> rhs = primary();
-		expr           = uptr<Expr>(new BinaryExpr(curr_env,
-                                         std::move(expr),
-		                                           {op.str_data, op.range()},
-                                         std::move(rhs)));
+		auto op = prev();
+		auto id = eat_ident_or_panic();
+		expr    = uptr<Expr>(
+            new MemberAccessExpr(curr_env,
+                                 union_range(expr->range, id.range()),
+                                 std::move(expr),
+                                 Ident{id.str_data, id.range()}));
 	}
 	return expr;
 }
@@ -227,7 +250,7 @@ uptr<Expr> Parser::primary()
 		uptr<Expr> expr       = expression();
 		if (eat_if_is_given_type({Token::Type::RightParen}))
 		{
-			return uptr<Expr>(new GroupedExpr(curr_env, std::move(expr)));
+			return expr;
 		}
 		else
 		{
@@ -274,9 +297,9 @@ uptr<Decl> Parser::declaration()
 uptr<FuncDecl> Parser::func_decl()
 {
 	// func foo(arg1: int, arg2: int) -> int { ... }
-	eat_keyword_or_panic(KW_FUNC);
-	Token       func_name_tok = eat_ident_or_panic();
-	std::string func_name     = func_name_tok.str_data;
+	Token       func_kw_token   = eat_keyword_or_panic(KW_FUNC);
+	Token       func_name_token = eat_ident_or_panic();
+	std::string func_name       = func_name_token.str_data;
 
 	eat_given_type_or_panic(Token::Type::LeftParen, "(");
 
@@ -291,6 +314,7 @@ uptr<FuncDecl> Parser::func_decl()
 		auto type = type_expr();
 		params.push_back(std::make_unique<ParamDecl>(
 		    curr_env,
+		    union_range(param_name_token.range(), type->range),
 		    Ident(param_name, param_name_token.range()),
 		    std::move(type)));
 		// 下一个必须是`,`或者`)`
@@ -306,16 +330,18 @@ uptr<FuncDecl> Parser::func_decl()
 	auto body        = compound_statement();
 	auto decl        = std::make_unique<FuncDecl>(
         curr_env,
-        Ident{func_name_tok.str_data, func_name_tok.range()},
+        union_range(func_kw_token.range(), return_type->range),
+        Ident{func_name_token.str_data, func_name_token.range()},
         std::move(params),
         std::move(return_type),
         std::move(body));
 
 	NamedEntityProperties props;
-	props.ident_pos     = func_name_tok.range();
+	props.ident_pos     = func_name_token.range();
 	props.available_pos = curr().range();
 
-	uptr<NamedFunc>   named_func = uptr<NamedFunc>(dynamic_cast<NamedFunc *>( decl->declare(props).release()));
+	uptr<NamedFunc> named_func = uptr<NamedFunc>(
+	    dynamic_cast<NamedFunc *>(decl->declare(props).release()));
 	curr_env->add_func(std::move(named_func));
 	return decl;
 }
@@ -342,16 +368,14 @@ uptr<Program> Parser::program()
 	auto root_env_uptr = std::make_unique<Env>(nullptr, logger);
 	root_env           = root_env_uptr.get();
 	curr_env           = root_env;
-
+	root_env_uptr->add_built_in_facility();
 	std::vector<uptr<Decl>> vec;
+
 	while (!is_curr_eof())
 	{
 		vec.push_back(declaration());
 	}
 	return std::make_unique<Program>(std::move(vec), std::move(root_env_uptr));
 }
-
-
-
 
 } // namespace protolang
