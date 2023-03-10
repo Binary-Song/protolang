@@ -54,11 +54,11 @@ public:
 	virtual NamedEntityType named_entity_type() const = 0;
 };
 
-class NamedVar : public NamedEntity, public ITyped
+class NamedVar : public NamedEntity, public ITypeCached
 {
 	// 数据
 private:
-	TypeExpr  *type_ast;
+	ITyped    *type_ast;
 	uptr<Type> cached_type;
 
 	// 函数
@@ -68,16 +68,14 @@ public:
 		return NamedEntityType::NamedVar;
 	}
 
-	NamedVar(Properties props, Ident ident, TypeExpr *type_ast)
+	NamedVar(Properties props, Ident ident, ITyped *type_ast)
 	    : NamedEntity(std::move(ident), props)
 	    , type_ast(type_ast)
 	{}
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "ident": {} , "type": {} }})",
-		                   ident.dump_json(),
-		                   type_ast->dump_json());
+		return std::format(R"({{ "ident": {} }})", ident.dump_json());
 	}
 
 	NamedEntityType named_entity_type() const override { return static_type(); }
@@ -91,36 +89,25 @@ private:
 	}
 };
 
-class NamedFunc : public NamedEntity
+class NamedFunc : public NamedEntity, public ITypeCached
 {
 public:
-	TypeExpr               *return_type;
+	ITyped                 *return_type;
 	std::vector<NamedVar *> params;
 
 	NamedFunc(const Properties       &props,
 	          const Ident            &ident,
-	          TypeExpr               *returnType,
+	          ITyped                 *returnType,
 	          std::vector<NamedVar *> params)
 	    : NamedEntity(ident, props)
 	    , return_type(returnType)
 	    , params(std::move(params))
 	{}
 
-	FuncType *type(TypeChecker *tc)
-	{
-		if (!cached_type)
-		{
-			cached_type = solve_type(tc);
-			assert(cached_type);
-		}
-		return cached_type.get();
-	}
-
 	virtual std::string dump_json() const
 	{
-		return std::format(R"({{ "ident": {}, "return":  {} , "params": {} }})",
+		return std::format(R"({{ "ident": {}, "params": {} }})",
 		                   ident.dump_json(),
-		                   return_type->dump_json(),
 		                   dump_json_for_vector_of_ptr(params));
 	}
 
@@ -132,10 +119,10 @@ public:
 	}
 
 private:
-	uptr<FuncType> cached_type;
-
-private:
-	uptr<FuncType> solve_type(TypeChecker *tc) const;
+	uptr<Type>  cached_type;
+	// ITyped
+	uptr<Type> &get_cached_type() override { return cached_type; }
+	uptr<Type>  solve_type(TypeChecker *tc) const override;
 };
 
 class NamedType : public NamedEntity

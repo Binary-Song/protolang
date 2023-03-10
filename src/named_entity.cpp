@@ -4,7 +4,7 @@
 namespace protolang
 {
 
-uptr<FuncType> NamedFunc::solve_type(TypeChecker *tc) const
+uptr<Type> NamedFunc::solve_type(TypeChecker *tc) const
 {
 	std::vector<uptr<Type>> param_types;
 

@@ -56,14 +56,12 @@ uptr<CompoundStmt> Parser::compound_statement()
 	{
 		if (is_curr_keyword(Keyword::KW_VAR))
 		{
-			auto elem =
-			    std::make_unique<CompoundStmtElem>(curr_env, var_decl());
+			auto elem = std::make_unique<CompoundStmtElem>(var_decl());
 			elems.push_back(std::move(elem));
 		}
 		else
 		{
-			auto elem =
-			    std::make_unique<CompoundStmtElem>(curr_env, statement());
+			auto elem = std::make_unique<CompoundStmtElem>(statement());
 			elems.push_back(std::move(elem));
 		}
 	}

@@ -37,7 +37,7 @@ public:
 	virtual std::string dump_json() const = 0;
 };
 
-struct TypeExpr : public Ast, public ITyped
+struct TypeExpr : public Ast, public ITypeCached
 {
 	// 数据
 private:
@@ -78,7 +78,7 @@ private:
 	uptr<Type> solve_type(TypeChecker *tc) const override;
 };
 
-struct Expr : public Ast, public ITyped
+struct Expr : public Ast, public ITypeCached
 {
 	// 类
 public:
@@ -383,14 +383,12 @@ struct ExprStmt : public Stmt
 struct CompoundStmtElem
 {
 
-	explicit CompoundStmtElem(Env *env, uptr<Stmt> stmt)
-	    : Ast(env, stmt->range)
-	    , _stmt(std::move(stmt))
+	explicit CompoundStmtElem(uptr<Stmt> stmt)
+	    : _stmt(std::move(stmt))
 	{}
 
-	explicit CompoundStmtElem(Env *env, uptr<VarDecl> var_decl)
-	    : Ast(env, var_decl->range)
-	    , _var_decl(std::move(var_decl))
+	explicit CompoundStmtElem(uptr<VarDecl> var_decl)
+	    : _var_decl(std::move(var_decl))
 	{}
 
 	Stmt    *stmt() const { return _stmt.get(); }
@@ -545,10 +543,9 @@ struct StructDecl : public Decl
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "ident": {} , "type": {} , "init": {} }})",
+		return std::format(R"({{ "ident": {},  "body": {} }})",
 		                   ident.dump_json(),
-		                   type->dump_json(),
-		                   init->dump_json());
+		                   body->dump_json());
 	}
 
 	void check_type(TypeChecker *) override;

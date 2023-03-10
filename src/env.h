@@ -13,7 +13,7 @@ namespace protolang
 class Env
 {
 public:
-	Logger                                   &logger;
+	Logger &logger;
 
 public:
 	explicit Env(Env *parent, Logger &logger)
@@ -157,10 +157,8 @@ public:
 		    "+", dynamic_cast<IdentTypeExpr *>(builtin_exprs["Double"].get()));
 	}
 
-	Type *get_builtin_type(const std::string &name, TypeChecker *tc)
-	{
-		return builtin_exprs.at(name)->type(tc);
-	}
+	Type *get_builtin_type(const std::string &name, TypeChecker *tc){
+	    return builtin_exprs.at(name)->get_type(tc)}
 
 	std::string dump_json() const
 	{
@@ -190,13 +188,13 @@ private:
 		auto props       = NamedEntityProperties();
 		auto ident       = Ident(op, {});
 		auto return_type = operand_type;
-		auto params      = {
+		std::vector<NamedVar*> params      = {
             NamedVar{{}, Ident{"lhs", {}}, operand_type},
             NamedVar{{}, Ident{"rhs", {}}, operand_type},
         };
 
-		auto new_func      = new NamedFunc(props, ident, return_type, params);
-		auto new_func_uptr = uptr<NamedFunc>(new_func);
+		auto new_func_uptr =
+		    uptr<NamedFunc>(new NamedFunc(props, ident, return_type, params));
 		this->add_func(std::move(new_func_uptr));
 	}
 
