@@ -293,9 +293,7 @@ public:
 
 struct Decl : public Ast
 {
-	Ident                     ident;
-	virtual uptr<NamedEntity> declare(
-	    const NamedEntityProperties &props) const = 0;
+	Ident ident;
 
 	Decl() = default;
 	explicit Decl(Env *env, Pos2DRange range, Ident ident)
@@ -303,7 +301,7 @@ struct Decl : public Ast
 	    , ident(ident)
 	{}
 };
-
+class NamedVar;
 struct VarDecl : public Decl
 {
 	uptr<TypeExpr> type;
@@ -320,8 +318,7 @@ struct VarDecl : public Decl
 	    , init(std::move(init))
 	{}
 
-	uptr<NamedEntity> declare(
-	    const NamedEntityProperties &props) const override;
+	NamedVar *add_to_env(const NamedEntityProperties &props, Env *env) const;
 
 	std::string dump_json() const override
 	{
@@ -344,8 +341,7 @@ struct ParamDecl : public Decl
 	    , type(std::move(type))
 	{}
 
-	uptr<NamedEntity> declare(
-	    const NamedEntityProperties &props) const override;
+	NamedVar *add_to_env(const NamedEntityProperties &props, Env *env) const;
 
 	std::string dump_json() const override
 	{
@@ -384,7 +380,7 @@ struct ExprStmt : public Stmt
 	void check_type(TypeChecker *tc) override { expr->check_type(tc); }
 };
 
-struct CompoundStmtElem : public Ast
+struct CompoundStmtElem
 {
 
 	explicit CompoundStmtElem(Env *env, uptr<Stmt> stmt)
@@ -400,7 +396,7 @@ struct CompoundStmtElem : public Ast
 	Stmt    *stmt() const { return _stmt.get(); }
 	VarDecl *var_decl() const { return _var_decl.get(); }
 
-	std::string dump_json() const override
+	std::string dump_json() const
 	{
 		if (stmt())
 			return stmt()->dump_json();
@@ -408,7 +404,7 @@ struct CompoundStmtElem : public Ast
 			return var_decl()->dump_json();
 		return "null";
 	}
-	void check_type(TypeChecker *tc) override
+	void check_type(TypeChecker *tc)
 	{
 		if (stmt())
 			stmt()->check_type(tc);
@@ -425,6 +421,7 @@ private:
 
 struct CompoundStmt : public Stmt
 {
+public:
 	uptr<Env>                           env;
 	std::vector<uptr<CompoundStmtElem>> elems;
 
@@ -446,7 +443,7 @@ struct CompoundStmt : public Stmt
 		}
 	}
 };
-
+class NamedFunc;
 struct FuncDecl : public Decl
 {
 	std::vector<uptr<ParamDecl>> params;
@@ -461,8 +458,7 @@ struct FuncDecl : public Decl
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
 
-	uptr<NamedEntity> declare(
-	    const NamedEntityProperties &props) const override;
+	NamedFunc *add_to_env(const NamedEntityProperties &props, Env *env) const;
 
 	std::string dump_json() const override
 	{
@@ -478,6 +474,84 @@ struct FuncDecl : public Decl
 		// todo: return 必须check
 		body->check_type(tc);
 	}
+};
+
+struct MemberDecl
+{
+	explicit MemberDecl(uptr<FuncDecl> func_decl);
+	explicit MemberDecl(uptr<VarDecl> var_decl);
+
+	FuncDecl *func_decl() const { return _func_decl.get(); }
+	VarDecl  *var_decl() const { return _var_decl.get(); }
+
+	std::string dump_json() const
+	{
+		if (func_decl())
+			return func_decl()->dump_json();
+		if (var_decl())
+			return var_decl()->dump_json();
+		return "null";
+	}
+
+	void check_type(TypeChecker *tc)
+	{
+		if (func_decl())
+			func_decl()->check_type(tc);
+		else if (var_decl())
+			var_decl()->check_type(tc);
+		else
+			assert(false); // 没考虑这么多
+	}
+
+private:
+	uptr<FuncDecl> _func_decl;
+	uptr<VarDecl>  _var_decl;
+};
+
+struct StructBody : public Ast
+{
+	uptr<Env>                     env;
+	std::vector<uptr<MemberDecl>> elems;
+
+	StructBody(Env                          *enclosing_env,
+	           Pos2DRange                    range,
+	           uptr<Env>                     _env,
+	           std::vector<uptr<MemberDecl>> elems);
+
+	std::string dump_json() const override
+	{
+		return dump_json_for_vector_of_ptr(elems);
+	}
+
+	void check_type(TypeChecker *tc) override
+	{
+		for (auto &&elem : elems)
+		{
+			elem->check_type(tc);
+		}
+	}
+};
+
+struct StructDecl : public Decl
+{
+	uptr<StructBody> body;
+
+	StructDecl(Env              *env,
+	           const Pos2DRange &range,
+	           const Ident      &ident,
+	           uptr<StructBody>  body);
+
+	NamedType *add_to_env(const NamedEntityProperties &props, Env *env) const;
+
+	std::string dump_json() const override
+	{
+		return std::format(R"({{ "ident": {} , "type": {} , "init": {} }})",
+		                   ident.dump_json(),
+		                   type->dump_json(),
+		                   init->dump_json());
+	}
+
+	void check_type(TypeChecker *) override;
 };
 
 struct Program : public Ast

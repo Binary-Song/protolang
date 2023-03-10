@@ -78,11 +78,15 @@ private:
 
 	uptr<FuncDecl> func_decl();
 
+	uptr<StructDecl> struct_decl();
+
 	uptr<Stmt> statement();
 
 	uptr<ExprStmt> expression_statement();
 
 	uptr<CompoundStmt> compound_statement();
+
+	uptr<StructBody> struct_body();
 
 	uptr<Expr> expression();
 

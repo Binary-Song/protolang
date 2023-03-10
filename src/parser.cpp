@@ -33,9 +33,7 @@ uptr<VarDecl> Parser::var_decl()
 	                              Ident(name, name_token.range()),
 	                              std::move(type),
 	                              std::move(init));
-
-	curr_env->add_non_func(decl->declare(p));
-
+	decl->add_to_env(p, curr_env);
 	return decl;
 }
 
@@ -73,10 +71,40 @@ uptr<CompoundStmt> Parser::compound_statement()
 	auto stmt =
 	    new CompoundStmt(enclosing_env,
 	                     union_range(left_brace.range(), right_brace.range()),
-	                     std::move(new_env_ptr),
+	                     std::move(new_env),
 	                     std::move(elems));
 	return uptr<CompoundStmt>(stmt);
 }
+
+uptr<StructBody> Parser::struct_body()
+{
+	auto     new_env       = std::make_unique<Env>(curr_env, logger);
+	auto     new_env_ptr   = new_env.get();
+	auto     enclosing_env = curr_env;
+	EnvGuard guard(curr_env, new_env_ptr);
+	std::vector<uptr<MemberDecl>> elems;
+	auto left_brace = eat_given_type_or_panic(Token::Type::LeftBrace, "{");
+	while (!is_curr_of_type(Token::Type::RightBrace))
+	{
+		if (is_curr_keyword(Keyword::KW_VAR))
+		{
+			auto elem = std::make_unique<MemberDecl>(var_decl());
+			elems.push_back(std::move(elem));
+		}
+		else
+		{
+			auto elem = std::make_unique<MemberDecl>(func_decl());
+			elems.push_back(std::move(elem));
+		}
+	}
+	auto right_brace = eat_given_type_or_panic(Token::Type::RightBrace, "}");
+	return uptr<StructBody>(
+	    new StructBody(enclosing_env,
+	                   union_range(left_brace.range(), right_brace.range()),
+	                   std::move(new_env),
+	                   std::move(elems)));
+}
+
 uptr<Expr> Parser::expression()
 {
 	return assignment();
@@ -284,6 +312,10 @@ uptr<Decl> Parser::declaration()
 			{
 				return func_decl();
 			}
+			else if (is_curr_keyword(Keyword::KW_CLASS))
+			{
+				return struct_decl();
+			}
 			logger.log(ErrorUnexpectedToken(curr(), "declaration expected"));
 			throw ExceptionPanic();
 		}
@@ -330,6 +362,7 @@ uptr<FuncDecl> Parser::func_decl()
 	auto body        = compound_statement();
 	auto decl        = std::make_unique<FuncDecl>(
         curr_env,
+        // note: range 是函数声明的 range
         union_range(func_kw_token.range(), return_type->range),
         Ident{func_name_token.str_data, func_name_token.range()},
         std::move(params),
@@ -340,11 +373,31 @@ uptr<FuncDecl> Parser::func_decl()
 	props.ident_pos     = func_name_token.range();
 	props.available_pos = curr().range();
 
-	uptr<NamedFunc> named_func = uptr<NamedFunc>(
-	    dynamic_cast<NamedFunc *>(decl->declare(props).release()));
-	curr_env->add_func(std::move(named_func));
+	decl->add_to_env(props, curr_env);
+	//	uptr<NamedFunc> named_func = uptr<NamedFunc>(
+	//	    dynamic_cast<NamedFunc *>(decl->declare(props).release()));
+	//	curr_env->add_func(std::move(named_func));
 	return decl;
 }
+
+uptr<StructDecl> Parser::struct_decl()
+{
+	auto struct_kw_token   = eat_keyword_or_panic(KW_STRUCT);
+	auto struct_name_token = eat_ident_or_panic();
+	auto body              = struct_body();
+	auto decl              = std::make_unique<StructDecl>(
+        curr_env,
+        union_range(struct_kw_token.range(), struct_name_token.range()),
+        Ident{struct_name_token.str_data, struct_name_token.range()},
+        std::move(body));
+
+	NamedEntityProperties props;
+	props.ident_pos     = struct_name_token.range();
+	props.available_pos = curr().range();
+	decl->add_to_env(props, curr_env);
+	return decl;
+}
+
 uptr<TypeExpr> Parser::type_expr()
 {
 	eat_ident_or_panic("type");

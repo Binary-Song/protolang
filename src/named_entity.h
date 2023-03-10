@@ -94,13 +94,13 @@ private:
 class NamedFunc : public NamedEntity
 {
 public:
-	TypeExpr             *return_type;
-	std::vector<NamedVar> params;
+	TypeExpr               *return_type;
+	std::vector<NamedVar *> params;
 
-	NamedFunc(const Properties     &props,
-	          const Ident          &ident,
-	          TypeExpr             *returnType,
-	          std::vector<NamedVar> params)
+	NamedFunc(const Properties       &props,
+	          const Ident            &ident,
+	          TypeExpr               *returnType,
+	          std::vector<NamedVar *> params)
 	    : NamedEntity(ident, props)
 	    , return_type(returnType)
 	    , params(std::move(params))
@@ -121,7 +121,7 @@ public:
 		return std::format(R"({{ "ident": {}, "return":  {} , "params": {} }})",
 		                   ident.dump_json(),
 		                   return_type->dump_json(),
-		                   dump_json_for_vector(params));
+		                   dump_json_for_vector_of_ptr(params));
 	}
 
 	NamedEntityType named_entity_type() const override { return static_type(); }
@@ -141,13 +141,18 @@ private:
 class NamedType : public NamedEntity
 {
 public:
-	NamedType(const Properties &props, const Ident &ident)
+	std::vector<NamedEntity *> members;
+
+	NamedType(const Properties          &props,
+	          const Ident               &ident,
+	          std::vector<NamedEntity *> members)
 	    : NamedEntity(ident, props)
+	    , members(std::move(members))
 	{}
 
 	std::string dump_json() const override
 	{
-		return std::format(R"({{ "ident": {}  }})", ident.dump_json());
+		return std::format(R"({{ "ident": {} }})", ident.dump_json());
 	}
 
 	NamedEntityType named_entity_type() const override { return static_type(); }
