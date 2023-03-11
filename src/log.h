@@ -23,7 +23,7 @@ enum class LogCode
 	ErrorNoMatchingOverload,
 	ErrorMultipleMatchingOverload,
 	ErrorTypeMismatch,
-
+	ErrorNoMember,
 	/// FATAL
 
 	FatalFileError = 4001,
@@ -41,21 +41,30 @@ struct CodeRef
 	    , last(range.tail)
 	    , comment(std::move(comment))
 	{}
-	CodeRef(const SrcPos &first, const SrcPos &last, std::string comment = "")
+	CodeRef(const SrcPos &first,
+	        const SrcPos &last,
+	        std::string   comment = "")
 	    : first(first)
 	    , last(last)
 	    , comment(std::move(comment))
 	{}
 
-	explicit CodeRef(const Token &token, std::string comment = "")
-	    : CodeRef(token.first_pos, token.last_pos, std::move(comment))
+	explicit CodeRef(const Token &token,
+	                 std::string  comment = "")
+	    : CodeRef(token.first_pos,
+	              token.last_pos,
+	              std::move(comment))
 	{}
 
 	bool operator==(const CodeRef &rhs) const
 	{
-		return first == rhs.first && last == rhs.last && comment == rhs.comment;
+		return first == rhs.first && last == rhs.last &&
+		       comment == rhs.comment;
 	}
-	bool operator!=(const CodeRef &rhs) const { return !(rhs == *this); }
+	bool operator!=(const CodeRef &rhs) const
+	{
+		return !(rhs == *this);
+	}
 };
 
 class Log
@@ -73,12 +82,16 @@ public:
 
 public:
 	Log() = default;
-	Log(const SrcPos &first, const SrcPos &last, std::string comment = "")
+	Log(const SrcPos &first,
+	    const SrcPos &last,
+	    std::string   comment = "")
 	{
 		code_refs.push_back({first, last, comment});
 	}
 	Log(const Token &token, std::string comment = "")
-	    : Log(token.first_pos, token.last_pos, std::move(comment))
+	    : Log(token.first_pos,
+	          token.last_pos,
+	          std::move(comment))
 	{}
 	virtual ~Log()                                    = default;
 	virtual void  desc_ascii(std::ostream &out) const = 0;
@@ -93,7 +106,8 @@ public:
 	explicit LogWithSymbol(Ident ident)
 	    : LogWithSymbol(ident.name, ident.range)
 	{}
-	explicit LogWithSymbol(std::string symbol, const SrcRange &location)
+	explicit LogWithSymbol(std::string     symbol,
+	                       const SrcRange &location)
 	    : symbol(std::move(symbol))
 	{
 		code_refs.push_back({location.head, location.tail, ""});
@@ -107,10 +121,14 @@ public:
 	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << "The preceding `0` is redundant."
-		       " Use the `0o` prefix if you want an octal literal.";
+		       " Use the `0o` prefix if you want an octal "
+		       "literal.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorAmbiguousInt; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorAmbiguousInt;
+	}
 };
 
 class ErrorUnknownChar : public Log
@@ -122,7 +140,10 @@ public:
 		out << "Unexpected character.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorUnknownChar; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorUnknownChar;
+	}
 };
 
 class ErrorParenMismatch : public Log
@@ -135,10 +156,14 @@ public:
 	{}
 	virtual void desc_ascii(std::ostream &out) const override
 	{
-		out << "Unmatched " << (left ? "left" : "right") << " parenthesis.";
+		out << "Unmatched " << (left ? "left" : "right")
+		    << " parenthesis.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorParenMismatch; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorParenMismatch;
+	}
 };
 
 class ErrorExpressionExpected : public Log
@@ -150,7 +175,10 @@ public:
 		out << "Expression expected.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorExpressionExpected; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorExpressionExpected;
+	}
 };
 
 class ErrorUnexpectedToken : public Log
@@ -162,7 +190,10 @@ public:
 		out << "Unexpected token. ";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorUnexpectedToken; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorUnexpectedToken;
+	}
 };
 
 class ErrorSymbolRedefinition : public Log
@@ -175,7 +206,8 @@ public:
 	    : symbol(std::move(symbol))
 	{
 		this->code_refs.emplace_back(second, "redefined here");
-		this->code_refs.emplace_back(first, "previously defined here");
+		this->code_refs.emplace_back(first,
+		                             "previously defined here");
 	}
 
 	virtual void desc_ascii(std::ostream &out) const override
@@ -183,7 +215,10 @@ public:
 		out << "Redefinition of symbol `" << symbol << "`.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorSymbolRedefinition; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorSymbolRedefinition;
+	}
 };
 
 class ErrorUndefinedSymbol : public LogWithSymbol
@@ -196,7 +231,10 @@ public:
 		out << "Undefined symbol `" << symbol << "`.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorUndefinedSymbol; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorUndefinedSymbol;
+	}
 };
 
 class ErrorAmbiguousSymbol : public LogWithSymbol
@@ -210,7 +248,10 @@ public:
 		out << "Symbol `" << symbol << "` is ambiguous.";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorAmbiguousSymbol; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorAmbiguousSymbol;
+	}
 };
 
 class ErrorSymbolKindIncorrect : public LogWithSymbol
@@ -229,10 +270,14 @@ public:
 
 	virtual void desc_ascii(std::ostream &out) const override
 	{
-		out << std::format("Expected {}, got {}.", expected, got);
+		out << std::format(
+		    "Expected {}, got {}.", expected, got);
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorSymbolIsNotAType; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorSymbolIsNotAType;
+	}
 };
 
 class ErrorNoMatchingOverload : public LogWithSymbol
@@ -245,7 +290,10 @@ class ErrorNoMatchingOverload : public LogWithSymbol
 		out << "Arguments cannot fit in parameters. ";
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorNoMatchingOverload; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorNoMatchingOverload;
+	}
 };
 
 class ErrorMultipleMatchingOverload : public LogWithSymbol
@@ -275,20 +323,26 @@ public:
 	    : param_type(param_type)
 	    , arg_type(arg_type)
 	{
-		code_refs.push_back(CodeRef{arg_range, //
-		                            std::format("actual type `{}`", arg_type)});
 		code_refs.push_back(
-		    CodeRef{param_range, //
-		            std::format("expected type `{}`", param_type)});
+		    CodeRef{arg_range, //
+		            std::format("actual type `{}`", arg_type)});
+		code_refs.push_back(CodeRef{
+		    param_range, //
+		    std::format("expected type `{}`", param_type)});
 	}
 
 	virtual void desc_ascii(std::ostream &out) const override
 	{
 		out << std::format(
-		    "Type mismatch. Cannot fit a `{}` into `{}`", arg_type, param_type);
+		    "Type mismatch. Cannot fit a `{}` into `{}`",
+		    arg_type,
+		    param_type);
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorTypeMismatch; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorTypeMismatch;
+	}
 };
 
 class ErrorNotCallable : public Log
@@ -297,11 +351,39 @@ public:
 	std::string  actual_type;
 	virtual void desc_ascii(std::ostream &out) const override
 	{
-		out << std::format("Trying to call on type `{}` which is not callable",
-		                   actual_type);
+		out << std::format(
+		    "Trying to call on type `{}` which is not callable",
+		    actual_type);
 	}
 	virtual Level level() const override { return Level::Error; }
-	int code() const override { return (int)LogCode::ErrorTypeMismatch; }
+	int           code() const override
+	{
+		return (int)LogCode::ErrorTypeMismatch;
+	}
+};
+
+class ErrorNoMember : public Log
+{
+public:
+	SrcRange    member;
+	std::string type;
+	ErrorNoMember(const SrcRange    &member,
+	              const std::string &type)
+	    : member(member)
+	    , type(type)
+	{
+		this->code_refs.push_back(CodeRef(member));
+	}
+	void desc_ascii(std::ostream &out) const override
+	{
+		out << std::format(
+		    "Type `{}` does not have specified member", type);
+	}
+	Level level() const override { return Level::Error; }
+	int   code() const override
+	{
+		return (int)LogCode::ErrorTypeMismatch;
+	}
 };
 
 class FatalFileError : public Log
@@ -325,7 +407,10 @@ public:
 			out << "Cannot access file " << file_name;
 	}
 	virtual Level level() const override { return Level::Fatal; }
-	int           code() const override { return (int)LogCode::FatalFileError; }
+	int           code() const override
+	{
+		return (int)LogCode::FatalFileError;
+	}
 };
 
 } // namespace protolang

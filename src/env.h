@@ -16,28 +16,53 @@ class Env
 public:
 	Logger &logger;
 
-public:
+private:
+	Env                                  *m_parent;
+	std::vector<uptr<Env>>                m_subenvs;
+	std::vector<uptr<IEntity>>            m_entities;
+	std::multimap<std::string, IEntity *> m_symbol_table;
+
+private:
 	explicit Env(Env *parent, Logger &logger)
-	    : parent(parent)
+	    : m_parent(parent)
 	    , logger(logger)
 	{}
+
+public:
+	static uptr<Env> create(Logger &logger)
+	{
+		auto env = make_uptr(new Env(nullptr, logger));
+		return env;
+	}
+
+	static Env *create(Env *parent, Logger &logger)
+	{
+		auto env     = make_uptr(new Env(parent, logger));
+		auto env_ptr = env.get();
+		parent->m_subenvs.push_back(std::move(env));
+		return env_ptr;
+	}
+
+	bool check_args(IFuncType                  *func,
+	                const std::vector<IType *> &arg_types,
+	                bool throw_error = false);
 
 	void add_non_func(const std::string &name, uptr<IEntity> obj)
 	{
 		// 禁止用add添加函数，请用add_overload替代
 		assert(dynamic_cast<IFunc *>(obj.get()) == nullptr);
-		if (symbol_table.contains(name))
+		if (m_symbol_table.contains(name))
 		{
 			// 重定义了
-			auto [begin, _] = symbol_table.equal_range(name);
+			auto [begin, _] = m_symbol_table.equal_range(name);
 			logger.log(ErrorSymbolRedefinition(
 			    name,
 			    begin->second->get_src_range(),
 			    obj->get_src_range()));
 			throw ExceptionPanic();
 		}
-		symbol_table.insert({name, obj.get()});
-		entities.push_back(std::move(obj));
+		m_symbol_table.insert({name, obj.get()});
+		m_entities.push_back(std::move(obj));
 	}
 
 	[[nodiscard]] void add_alias(const Ident &alias,
@@ -46,17 +71,17 @@ public:
 		// todo: 不许创建除了type-alias以外的alias。
 		// 目前能为任何无歧义的名字创建别名
 		IEntity *target = get_one(target_name);
-		if (symbol_table.contains(alias.name))
+		if (m_symbol_table.contains(alias.name))
 		{
 			auto [begin, _] =
-			    symbol_table.equal_range(alias.name);
+			    m_symbol_table.equal_range(alias.name);
 			logger.log(ErrorSymbolRedefinition(
 			    alias.name,
 			    begin->second->get_src_range(),
 			    alias.range));
 			throw ExceptionPanic();
 		}
-		symbol_table.insert({alias.name, target});
+		m_symbol_table.insert({alias.name, target});
 	}
 
 	[[nodiscard]] void add_func(const std::string &name,
@@ -64,10 +89,10 @@ public:
 	{
 		// todo: 检查overload不能互相冲突，造成二义性调用
 		// 函数名不能和变量名、类型名等冲突，但函数名可以重复
-		if (symbol_table.contains(name))
+		if (m_symbol_table.contains(name))
 		{
 			auto [val_begin, val_end] =
-			    symbol_table.equal_range(name);
+			    m_symbol_table.equal_range(name);
 			// 所有同名的玩意必须只能是函数
 			for (auto iter = val_begin; iter != val_end; ++iter)
 			{
@@ -83,8 +108,8 @@ public:
 			}
 			// ok: 有重名，但是函数
 		}
-		symbol_table.insert({name, func.get()});
-		entities.push_back(std::move(func)); // 不可早move!
+		m_symbol_table.insert({name, func.get()});
+		m_entities.push_back(std::move(func)); // 不可早move!
 	}
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
@@ -94,9 +119,9 @@ public:
 	T *get_one(const Ident &ident) const
 	{
 		std::string name = ident.name;
-		if (symbol_table.contains(name))
+		if (m_symbol_table.contains(name))
 		{
-			auto [begin, end] = symbol_table.equal_range(name);
+			auto [begin, end] = m_symbol_table.equal_range(name);
 			if (std::distance(begin, end) == 1)
 			{
 				// ok 正好找到1个
@@ -122,9 +147,9 @@ public:
 			throw ExceptionPanic();
 		}
 		// 一个都没有，问爹要
-		if (parent)
+		if (m_parent)
 		{
-			return parent->get_one<T>(ident);
+			return m_parent->get_one<T>(ident);
 		}
 		// 没有爹，哭
 		logger.log(
@@ -138,15 +163,15 @@ public:
 	{
 		std::vector<IEntity *> result;
 		std::string            name = ident.name;
-		auto [begin, end] = symbol_table.equal_range(name);
+		auto [begin, end] = m_symbol_table.equal_range(name);
 		for (auto iter = begin; iter != end; ++iter)
 		{
 			result.push_back(iter->second);
 		}
 		// 如果有爹，加上爹的
-		if (parent)
+		if (m_parent)
 		{
-			auto parents = parent->get_all(ident);
+			auto parents = m_parent->get_all(ident);
 			result.insert(
 			    result.end(), parents.begin(), parents.end());
 		}
@@ -181,27 +206,32 @@ public:
 	std::string dump_json() const
 	{
 		std::vector<IEntity *> vals;
-		for (auto &&kv : symbol_table)
+		for (auto &&kv : m_symbol_table)
 		{
 			vals.push_back(kv.second);
 		}
-		if (parent)
+		if (m_parent)
 			return std::format(
 			    R"({{"obj":"Env","this":{},"parent":{}}})",
 			    dump_json_for_vector_of_ptr(vals),
-			    parent->dump_json());
+			    m_parent->dump_json());
 		else
 			return std::format(
 			    R"({{ "this": {} }})",
 			    dump_json_for_vector_of_ptr(vals));
 	}
 
-private:
-	Env                                  *parent;
-	std::vector<uptr<IEntity>>            entities;
-	std::multimap<std::string, IEntity *> symbol_table;
+	Env *get_parent() { return m_parent; }
+	Env *get_root()
+	{
+		auto e = this;
+		while (e->m_parent)
+		{
+			e = e->m_parent;
+		}
+		return e;
+	}
 
-private:
 	//	void add_builtin_op(const std::string &op,
 	//	                    const std::string &type);
 	//

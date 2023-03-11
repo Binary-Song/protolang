@@ -1,13 +1,10 @@
 #include "env.h"
 #include "ast.h"
+#include "util.h"
 namespace protolang
 {
 
-template <class T>
-uptr<T> make_uptr(T *&&raw)
-{
-	return uptr<T>(raw);
-}
+
 //
 // void Env::add_builtin_op(const std::string &op,
 //                         const std::string &type)
@@ -60,8 +57,9 @@ uptr<T> make_uptr(T *&&raw)
 //	    std::make_unique<IdentTypeExpr>(this, Ident{name, {}});
 //	this->builtin_exprs[name] = (std::move(type_expr));
 //}
-static bool check_args(IFuncType                  *func,
-                       const std::vector<IType *> &arg_types)
+bool Env::check_args(IFuncType                  *func,
+                     const std::vector<IType *> &arg_types,
+                     bool                        throw_error)
 {
 	if (func->get_param_count() != arg_types.size())
 		return false;
@@ -72,6 +70,14 @@ static bool check_args(IFuncType                  *func,
 		auto a = arg_types[i];
 		if (!p->can_accept(a))
 		{
+			if (throw_error)
+			{
+				logger.log(ErrorTypeMismatch(a->get_type_name(),
+				                             {},
+				                             p->get_type_name(),
+				                             {}));
+				throw ExceptionPanic();
+			}
 			return false;
 		}
 	}

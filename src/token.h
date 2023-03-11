@@ -33,7 +33,7 @@ static i64 operator<=>(const SrcPos &a, const SrcPos &b)
 	                     : row_diff;
 }
 
-// 默认 head < tail
+// 默认 head < tail m
 static SrcRange range_union(const SrcRange &first,
                             const SrcRange &second)
 {

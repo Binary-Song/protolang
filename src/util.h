@@ -2,7 +2,8 @@
 #include <functional>
 #include <string>
 #include <vector>
-
+namespace protolang
+{
 struct IJsonDumper
 {
 	virtual ~IJsonDumper()                = default;
@@ -61,3 +62,10 @@ bool all_equal(
 	}
 	return true;
 }
+
+template <class T>
+uptr<T> make_uptr(T *&&raw)
+{
+	return uptr<T>(raw);
+}
+} // namespace protolang

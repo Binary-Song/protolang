@@ -22,7 +22,7 @@ struct IEntity : virtual IJsonDumper
 struct ITyped : virtual IJsonDumper
 {
 	virtual ~ITyped()                       = default;
-	[[nodiscard]] virtual IType *get_type() = 0;
+	[[nodiscard]] virtual IType *get_type()const = 0;
 };
 
 // 类型
@@ -33,10 +33,17 @@ struct IType : IEntity
 	    const IType *) const                                = 0;
 	[[nodiscard]] virtual bool equal(const IType *) const   = 0;
 	[[nodiscard]] virtual std::string get_type_name() const = 0;
+	[[nodiscard]] virtual IEntity    *get_member(
+	       const std::string &)
+	{
+		return nullptr;
+	}
 };
 
 struct IVar : ITyped, IEntity
-{};
+{
+	[[nodiscard]] virtual const Ident &get_ident() const = 0;
+};
 
 struct IFuncType : IType
 {

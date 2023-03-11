@@ -7,6 +7,7 @@
 #include "typechecker.h"
 int main()
 {
+
 	try
 	{
 		std::string file_name        = __FILE__ R"(\..\..\test\test3.ptl)";

@@ -111,7 +111,7 @@ uptr<IType> CallExpr::solve_type(TypeChecker *tc) const
 	// 另外，如果callee是个名字，则执行overload resolution，
 	// 如果callee是个表达式，则用不着执行overload resolution.
 
-	if (auto ident_expr = dynamic_cast<IdentExpr *>(callee.get()))
+	if (auto ident_expr = dynamic_cast<IdentExpr *>(m_callee.get()))
 	{
 		NamedFunc *func =
 		    tc->overload_resolution(env, ident_expr->ident, arg_types());
@@ -119,15 +119,15 @@ uptr<IType> CallExpr::solve_type(TypeChecker *tc) const
 	}
 	else
 	{
-		if (auto func_type = dynamic_cast<FuncType *>(callee->get_type(tc)))
+		if (auto func_type = dynamic_cast<FuncType *>(m_callee->get_type(tc)))
 		{
 			return func_type->return_type->clone();
 		}
 		else
 		{
 			ErrorNotCallable e;
-			e.actual_type = callee->get_type(tc)->full_name();
-			e.code_refs.push_back(CodeRef(callee->range, "callee:"));
+			e.actual_type = m_callee->get_type(tc)->full_name();
+			e.code_refs.push_back(CodeRef(m_callee->range, "callee:"));
 			tc->logger.log(e);
 			throw ExceptionPanic();
 		}
