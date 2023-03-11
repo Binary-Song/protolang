@@ -57,8 +57,8 @@ namespace protolang
 //	    std::make_unique<IdentTypeExpr>(this, Ident{name, {}});
 //	this->builtin_exprs[name] = (std::move(type_expr));
 //}
-bool Env::check_args(IFuncType                  *func,
-                     const std::vector<IType *> &arg_types,
+bool Env::check_args(const IFuncType                  *func,
+                     const std::vector<const IType *> &arg_types,
                      bool                        throw_error)
 {
 	if (func->get_param_count() != arg_types.size())
@@ -86,7 +86,7 @@ bool Env::check_args(IFuncType                  *func,
 
 IFunc *Env::overload_resolution(
     const Ident                &func_ident,
-    const std::vector<IType *> &arg_types)
+    const std::vector<const IType *> &arg_types)
 {
 	auto                 overloads = get_all(func_ident);
 	std::vector<IFunc *> fits;

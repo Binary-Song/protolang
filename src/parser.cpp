@@ -44,7 +44,7 @@ uptr<ExprStmt> Parser::expression_statement()
 	    range_union(expr->range, semi_col.range()),
 	    std::move(expr));
 }
-uptr<CompoundStmt> Parser::compound_statement()
+uptr<Block> Parser::compound_statement()
 {
 	auto     new_env = std::make_unique<Env>(curr_env, logger);
 	auto     new_env_ptr   = new_env.get();
@@ -75,7 +75,7 @@ uptr<CompoundStmt> Parser::compound_statement()
 	    range_union(left_brace.range(), right_brace.range()),
 	    std::move(new_env),
 	    std::move(elems));
-	return uptr<CompoundStmt>(stmt);
+	return uptr<Block>(stmt);
 }
 
 uptr<StructBody> Parser::struct_body()
@@ -91,13 +91,13 @@ uptr<StructBody> Parser::struct_body()
 	{
 		if (is_curr_keyword(Keyword::KW_VAR))
 		{
-			auto elem = std::make_unique<MemberDecl>(var_decl());
+			auto elem = std::make_unique<StructDeclElem>(var_decl());
 			elems.push_back(std::move(elem));
 		}
 		else
 		{
 			auto elem =
-			    std::make_unique<MemberDecl>(func_decl());
+			    std::make_unique<StructDeclElem>(func_decl());
 			elems.push_back(std::move(elem));
 		}
 	}

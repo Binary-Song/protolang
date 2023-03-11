@@ -43,8 +43,8 @@ public:
 		return env_ptr;
 	}
 
-	bool check_args(IFuncType                  *func,
-	                const std::vector<IType *> &arg_types,
+	bool check_args(const IFuncType                  *func,
+	                const std::vector<const IType *> &arg_types,
 	                bool throw_error = false);
 
 	void add_non_func(const std::string &name, uptr<IEntity> obj)
@@ -180,7 +180,7 @@ public:
 
 	IFunc *overload_resolution(
 	    const Ident                &func_ident,
-	    const std::vector<IType *> &arg_types);
+	    const std::vector<const IType *> &arg_types);
 	//
 	//	void add_built_in_facility()
 	//	{

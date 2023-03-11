@@ -55,8 +55,8 @@ public:
 	{
 		return m_ident.range;
 	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] Env *env() const override { return m_env; }
+	[[nodiscard]] const IType *get_type() const override;
 };
 
 // 表达式，抽象类
@@ -110,8 +110,8 @@ public:
 		assert(left->env() == right->env());
 		return left->env();
 	}
-	[[nodiscard]] IType      *get_type() const override;
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] std::string  dump_json() const override
 	{
 		return std::format(
 		    R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
@@ -158,7 +158,7 @@ public:
 	{
 		return operand->env();
 	}
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] const IType *get_type() const override;
 };
 
 struct CallExpr : public Expr
@@ -190,8 +190,8 @@ public:
 	{
 		return m_src_rng;
 	}
-	[[nodiscard]] std::vector<IType *> arg_types() const;
-	[[nodiscard]] std::string          dump_json() const override
+	[[nodiscard]] std::vector<const IType *> arg_types() const;
+	[[nodiscard]] std::string dump_json() const override
 	{
 		return std::format(
 		    R"({{"obj":"CallExpr","callee":{},"args":{}}})",
@@ -206,7 +206,7 @@ public:
 	{
 		return m_callee->env();
 	}
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] const IType *get_type() const override;
 };
 
 struct BracketExpr : public CallExpr
@@ -266,7 +266,7 @@ public:
 	{
 		return m_left->env();
 	}
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] const IType *get_type() const override;
 };
 
 struct LiteralExpr : public Expr
@@ -292,8 +292,8 @@ public:
 	{
 		return m_token.range();
 	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] Env *env() const override { return m_env; }
+	[[nodiscard]] const IType *get_type() const override;
 	[[nodiscard]] const Token &get_token() const
 	{
 		return m_token;
@@ -323,8 +323,8 @@ public:
 	{
 		return m_ident.range;
 	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() const override;
+	[[nodiscard]] Env *env() const override { return m_env; }
+	[[nodiscard]] const IType *get_type() const override;
 };
 
 struct Decl : Ast
@@ -347,7 +347,7 @@ public:
 	{
 		return m_ident;
 	}
-	[[nodiscard]] IType *get_type() const override
+	[[nodiscard]] const IType *get_type() const override
 	{
 		return m_type->get_type();
 	}
@@ -393,7 +393,7 @@ public:
 	{
 		return m_ident;
 	}
-	[[nodiscard]] IType *get_type() const override
+	[[nodiscard]] const IType *get_type() const override
 	{
 		return m_type->get_type();
 	}
@@ -442,72 +442,58 @@ public:
 	}
 };
 
-struct CompoundStmtElem
-{
-
-	explicit CompoundStmtElem(uptr<Stmt> stmt)
-	    : _stmt(std::move(stmt))
-	{}
-
-	explicit CompoundStmtElem(uptr<VarDecl> var_decl)
-	    : _var_decl(std::move(var_decl))
-	{}
-
-	Stmt    *stmt() const { return _stmt.get(); }
-	VarDecl *var_decl() const { return _var_decl.get(); }
-
-	std::string dump_json() const
-	{
-		if (stmt())
-			return stmt()->dump_json();
-		if (var_decl())
-			return var_decl()->dump_json();
-		return "null";
-	}
-
-private:
-	uptr<Stmt>    _stmt;
-	uptr<VarDecl> _var_decl;
-};
-
-struct CompoundStmt : Stmt, IFuncBody
+struct Block
 {
 private:
-	Env                                *m_outer_env;
-	Env                                *m_inner_env;
-	SrcRange                            m_range;
-	std::vector<uptr<CompoundStmtElem>> m_elems;
+	Env                   *m_outer_env;
+	Env                   *m_inner_env;
+	SrcRange               m_range;
+	// FuncBody: statement或var_decl
+	// StructBody: var_decl或func_decl
+	std::vector<uptr<Ast>> m_elems;
 
 public:
-	CompoundStmt(Env                                *outer_env,
-	             SrcRange                            range,
-	             std::vector<uptr<CompoundStmtElem>> elems);
+	Block(Env                   *outer_env,
+	      SrcRange               range,
+	      std::vector<uptr<Ast>> elems);
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() const
 	{
 		return dump_json_for_vector_of_ptr(m_elems);
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_range;
-	}
-	[[nodiscard]] Env *env() const override
-	{
-		return m_outer_env;
-	}
+	[[nodiscard]] SrcRange range() const { return m_range; }
+	[[nodiscard]] Env     *env() const { return m_outer_env; }
 	[[nodiscard]] Env *env_inner() const { return m_inner_env; }
 	[[nodiscard]] Env *env_outer() const { return m_outer_env; }
-	[[nodiscard]] const std::vector<uptr<CompoundStmtElem>>
-	    &elems() const
+	[[nodiscard]] const std::vector<uptr<Ast>> &elems() const
 	{
 		return m_elems;
 	};
+};
+
+struct CompoundStmt : Block, Stmt, IFuncBody
+{
+	using Block::Block;
+
+	[[nodiscard]] SrcRange range() const override
+	{
+		return Block::range();
+	}
+	[[nodiscard]] Env *env() const override
+	{
+		return Block::env();
+	}
+	[[nodiscard]] std::string dump_json() const override
+	{
+		return Block::dump_json();
+	}
 };
 
 struct FuncDecl : Decl, IFunc
 {
 private:
 	Env                         *m_env;
+	SrcRange                     m_range;
 	Ident                        m_ident;
 	std::vector<uptr<ParamDecl>> m_params;
 	uptr<TypeExpr>               m_return_type;
@@ -522,7 +508,7 @@ public:
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
 
-	std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() const override
 	{
 		return std::format(
 		    R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
@@ -530,86 +516,89 @@ public:
 		    m_return_type->dump_json(),
 		    m_body->dump_json());
 	}
+	[[nodiscard]] const Ident &get_ident() const
+	{
+		return m_ident;
+	}
+	[[nodiscard]] const IType *get_type() const override
+	{
+		return this;
+	}
+	[[nodiscard]] SrcRange range() const override
+	{
+		return m_range;
+	}
+	[[nodiscard]] Env     *env() const override { return m_env; }
+	[[nodiscard]] SrcRange get_src_range() const override
+	{
+		return this->range();
+	}
+
+	[[nodiscard]] const IType *get_return_type() const override
+	{
+		return m_return_type->get_type();
+	}
+	[[nodiscard]] size_t get_param_count() const override
+	{
+		return m_params.size();
+	}
+	[[nodiscard]] const IType *get_param_type(
+	    size_t i) const override
+	{
+		return m_params[i]->get_type();
+	}
+	[[nodiscard]] IFuncBody *get_body() const override
+	{
+		return m_body.get();
+	}
 	// todo: params 如果有默认值，可能还得check一下
-	// todo: return 必须check
+	// todo: body 里的 return 必须 check
 };
 
-struct MemberDecl
+struct StructBody : Block, Ast
 {
-	explicit MemberDecl(uptr<FuncDecl> func_decl);
-	explicit MemberDecl(uptr<VarDecl> var_decl);
+	using Block::Block;
 
-	FuncDecl *func_decl() const { return _func_decl.get(); }
-	VarDecl  *var_decl() const { return _var_decl.get(); }
-
-	std::string dump_json() const
+	[[nodiscard]] SrcRange range() const override
 	{
-		if (func_decl())
-			return func_decl()->dump_json();
-		if (var_decl())
-			return var_decl()->dump_json();
-		return "null";
+		return Block::range();
 	}
-
-	void check_type(TypeChecker *tc)
+	[[nodiscard]] Env *env() const override
 	{
-		if (func_decl())
-			func_decl()->check_type(tc);
-		else if (var_decl())
-			var_decl()->check_type(tc);
-		else
-			assert(false); // 没考虑这么多
+		return Block::env();
 	}
+	[[nodiscard]] std::string dump_json() const override
+	{
+		return Block::dump_json();
+	}
+};
 
+struct StructDecl : Decl
+{
 private:
-	uptr<FuncDecl> _func_decl;
-	uptr<VarDecl>  _var_decl;
-};
+	Env             *m_env;
+	uptr<StructBody> m_body;
+	SrcRange         m_range;
+	Ident            m_ident;
 
-struct StructBody : public Ast
-{
-	uptr<Env>                     env;
-	std::vector<uptr<MemberDecl>> elems;
-
-	StructBody(Env                          *enclosing_env,
-	           SrcRange                      range,
-	           uptr<Env>                     _env,
-	           std::vector<uptr<MemberDecl>> elems);
-
-	std::string dump_json() const override
-	{
-		return dump_json_for_vector_of_ptr(elems);
-	}
-
-	void check_type(TypeChecker *tc) override
-	{
-		for (auto &&elem : elems)
-		{
-			elem->check_type(tc);
-		}
-	}
-};
-
-struct StructDecl : public Decl
-{
-	uptr<StructBody> body;
-
+public:
 	StructDecl(Env             *env,
 	           const SrcRange  &range,
-	           const Ident     &ident,
+	           Ident ident,
 	           uptr<StructBody> body);
 
-	NamedType *add_to_env(const NamedEntityProperties &props,
-	                      Env *env) const;
-
-	std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() const override
 	{
-		return std::format(R"({{ "ident": {},  "body": {} }})",
-		                   ident.dump_json(),
-		                   body->dump_json());
+		return std::format(
+		    R"({{"obj":"StructDecl","ident":{},"body":{}}})",
+		    m_ident.dump_json(),
+		    m_body->dump_json());
 	}
-
-	void check_type(TypeChecker *) override;
+	[[nodiscard]] SrcRange range() const override
+	{
+		return m_range;
+	}
+	[[nodiscard]] Env *env() const override { return m_env; }
 };
 
 struct Program : public Ast
@@ -622,17 +611,11 @@ struct Program : public Ast
 
 	std::string dump_json() const
 	{
-		return std::format(R"({{ "decls":[ {} ] }})",
+		return std::format(R"({{"obj":"Program","decls":[{}]}})",
 		                   dump_json_for_vector_of_ptr(decls));
 	}
-
-	void check_type(TypeChecker *tc) override
-	{
-		for (auto &&decl : decls)
-		{
-			decl->check_type(tc);
-		}
-	}
+	SrcRange range() const override { return {}; }
+	Env     *env() const override { return root_env; }
 };
 } // namespace ast
 } // namespace protolang

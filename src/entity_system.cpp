@@ -4,10 +4,10 @@
 namespace protolang
 {
 //
-//IdentType::IdentType(NamedType *namedType)
+// IdentType::IdentType(NamedType *namedType)
 //    : named_type(namedType)
 //{}
-//bool IdentType::equal(const IType *_rhs) const
+// bool IdentType::equal(const IType *_rhs) const
 //{
 //	if (auto rhs = dynamic_cast<const IdentType *>(_rhs))
 //	{
@@ -15,23 +15,22 @@ namespace protolang
 //	}
 //	return false;
 //}
-//bool IdentType::can_accept(const IType *arg) const
+// bool IdentType::can_accept(const IType *arg) const
 //{
 //	return equal(arg);
 //}
-//std::string IdentType::full_name() const
+// std::string IdentType::full_name() const
 //{
 //	return named_type->ident.name;
 //}
 //
-//bool FuncType::equal(const IType *_rhs) const
+// bool FuncType::equal(const IType *_rhs) const
 //{
 //	if (auto rhs = dynamic_cast<const FuncType *>(_rhs))
 //	{
-//		return rhs->return_type->equal(this->return_type.get()) &&
-//		       all_equal<uptr<IType>>(
-//		           rhs->param_types,
-//		           this->param_types,
+//		return rhs->return_type->equal(this->return_type.get())
+//&& 		       all_equal<uptr<IType>>( rhs->param_types,
+// this->param_types,
 //		           [](const uptr<IType> &a, const uptr<IType> &b)
 //		           {
 //			           return a->equal(b.get());
@@ -39,11 +38,11 @@ namespace protolang
 //	}
 //	return false;
 //}
-//bool FuncType::can_accept(const IType *arg) const
+// bool FuncType::can_accept(const IType *arg) const
 //{
 //	return this->equal(arg);
 //}
-//std::string FuncType::full_name() const
+// std::string FuncType::full_name() const
 //{
 //	std::string param_list;
 //	for (auto &&p : param_types)
@@ -52,6 +51,21 @@ namespace protolang
 //		param_list += ",";
 //	}
 //	param_list.pop_back();
-//	return std::format("func({})->{}", param_list, return_type->full_name());
+//	return std::format("func({})->{}", param_list,
+// return_type->full_name());
 //}
+std::string IFuncType::get_type_name() const
+{
+	std::string param_list;
+	size_t      param_count = this->get_param_count();
+	for (size_t i = 0; i < param_count; i++)
+	{
+		param_list += get_param_type(i)->get_type_name();
+		param_list += ",";
+	}
+	param_list.pop_back();
+	return std::format("func({})->{}",
+	                   param_list,
+	                   get_return_type()->get_type_name());
+}
 } // namespace protolang

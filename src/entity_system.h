@@ -5,6 +5,7 @@
 #include "ident.h"
 #include "typedef.h"
 #include "util.h"
+
 namespace protolang
 {
 
@@ -21,8 +22,8 @@ struct IEntity : virtual IJsonDumper
 // 有类型
 struct ITyped : virtual IJsonDumper
 {
-	virtual ~ITyped()                       = default;
-	[[nodiscard]] virtual IType *get_type()const = 0;
+	virtual ~ITyped() = default;
+	[[nodiscard]] virtual const IType *get_type() const = 0;
 };
 
 // 类型
@@ -33,8 +34,8 @@ struct IType : IEntity
 	    const IType *) const                                = 0;
 	[[nodiscard]] virtual bool equal(const IType *) const   = 0;
 	[[nodiscard]] virtual std::string get_type_name() const = 0;
-	[[nodiscard]] virtual IEntity    *get_member(
-	       const std::string &)
+	[[nodiscard]] virtual const IEntity *get_member(
+	    const std::string &) const
 	{
 		return nullptr;
 	}
@@ -47,10 +48,42 @@ struct IVar : ITyped, IEntity
 
 struct IFuncType : IType
 {
-	[[nodiscard]] virtual IType *get_return_type() const = 0;
+	[[nodiscard]] virtual const IType *get_return_type()
+	    const                                            = 0;
 	[[nodiscard]] virtual size_t get_param_count() const = 0;
-	[[nodiscard]] virtual IType *get_param_type(
+	[[nodiscard]] virtual const IType *get_param_type(
 	    size_t) const = 0;
+
+	// === 实现 ITyped ===
+	[[nodiscard]] bool can_accept(
+	    const IType *other) const override
+	{
+		return this->equal(other);
+	}
+	[[nodiscard]] bool equal(const IType *other) const override
+	{
+		if (auto other_func =
+		        dynamic_cast<const IFuncType *>(other))
+		{
+			// 检查参数、返回值类型
+			if (this->get_param_count() !=
+			    other_func->get_param_count())
+				return false;
+			if (this->get_return_type()->equal(
+			        other_func->get_return_type()))
+				return false;
+			size_t param_count = get_param_count();
+			for (size_t i = 0; i < param_count; i++)
+			{
+				if (!this->get_param_type(i)->equal(
+				        other_func->get_param_type(i)))
+					return false;
+			}
+			return true;
+		}
+		return false;
+	}
+	[[nodiscard]] std::string get_type_name() const override;
 };
 
 struct IFunc : IFuncType, ITyped
