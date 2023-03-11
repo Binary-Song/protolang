@@ -205,9 +205,9 @@ protected:
 	}
 
 private:
-	Pos2D get_pos1() const { return {(u32)lineno() - 1, (u32)columno()}; }
+	SrcPos get_pos1() const { return {(u32)lineno() - 1, (u32)columno()}; }
 
-	Pos2D get_pos2() const
+	SrcPos get_pos2() const
 	{
 		return {(u32)lineno_end() - 1, (u32)columno_end()};
 	}

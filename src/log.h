@@ -31,17 +31,17 @@ enum class LogCode
 
 struct CodeRef
 {
-	Pos2D       first = {static_cast<u32>(-1), static_cast<u32>(-1)};
-	Pos2D       last  = {static_cast<u32>(-1), static_cast<u32>(-1)};
+	SrcPos first = {static_cast<u32>(-1), static_cast<u32>(-1)};
+	SrcPos last  = {static_cast<u32>(-1), static_cast<u32>(-1)};
 	std::string comment;
 
 	CodeRef() = default;
-	CodeRef(const Pos2DRange &range, std::string comment = "")
-	    : first(range.first)
-	    , last(range.last)
+	CodeRef(const SrcRange &range, std::string comment = "")
+	    : first(range.head)
+	    , last(range.tail)
 	    , comment(std::move(comment))
 	{}
-	CodeRef(const Pos2D &first, const Pos2D &last, std::string comment = "")
+	CodeRef(const SrcPos &first, const SrcPos &last, std::string comment = "")
 	    : first(first)
 	    , last(last)
 	    , comment(std::move(comment))
@@ -73,7 +73,7 @@ public:
 
 public:
 	Log() = default;
-	Log(const Pos2D &first, const Pos2D &last, std::string comment = "")
+	Log(const SrcPos &first, const SrcPos &last, std::string comment = "")
 	{
 		code_refs.push_back({first, last, comment});
 	}
@@ -91,12 +91,12 @@ class LogWithSymbol : public Log
 public:
 	std::string symbol;
 	explicit LogWithSymbol(Ident ident)
-	    : LogWithSymbol(ident.name, ident.location)
+	    : LogWithSymbol(ident.name, ident.range)
 	{}
-	explicit LogWithSymbol(std::string symbol, const Pos2DRange &location)
+	explicit LogWithSymbol(std::string symbol, const SrcRange &location)
 	    : symbol(std::move(symbol))
 	{
-		code_refs.push_back({location.first, location.last, ""});
+		code_refs.push_back({location.head, location.tail, ""});
 	}
 };
 
@@ -170,8 +170,8 @@ class ErrorSymbolRedefinition : public Log
 public:
 	std::string symbol;
 	ErrorSymbolRedefinition(std::string symbol,
-	                        Pos2DRange  first,
-	                        Pos2DRange  second)
+	                        SrcRange    first,
+	                        SrcRange    second)
 	    : symbol(std::move(symbol))
 	{
 		this->code_refs.emplace_back(second, "redefined here");
@@ -222,7 +222,7 @@ public:
 	explicit ErrorSymbolKindIncorrect(Ident       ident,
 	                                  std::string expected,
 	                                  std::string got)
-	    : LogWithSymbol(ident.name, ident.location)
+	    : LogWithSymbol(ident.name, ident.range)
 	    , expected(expected)
 	    , got(got)
 	{}
@@ -269,9 +269,9 @@ class ErrorTypeMismatch : public Log
 public:
 	std::string param_type, arg_type;
 	ErrorTypeMismatch(std::string arg_type,
-	                  Pos2DRange  arg_range,
+	                  SrcRange    arg_range,
 	                  std::string param_type,
-	                  Pos2DRange  param_range)
+	                  SrcRange    param_range)
 	    : param_type(param_type)
 	    , arg_type(arg_type)
 	{

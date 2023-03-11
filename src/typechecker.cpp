@@ -1,6 +1,6 @@
 #include "typechecker.h"
 #include "ast.h"
-#include "type.h"
+#include "entity_system.h"
 
 namespace protolang
 {
@@ -19,7 +19,7 @@ void TypeChecker::check()
 }
 
 bool TypeChecker::check_args(NamedFunc                 *func,
-                             const std::vector<Type *> &arg_types)
+                             const std::vector<IType *> &arg_types)
 {
 	if (func->params.size() != arg_types.size())
 		return false;
@@ -37,7 +37,7 @@ bool TypeChecker::check_args(NamedFunc                 *func,
 }
 
 NamedFunc *TypeChecker::overload_resolution(
-    Env *env, const Ident &func_ident, const std::vector<Type *> &arg_types)
+    Env *env, const Ident &func_ident, const std::vector<IType *> &arg_types)
 {
 	auto                     overloads = env->get_all(func_ident);
 	std::vector<NamedFunc *> fits;
@@ -75,13 +75,13 @@ void VarDecl::check_type(TypeChecker *tc)
 	if (!this->type->type(tc)->can_accept(this->init->type(tc)))
 	{
 		tc->logger.log(ErrorTypeMismatch(init->type(tc)->full_name(),
-		                                 Pos2DRange{},
+		                      SrcRange{},
 		                                 type->type(tc)->full_name(),
-		                                 Pos2DRange{}));
+		                      SrcRange{}));
 	}
 }
 
-uptr<Type> BinaryExpr::solve_type(TypeChecker *tc) const
+uptr<IType> BinaryExpr::solve_type(TypeChecker *tc) const
 {
 	auto       lhs_type = this->left->get_type(tc);
 	auto       rhs_type = this->right->get_type(tc);
@@ -89,14 +89,15 @@ uptr<Type> BinaryExpr::solve_type(TypeChecker *tc) const
 	return func->return_type->get_type(tc)->clone();
 }
 
-uptr<Type> UnaryExpr::solve_type(TypeChecker *tc) const
+
+uptr<IType> UnaryExpr::solve_type(TypeChecker *tc) const
 {
 	auto       operand_type = this->operand->get_type(tc);
 	NamedFunc *func         = tc->overload_resolution(env, op, {operand_type});
 	return func->return_type->get_type(tc)->clone();
 }
 
-uptr<Type> CallExpr::solve_type(TypeChecker *tc) const
+uptr<IType> CallExpr::solve_type(TypeChecker *tc) const
 {
 	// non-member call: func(1,2,3)
 	// member call:
@@ -133,19 +134,20 @@ uptr<Type> CallExpr::solve_type(TypeChecker *tc) const
 	}
 }
 
-uptr<Type> MemberAccessExpr::solve_type(TypeChecker *) const
+uptr<IType> MemberAccessExpr::solve_type(TypeChecker *) const
 {
 	NamedType *type = this->env->get_one<NamedType>(ident);
 	return std::make_unique<IdentType>(type);
 }
 
-uptr<Type> IdentTypeExpr::solve_type(TypeChecker *) const
+uptr<IType> IdentTypeExpr::solve_type(TypeChecker *) const
 {
-	NamedType *type = this->env->get_one<NamedType>(ident);
+	NamedType *type = this->env->get_one<NamedType>(m_ident);
 	return std::make_unique<IdentType>(type);
 }
 
-uptr<Type> LiteralExpr::solve_type(TypeChecker *tc)
+
+uptr<IType> LiteralExpr::solve_type(TypeChecker *tc)
 {
 	if (token.type == Token::Type::Int)
 	{
@@ -159,7 +161,7 @@ uptr<Type> LiteralExpr::solve_type(TypeChecker *tc)
 	return nullptr;
 }
 
-uptr<Type> IdentExpr::solve_type(TypeChecker *tc)
+uptr<IType> IdentExpr::solve_type(TypeChecker *tc)
 {
 	NamedEntity *entity = env->get_one(this->ident);
 	switch (entity->named_entity_type())

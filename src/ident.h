@@ -7,14 +7,14 @@ namespace protolang
 struct Ident
 {
 	std::string name;
-	Pos2DRange  location;
+	SrcRange    range;
 
 public:
 	Ident() {}
 
-	Ident(std::string name, const Pos2DRange &location)
+	Ident(std::string name, const SrcRange &location)
 	    : name(std::move(name))
-	    , location(location)
+	    , range(location)
 	{}
 	std::string dump_json() const { return '"' + name + '"'; }
 };

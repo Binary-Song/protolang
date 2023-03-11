@@ -18,15 +18,13 @@ term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
                | unary_post
-unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *     // 调用、下标
-member_access -> primary ( "." primary )*
-primary        → NUMBER | STRING | "true" | "false" | "nil"
-               | id
-               | "(" expression ")" ;
+unary_post     → member_access ( "(" args ")" | "[" arg "]" ) *
+// 调用、下标 member_access -> primary ( "." primary )* primary
+→ NUMBER | STRING | "true" | "false" | "nil" | id | "("
+expression ")" ;
 
-type_expr      -> "func" "(" type_expr "," type_expr "," ... ")" -> type_expr
-                | ident
-                | ident < type_expr [, type_expr ...] >
+type_expr      -> "func" "(" type_expr "," type_expr "," ... ")"
+-> type_expr | ident | ident < type_expr [, type_expr ...] >
 
  a.b().c()
  ===
@@ -36,20 +34,24 @@ namespace protolang
 {
 class Parser
 {
-public:
-	explicit Parser(std::vector<Token> tokens, Logger &logger)
-	    : tokens(std::move(tokens))
-	    , logger(logger)
-	{}
-
-	uptr<Program> parse() { return program(); }
-
+	// 数据
 private:
 	size_t             index = 0;
 	Logger            &logger;
 	std::vector<Token> tokens = {};
 	Env               *root_env;
 	Env               *curr_env = nullptr;
+
+public:
+	explicit Parser(Logger            &logger,
+	                std::vector<Token> tokens,
+	                Env               *root_env)
+	    : tokens(std::move(tokens))
+	    , logger(logger)
+	    , root_env(root_env)
+	{}
+
+	uptr<Program> parse() { return program(); }
 
 private:
 	const Token &curr() const { return tokens[index]; }
@@ -119,29 +121,44 @@ private:
 	 *
 	 * */
 
-	bool is_curr_eof() const { return curr().type == Token::Type::Eof; }
+	bool is_curr_eof() const
+	{
+		return curr().type == Token::Type::Eof;
+	}
 	bool is_curr_decl_keyword() const
 	{
 		if (curr().type != Token::Type::Keyword)
 			return false;
-		return (curr().int_data == KW_VAR || curr().int_data == KW_STRUCT ||
-		        curr().int_data == KW_CLASS || curr().int_data == KW_FUNC);
+		return (curr().int_data == KW_VAR ||
+		        curr().int_data == KW_STRUCT ||
+		        curr().int_data == KW_CLASS ||
+		        curr().int_data == KW_FUNC);
 	}
-	bool is_curr_of_type(Token::Type type) const { return curr().type == type; }
-	bool is_curr_keyword() const { return curr().type == Token::Type::Keyword; }
+	bool is_curr_of_type(Token::Type type) const
+	{
+		return curr().type == type;
+	}
+	bool is_curr_keyword() const
+	{
+		return curr().type == Token::Type::Keyword;
+	}
 	bool is_curr_keyword(Keyword kw) const
 	{
 		return is_curr_keyword() && curr().int_data == kw;
 	}
-	bool is_curr_ident() const { return curr().type == Token::Type::Id; }
+	bool is_curr_ident() const
+	{
+		return curr().type == Token::Type::Id;
+	}
 
-	const Token &eat_or_panic(std::function<bool(const Token &)> criteria,
-	                          const std::string                 &expected)
+	const Token &eat_or_panic(
+	    std::function<bool(const Token &)> criteria,
+	    const std::string                 &expected)
 	{
 		if (!criteria(curr()))
 		{
-			logger.log(
-			    ErrorUnexpectedToken(curr(), expected + " expected here."));
+			logger.log(ErrorUnexpectedToken(
+			    curr(), expected + " expected here."));
 			throw ExceptionPanic();
 		}
 		else
@@ -151,9 +168,10 @@ private:
 		}
 	}
 
-	const Token &eat_given_type_or_panic(Token::Type        type,
-	                                     const std::string &expected,
-	                                     bool               add_quotes = true)
+	const Token &eat_given_type_or_panic(
+	    Token::Type        type,
+	    const std::string &expected,
+	    bool               add_quotes = true)
 	{
 		if (add_quotes)
 			return eat_or_panic(
@@ -176,7 +194,8 @@ private:
 		return eat_or_panic(
 		    [op](const Token &token)
 		    {
-			    return token.type == Token::Type::Op && token.str_data == op;
+			    return token.type == Token::Type::Op &&
+			           token.str_data == op;
 		    },
 		    "`" + op + "`");
 	}
@@ -192,13 +211,16 @@ private:
 		    "`" + kw_map_rev(kw) + "`");
 	}
 
-	const Token &eat_ident_or_panic(const std::string &expected = "identifier")
+	const Token &eat_ident_or_panic(
+	    const std::string &expected = "identifier")
 	{
-		return eat_given_type_or_panic(Token::Type::Id, expected, false);
+		return eat_given_type_or_panic(
+		    Token::Type::Id, expected, false);
 	}
 
 	/// 看看curr是不是指定操作符之一。
-	bool eat_if_is_given_op(std::initializer_list<const char *> ops)
+	bool eat_if_is_given_op(
+	    std::initializer_list<const char *> ops)
 	{
 		return eat_if(
 		    [ops](const Token &token)
@@ -214,7 +236,8 @@ private:
 		    });
 	}
 
-	bool eat_if_is_given_type(std::initializer_list<Token::Type> types)
+	bool eat_if_is_given_type(
+	    std::initializer_list<Token::Type> types)
 	{
 		return eat_if(
 		    [types](const Token &token)
@@ -229,7 +252,8 @@ private:
 	}
 
 	/// 看看curr满不满足标准，如果criteria返回true，curr前进一步，返回true；否则，curr不变，返回false。
-	bool eat_if(const std::function<bool(const Token &)> &criteria)
+	bool eat_if(
+	    const std::function<bool(const Token &)> &criteria)
 	{
 		if (criteria(curr()))
 		{

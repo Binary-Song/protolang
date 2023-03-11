@@ -20,12 +20,12 @@ public:
 		root_env      = _program->root_env.get();
 	}
 	void check();
-	bool check_args(NamedFunc *func, const std::vector<Type *> &arg_types);
+	bool check_args(NamedFunc *func, const std::vector<IType *> &arg_types);
 	NamedFunc *overload_resolution(Env                       *env,
 	                               const Ident               &func,
-	                               const std::vector<Type *> &arg_types);
+	                               const std::vector<IType *> &arg_types);
 
-	Type *get_builtin_type(const std::string &name)
+	IType *get_builtin_type(const std::string &name)
 	{
 		return root_env->get_builtin_type(name, this);
 	}
