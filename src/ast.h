@@ -9,12 +9,18 @@
 #include "token.h"
 #include "util.h"
 
+namespace llvm
+{
+class Value;
+}
+
 namespace protolang
 {
 struct IType;
 class Env;
 class TypeChecker;
 class Logger;
+class CodeGenerator;
 namespace ast
 {
 struct Ast : virtual IJsonDumper
@@ -306,6 +312,7 @@ public:
 	{
 		return m_token;
 	}
+	llvm::Value* codegen(CodeGenerator & g) const;
 };
 
 struct IdentExpr : public Expr

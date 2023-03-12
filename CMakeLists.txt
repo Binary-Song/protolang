@@ -25,6 +25,8 @@ set(REFLEX_ROOT "${REFLEX_INCLUDE_DIR}/..")
 find_program(REFLEX_EXECUTABLE_PATH NAMES "reflex" PATHS "${REFLEX_INCLUDE_DIR}/../bin/win32" DOC "reflex 程序的路径" REQUIRED)
 message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 
+# llvm:
+find_package(LLVM REQUIRED)
 
 # 创建target：Protolang
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
@@ -55,11 +57,12 @@ add_library(lexer STATIC "${REFLEX_OUT_CPP};${LEXER_SOURCE_FILES}")
 target_include_directories(lexer PUBLIC "${REFLEX_OUTPUT_DIR}" "${REFLEX_INCLUDE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 
 # link
-target_link_libraries(Protolang PUBLIC lexer)
-
-#target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt5::Widgets)
 set_standard_flags(${CMAKE_PROJECT_NAME})
-
+target_include_directories(Protolang PUBLIC ${LLVM_INCLUDE_DIRS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
+llvm_map_components_to_libnames(llvm_libs support core irreader)
+target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
 
 # Google test
 #set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

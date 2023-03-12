@@ -3,6 +3,7 @@
 #include "entity_system.h"
 #include "env.h"
 #include "logger.h"
+
 namespace protolang
 {
 namespace ast
@@ -134,6 +135,7 @@ const IType *LiteralExpr::get_type() const
 	assert(false); // 没有这种literal
 	return nullptr;
 }
+
 
 // === IdentExpr ===
 const IType *IdentExpr::get_type() const
