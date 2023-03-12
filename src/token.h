@@ -43,7 +43,7 @@ static SrcRange range_union(const SrcRange &first,
 	                std::max(first.tail, second.tail)};
 }
 
-static SrcRange operator+(const SrcRange &first,
+static inline SrcRange operator+(const SrcRange &first,
                           const SrcRange &second)
 {
 	return range_union(first, second);

@@ -1,4 +1,5 @@
 #pragma once
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -51,11 +52,17 @@ public:
 	    , root_env(root_env)
 	{}
 
-	uptr<Program> parse() { return program(); }
+	uptr<ast::Program> parse() { return program(); }
 
 private:
-	const Token &curr() const { return tokens[index]; }
-	const Token &prev() const { return tokens[index - 1]; }
+	[[nodiscard]] const Token &curr() const
+	{
+		return tokens[index];
+	}
+	[[nodiscard]] const Token &prev() const
+	{
+		return tokens[index - 1];
+	}
 
 	void sync()
 	{
@@ -70,46 +77,26 @@ private:
 		}
 	}
 
-	uptr<Program> program();
-
-	uptr<Decl> declaration();
-
-	uptr<TypeExpr> type_expr();
-
-	uptr<VarDecl> var_decl();
-
-	uptr<FuncDecl> func_decl();
-
-	uptr<StructDecl> struct_decl();
-
-	uptr<Stmt> statement();
-
-	uptr<ExprStmt> expression_statement();
-
-	uptr<CompoundStmt> compound_statement();
-
-	uptr<StructBody> struct_body();
-
-	uptr<Expr> expression();
-
-	uptr<Expr> assignment();
-
-	uptr<Expr> equality();
-
-	uptr<Expr> comparison();
-
-	uptr<Expr> term();
-
-	uptr<Expr> factor();
-
-	uptr<Expr> unary_pre();
-
-	uptr<Expr> unary_post();
-
-	uptr<Expr> member_access();
-
-	uptr<Expr> primary();
-
+	[[nodiscard]] uptr<ast::Program>      program();
+	[[nodiscard]] uptr<ast::Decl>         declaration();
+	[[nodiscard]] uptr<ast::TypeExpr>     type_expr();
+	[[nodiscard]] uptr<ast::VarDecl>      var_decl();
+	[[nodiscard]] uptr<ast::FuncDecl>     func_decl();
+	[[nodiscard]] uptr<ast::StructDecl>   struct_decl();
+	[[nodiscard]] uptr<ast::Stmt>         statement();
+	[[nodiscard]] uptr<ast::ExprStmt>     expression_statement();
+	[[nodiscard]] uptr<ast::CompoundStmt> compound_statement();
+	[[nodiscard]] uptr<ast::StructBody>   struct_body();
+	[[nodiscard]] uptr<ast::Expr>         expression();
+	[[nodiscard]] uptr<ast::Expr>         assignment();
+	[[nodiscard]] uptr<ast::Expr>         equality();
+	[[nodiscard]] uptr<ast::Expr>         comparison();
+	[[nodiscard]] uptr<ast::Expr>         term();
+	[[nodiscard]] uptr<ast::Expr>         factor();
+	[[nodiscard]] uptr<ast::Expr>         unary_pre();
+	[[nodiscard]] uptr<ast::Expr>         unary_post();
+	[[nodiscard]] uptr<ast::Expr>         member_access();
+	[[nodiscard]] uptr<ast::Expr>         primary();
 	/*
 	 *
 	 *
@@ -120,6 +107,14 @@ private:
 	 *
 	 *
 	 * */
+
+	// 解析一个块，T为具体是什么块，elem_handler用来解析块中的一条语句
+	// (不同的块对块中的语句可能有不同的要求)
+	template <typename T>
+	    requires(std::derived_from<T, ast::Block>)
+	[[nodiscard]] uptr<T> block(
+	    std::function<void(std::unique_ptr<T> &_blk)>
+	        elem_handler);
 
 	bool is_curr_eof() const
 	{

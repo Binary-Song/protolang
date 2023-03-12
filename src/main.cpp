@@ -1,17 +1,18 @@
 #include <fstream>
+#include "env.h"
 #include "lexer.h"
 #include "logger.h"
 #include "parser.h"
 #include "source_code.h"
 #include "token.h"
-#include "typechecker.h"
 int main()
 {
-
 	try
 	{
-		std::string file_name        = __FILE__ R"(\..\..\test\test3.ptl)";
-		std::string output_file_name = __FILE__ R"(\..\..\test\.dump.json)";
+		std::string file_name =
+		    __FILE__ R"(\..\..\test\test3.ptl)";
+		std::string output_file_name =
+		    __FILE__ R"(\..\..\test\.dump.json)";
 
 		std::ifstream         f(file_name);
 		bool                  file_good = f.good();
@@ -20,20 +21,21 @@ int main()
 		protolang::Lexer      lexer(src, logger);
 
 		if (!file_good)
-			logger.log(protolang::FatalFileError(file_name, 'r'));
+			logger.log(
+			    protolang::FatalFileError(file_name, 'r'));
 
 		std::vector<protolang::Token> tokens = lexer.scan();
 		if (tokens.empty())
 			return 1;
 
-		protolang::Parser parser(tokens, logger);
+		auto root_env = protolang::Env::create(logger);
+		protolang::Parser parser(logger, tokens, root_env.get());
 		auto              prog = parser.parse();
 		if (!prog)
 			return 1;
-
-		protolang::TypeChecker type_checker{logger};
-		type_checker.set_program(prog.get());
-		type_checker.check();
+		std::ofstream(output_file_name)
+		    << prog->dump_json() << "\n"
+		    << root_env->dump_json() << "\n";
 	}
 	catch (protolang::ExceptionFatalError error)
 	{
@@ -101,6 +103,7 @@ int main()
 //	qDebug() << "lst" << i;
 //	for (int j = 0; j < listOut[i].size(); j++)
 //	{
-//		qDebug() << "	" << listOut[i][j].m_changes << listOut[i][j].m_time;
+//		qDebug() << "	" << listOut[i][j].m_changes <<
+// listOut[i][j].m_time;
 //	}
 //}

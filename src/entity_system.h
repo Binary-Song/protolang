@@ -16,7 +16,6 @@ struct IFuncBody;
 struct IEntity : virtual IJsonDumper
 {
 	virtual ~IEntity() = default;
-	[[nodiscard]] virtual SrcRange get_src_range() const = 0;
 };
 
 // 有类型
@@ -54,7 +53,7 @@ struct IFuncType : IType
 	[[nodiscard]] virtual const IType *get_param_type(
 	    size_t) const = 0;
 
-	// === 实现 ITyped ===
+	// === 实现 IType  ===
 	[[nodiscard]] bool can_accept(
 	    const IType *other) const override
 	{
@@ -88,12 +87,16 @@ struct IFuncType : IType
 
 struct IFunc : IFuncType, ITyped
 {
-	[[nodiscard]] virtual IFuncBody *get_body() const = 0;
+	[[nodiscard]] virtual const IFuncBody *get_body() const = 0;
+
+	// 重写 ITyped
+	[[nodiscard]] const IType *get_type() const override
+	{
+		return this;
+	}
 };
 
 struct IFuncBody
-{
-	virtual ~IFuncBody() = default;
-};
+{};
 
 } // namespace protolang

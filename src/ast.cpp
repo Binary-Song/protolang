@@ -1,9 +1,10 @@
-#include "ast.h"
-
 #include <utility>
+#include "ast.h"
 #include "entity_system.h"
 #include "env.h"
+#include "logger.h"
 #include "named_entity.h"
+
 namespace protolang
 {
 namespace ast
@@ -111,8 +112,7 @@ const IType *MemberAccessExpr::get_type() const
 		}
 	}
 	env()->logger.log(
-	    ErrorNoMember(member_entity->get_src_range(),
-	                  m_left->get_type()->get_type_name()));
+	    ErrorNoMember({}, m_left->get_type()->get_type_name()));
 	throw ExceptionPanic();
 }
 
@@ -192,22 +192,34 @@ FuncDecl::FuncDecl(Env                         *env,
 
 StructDecl::StructDecl(Env             *env,
                        const SrcRange  &range,
-                       Ident ident,
+                       Ident            ident,
                        uptr<StructBody> body)
     : m_env(env)
     , m_range(range)
     , m_ident(std::move(ident))
     , m_body(std::move(body))
 {}
+bool StructDecl::can_accept(const IType *other) const
+{
+	return this->equal(other);
+}
+bool StructDecl::equal(const IType *other) const
+{
+	return this == dynamic_cast<const StructDecl *>(other);
+}
+std::string StructDecl::get_type_name() const
+{
+	return m_ident.name;
+}
 
 Env *Ast::root_env() const
 {
 	return env()->get_root();
 }
 
-Program::Program(std::vector<uptr<Decl>> decls, Env *root_env)
+Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     : decls(std::move(decls))
-    , root_env(root_env)
+    , root_env(Env::create(logger))
 {}
 } // namespace ast
 } // namespace protolang

@@ -8,12 +8,13 @@
 #include "ident.h"
 #include "token.h"
 #include "util.h"
+
 namespace protolang
 {
 struct IType;
 class Env;
 class TypeChecker;
-
+class Logger;
 namespace ast
 {
 struct Ast : virtual IJsonDumper
@@ -381,10 +382,7 @@ private:
 	uptr<TypeExpr> m_type; // 注意，它的env在函数外部
 
 public:
-	ParamDecl(Env           *env,
-	          Ident          ident,
-	          uptr<TypeExpr> type,
-	          uptr<Expr>     init)
+	ParamDecl(Env *env, Ident ident, uptr<TypeExpr> type)
 	    : m_env(env)
 	    , m_ident(std::move(ident))
 	    , m_type(std::move(type))
@@ -469,6 +467,14 @@ public:
 	{
 		return m_elems;
 	};
+	[[nodiscard]] void add_elem(uptr<Ast> e)
+	{
+		m_elems.push_back(std::move(e));
+	}
+	[[nodiscard]] void set_range(const SrcRange &range)
+	{
+		this->m_range = range;
+	}
 };
 
 struct CompoundStmt : Block, Stmt, IFuncBody
@@ -528,11 +534,7 @@ public:
 	{
 		return m_range;
 	}
-	[[nodiscard]] Env     *env() const override { return m_env; }
-	[[nodiscard]] SrcRange get_src_range() const override
-	{
-		return this->range();
-	}
+	[[nodiscard]] Env *env() const override { return m_env; }
 
 	[[nodiscard]] const IType *get_return_type() const override
 	{
@@ -573,7 +575,7 @@ struct StructBody : Block, Ast
 	}
 };
 
-struct StructDecl : Decl
+struct StructDecl : Decl, IType
 {
 private:
 	Env             *m_env;
@@ -584,7 +586,7 @@ private:
 public:
 	StructDecl(Env             *env,
 	           const SrcRange  &range,
-	           Ident ident,
+	           Ident            ident,
 	           uptr<StructBody> body);
 
 	[[nodiscard]] std::string dump_json() const override
@@ -599,15 +601,18 @@ public:
 		return m_range;
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
+	bool        can_accept(const IType *iType) const override;
+	bool        equal(const IType *iType) const override;
+	std::string get_type_name() const override;
 };
 
 struct Program : public Ast
 {
 	std::vector<uptr<Decl>> decls;
-	Env                    *root_env;
+	uptr<Env>               root_env;
 
 	explicit Program(std::vector<uptr<Decl>> decls,
-	                 Env                    *root_env);
+	                 Logger                 &logger);
 
 	std::string dump_json() const
 	{
@@ -615,7 +620,7 @@ struct Program : public Ast
 		                   dump_json_for_vector_of_ptr(decls));
 	}
 	SrcRange range() const override { return {}; }
-	Env     *env() const override { return root_env; }
+	Env     *env() const override { return root_env.get(); }
 };
 } // namespace ast
 } // namespace protolang
