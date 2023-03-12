@@ -148,18 +148,14 @@ std::vector<IEntity *> Env::get_all(const Ident &ident) const
 std::string Env::dump_json() const
 {
 	std::vector<IEntity *> vals;
-	for (auto &&kv : m_symbol_table)
+	for (auto &&[_, value] : m_symbol_table)
 	{
-		vals.push_back(kv.second);
+		vals.push_back(value);
 	}
-	if (m_parent)
-		return std::format(
-		    R"({{"obj":"Env","this":{},"parent":{}}})",
-		    dump_json_for_vector_of_ptr(vals),
-		    m_parent->dump_json());
-	else
-		return std::format(R"({{ "this": {} }})",
-		                   dump_json_for_vector_of_ptr(vals));
+	return std::format(
+	    R"({{"obj":"Env","this":{},"sub":{}}})",
+	    dump_json_for_vector_of_ptr(vals),
+	    dump_json_for_vector_of_ptr(this->m_subenvs));
 }
 
 void Env::add_built_in_facility()
@@ -168,8 +164,11 @@ void Env::add_built_in_facility()
 	// 要有int和float！
 	add_non_func("int", BuiltInInt::get_instance());
 	add_non_func("float", BuiltInFloat::get_instance());
+	add_non_func("double", BuiltInDouble::get_instance());
 	// 要有加法
-	add_func("+", make_uptr(new BuiltInIntAdd()));
+	add_func("+", make_uptr(new BuiltInAdd<BuiltInInt>()));
+	add_func("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
+	add_func("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
 }
 
 } // namespace protolang

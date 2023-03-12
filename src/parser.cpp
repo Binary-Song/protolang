@@ -337,8 +337,10 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	// 创建参数，在inner env里！
 	for (auto &&[ident, type_expr] : data)
 	{
-		params.push_back(std::make_unique<ast::ParamDecl>(
+		auto decl = make_uptr(new ast::ParamDecl(
 		    body->env_inner(), ident, std::move(type_expr)));
+		body->env_inner()->add_non_func(ident.name, decl.get());
+		params.push_back(std::move(decl));
 	}
 
 	auto decl = std::make_unique<ast::FuncDecl>(

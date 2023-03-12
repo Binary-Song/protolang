@@ -9,3 +9,4 @@ doc
 CMakeUserPresets.json
 .idea
 .*
+dump

@@ -99,4 +99,20 @@ struct IFunc : IFuncType, ITyped
 struct IFuncBody
 {};
 
+template <typename Data>
+struct Cache
+{
+private:
+	mutable uptr<Data> m_cache;
+	virtual void reevaluate_cache(uptr<Data> &result) const = 0;
+
+public:
+	Data *read_cache() const
+	{
+		if (m_cache == nullptr)
+			reevaluate_cache(m_cache);
+		return m_cache.get();
+	}
+};
+
 } // namespace protolang

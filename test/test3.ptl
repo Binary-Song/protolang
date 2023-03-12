@@ -1,7 +1,9 @@
-func a() -> void
+var a : int = 1.0;
+
+func a(p: int) -> int
 {
-    var b : Int = 1 + 2;
-    var c : Double = 1.1 + b;
-    var d : Double = e*3;
-    var e : Double = 4;
+    var b : double = 1.0 + 2.0;
+    var c : double = p + p;
+    var d : double = e;
+    var e : double = 4.0;
 }

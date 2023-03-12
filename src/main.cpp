@@ -12,7 +12,7 @@ int main()
 		std::string file_name =
 		    __FILE__ R"(\..\..\test\test3.ptl)";
 		std::string output_file_name =
-		    __FILE__ R"(\..\..\test\.dump.json)";
+		    __FILE__ R"(\..\..\dump\dump.json)";
 
 		std::ifstream         f(file_name);
 		bool                  file_good = f.good();
@@ -34,8 +34,15 @@ int main()
 		if (!prog)
 			return 1;
 		std::ofstream(output_file_name)
-		    << prog->dump_json() << "\n"
 		    << root_env->dump_json() << "\n";
+		try
+		{
+			prog->analyze_semantics();	
+		}
+		catch (const protolang::ExceptionPanic &)
+		{
+			return 1;
+		}
 	}
 	catch (protolang::ExceptionFatalError error)
 	{

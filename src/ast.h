@@ -25,9 +25,10 @@ public:
 
 	// 虚函数
 public:
-	virtual ~Ast()                               = default;
-	[[nodiscard]] virtual SrcRange range() const = 0;
-	[[nodiscard]] virtual Env     *env() const   = 0;
+	virtual ~Ast()                                     = default;
+	[[nodiscard]] virtual SrcRange range() const       = 0;
+	[[nodiscard]] virtual Env     *env() const         = 0;
+	virtual void                   analyze_semantics() = 0;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
@@ -58,6 +59,7 @@ public:
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
 	[[nodiscard]] const IType *get_type() const override;
+	void                       analyze_semantics() override;
 };
 
 // 表达式，抽象类
@@ -74,6 +76,11 @@ struct Expr : public Ast, public ITyped
 	[[nodiscard]] virtual ValueCat get_value_cat() const
 	{
 		return ValueCat::Pending;
+	}
+	// 表达式默认的语义检查方法是计算一次类型
+	void analyze_semantics() override
+	{
+		[[maybe_unused]] auto a = get_type();
 	}
 };
 
@@ -372,6 +379,7 @@ public:
 	{
 		return m_type->env();
 	}
+	void analyze_semantics() override;
 };
 
 struct ParamDecl : Decl, IVar
@@ -387,6 +395,7 @@ public:
 	    , m_ident(std::move(ident))
 	    , m_type(std::move(type))
 	{}
+
 	[[nodiscard]] const Ident &get_ident() const override
 	{
 		return m_ident;
@@ -407,6 +416,10 @@ public:
 		return m_ident.range + m_type->range();
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
+	void               analyze_semantics() override
+	{
+		this->m_type->analyze_semantics();
+	}
 };
 
 struct Stmt : public Ast
@@ -438,11 +451,15 @@ public:
 	{
 		return m_expr->env();
 	}
+	void analyze_semantics() override
+	{
+		m_expr->analyze_semantics();
+	}
 };
 
 struct Block
 {
-private:
+protected:
 	Env                   *m_outer_env;
 	Env                   *m_inner_env;
 	SrcRange               m_range;
@@ -475,6 +492,13 @@ public:
 	{
 		this->m_range = range;
 	}
+	void analyze_semantics()
+	{
+		for (auto &&elem : m_elems)
+		{
+			elem->analyze_semantics();
+		}
+	}
 };
 
 struct CompoundStmt : Block, Stmt, IFuncBody
@@ -492,6 +516,10 @@ struct CompoundStmt : Block, Stmt, IFuncBody
 	[[nodiscard]] std::string dump_json() const override
 	{
 		return Block::dump_json();
+	}
+	void analyze_semantics() override
+	{
+		Block::analyze_semantics();
 	}
 };
 
@@ -555,6 +583,15 @@ public:
 	}
 	// todo: params 如果有默认值，可能还得check一下
 	// todo: body 里的 return 必须 check
+	void analyze_semantics() override
+	{
+		for (auto &&p : m_params)
+		{
+			p->analyze_semantics();
+		}
+		m_return_type->analyze_semantics();
+		m_body->analyze_semantics();
+	}
 };
 
 struct StructBody : Block, Ast
@@ -572,6 +609,10 @@ struct StructBody : Block, Ast
 	[[nodiscard]] std::string dump_json() const override
 	{
 		return Block::dump_json();
+	}
+	void analyze_semantics() override
+	{
+		Block::analyze_semantics();
 	}
 };
 
@@ -604,23 +645,41 @@ public:
 	bool        can_accept(const IType *iType) const override;
 	bool        equal(const IType *iType) const override;
 	std::string get_type_name() const override;
+	void        analyze_semantics() override
+	{
+		m_body->analyze_semantics();
+	}
 };
 
 struct Program : public Ast
 {
-	std::vector<uptr<Decl>> decls;
-	uptr<Env>               root_env;
+private:
+	std::vector<uptr<Decl>> m_decls;
+	uptr<Env>               m_root_env;
 
+public:
 	explicit Program(std::vector<uptr<Decl>> decls,
 	                 Logger                 &logger);
 
 	std::string dump_json() const
 	{
 		return std::format(R"({{"obj":"Program","decls":[{}]}})",
-		                   dump_json_for_vector_of_ptr(decls));
+		                   dump_json_for_vector_of_ptr(m_decls));
 	}
 	SrcRange range() const override { return {}; }
-	Env     *env() const override { return root_env.get(); }
+	Env     *env() const override { return m_root_env.get(); }
+
+	const std::vector<uptr<Decl>> &get_decls() const
+	{
+		return m_decls;
+	}
+	void analyze_semantics() override
+	{
+		for (auto &&decl : m_decls)
+		{
+			decl->analyze_semantics();
+		}
+	}
 };
 } // namespace ast
 } // namespace protolang

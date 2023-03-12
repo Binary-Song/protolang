@@ -10,4 +10,6 @@ uptr<BuiltInInt> BuiltInInt::s_instance =
 uptr<BuiltInFloat> BuiltInFloat::s_instance =
     std::make_unique<BuiltInFloat>();
 
+uptr<BuiltInDouble> BuiltInDouble::s_instance =
+    std::make_unique<BuiltInDouble>();
 } // namespace protolang

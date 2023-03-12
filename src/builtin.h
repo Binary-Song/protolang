@@ -57,11 +57,36 @@ struct BuiltInFloat : IType
 		return R"({"obj":"BuiltInFloat"})";
 	}
 };
+struct BuiltInDouble : IType
+{
+	static uptr<BuiltInDouble> s_instance;
+	static BuiltInDouble      *get_instance()
+	{
+		return s_instance.get();
+	}
 
+	bool can_accept(const IType *other) const override
+	{
+		return equal(other);
+	}
+	bool equal(const IType *other) const override
+	{
+		return dynamic_cast<const BuiltInDouble *>(other);
+	}
+	std::string get_type_name() const override
+	{
+		return "double";
+	}
+	std::string dump_json() const override
+	{
+		return R"({"obj":"BuiltInDouble"})";
+	}
+};
 struct BuiltInFuncBody : IFuncBody
 {};
 
-struct BuiltInIntAdd : IFunc
+template<typename T>
+struct BuiltInAdd : IFunc
 {
 private:
 	BuiltInFuncBody body;
@@ -69,19 +94,20 @@ private:
 public:
 	const IType *get_return_type() const override
 	{
-		return BuiltInInt::get_instance();
+		return T::get_instance();
 	}
 	size_t       get_param_count() const override { return 2; }
 	const IType *get_param_type(size_t  ) const override
 	{
-		return BuiltInInt::get_instance();
+		return T::get_instance();
 	}
 	const IFuncBody *get_body() const override { return &body; }
 	std::string      dump_json() const override
 	{
-		return R"({"obj":"BuiltInIntAdd"})";
+		return R"({"obj":"BuiltInAdd"})";
 	}
 };
+
 
 } // namespace protolang
 

@@ -104,7 +104,7 @@ public:
 		}
 		// 没有爹，哭
 		logger.log(
-		    ErrorUndefinedSymbol(ident.name, ident.range));
+		    ErrorUndefinedSymbol(ident.name, ident.range)); 
 		throw ExceptionPanic();
 	}
 

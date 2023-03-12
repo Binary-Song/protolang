@@ -3,8 +3,6 @@
 #include "entity_system.h"
 #include "env.h"
 #include "logger.h"
-#include "named_entity.h"
-
 namespace protolang
 {
 namespace ast
@@ -18,6 +16,10 @@ IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
 const IType *IdentTypeExpr::get_type() const
 {
 	return this->env()->get_one<IType>(ident());
+}
+void IdentTypeExpr::analyze_semantics()
+{
+	[[maybe_unused]] auto a = get_type();
 }
 
 // === BinaryExpr ===
@@ -165,16 +167,20 @@ Block::Block(Env                   *outer_env,
 	m_inner_env = Env::create(outer_env, outer_env->logger);
 }
 
-// std::vector<IType *> CallExpr::arg_types(TypeChecker *tc)
-// const
-//{
-//	std::vector<IType *> result;
-//	for (auto &&arg : args)
-//	{
-//		result.push_back(arg->get_type(tc));
-//	}
-//	return result;
-// }
+void VarDecl::analyze_semantics()
+{
+	auto init_type = m_init->get_type();
+	auto var_type  = m_type->get_type();
+	if (!var_type->can_accept(init_type))
+	{
+		env()->logger.log(
+		    ErrorTypeMismatch(init_type->get_type_name(),
+		                      m_init->range(),
+		                      var_type->get_type_name(),
+		                      m_type->range()));
+		throw ExceptionPanic();
+	}
+}
 
 FuncDecl::FuncDecl(Env                         *env,
                    SrcRange                     range,
@@ -218,8 +224,9 @@ Env *Ast::root_env() const
 }
 
 Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
-    : decls(std::move(decls))
-    , root_env(Env::create(logger))
+    : m_decls(std::move(decls))
+    , m_root_env(Env::create(logger))
 {}
+
 } // namespace ast
 } // namespace protolang
