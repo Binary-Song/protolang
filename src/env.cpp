@@ -44,12 +44,11 @@ IFunc *Env::overload_resolution(
     const Ident                      &func_ident,
     const std::vector<const IType *> &arg_types)
 {
-	auto                 overloads = get_all(func_ident);
+	auto                 overloads = get_overloads(func_ident);
 	std::vector<IFunc *> fits;
 	for (auto &&entity : overloads)
 	{
-		assert(dynamic_cast<IFunc *>(entity));
-		IFunc *func = dynamic_cast<IFunc *>(entity);
+		IFunc *func = entity;
 		if (check_args(func, arg_types))
 		{
 			fits.push_back(func);
@@ -127,19 +126,20 @@ void Env::add_func(const std::string &name, IFunc *func)
 	m_entities.push_back(func); // 不可早move!
 }
 
-std::vector<IEntity *> Env::get_all(const Ident &ident) const
+std::vector<IFunc *> Env::get_overloads(const Ident &ident) const
 {
-	std::vector<IEntity *> result;
-	std::string            name = ident.name;
-	auto [begin, end] = m_symbol_table.equal_range(name);
+	std::vector<IFunc *> result;
+	std::string          name = ident.name;
+	auto [begin, end]         = m_symbol_table.equal_range(name);
 	for (auto iter = begin; iter != end; ++iter)
 	{
-		result.push_back(iter->second);
+		assert(dynamic_cast<IFunc *>(iter->second));
+		result.push_back(dynamic_cast<IFunc *>(iter->second));
 	}
 	// 如果有爹，加上爹的
 	if (m_parent)
 	{
-		auto parents = m_parent->get_all(ident);
+		auto parents = m_parent->get_overloads(ident);
 		result.insert(
 		    result.end(), parents.begin(), parents.end());
 	}

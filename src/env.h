@@ -65,6 +65,7 @@ public:
 	}
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
+	/// fixme: 不但要找到，还要找全
 	template <typename T = IEntity>
 	    requires std::derived_from<T, IEntity>
 	T *get_one(const Ident &ident) const
@@ -108,9 +109,11 @@ public:
 		throw ExceptionPanic();
 	}
 
-	/// 返回标识符对应的所有实体，包括子级和父级中所有同名实体
-	[[nodiscard]] std::vector<IEntity *> get_all(
+	/// 返回标识符对应的所有实体，包括子级和父级中所有同名函数
+	[[nodiscard]] std::vector<IFunc *> get_overloads(
 	    const Ident &ident) const;
+
+	[[nodiscard]] std::vector<IEntity*> search();
 
 	IFunc *overload_resolution(
 	    const Ident                      &func_ident,

@@ -136,13 +136,22 @@ const IType *LiteralExpr::get_type() const
 	return nullptr;
 }
 
-
 // === IdentExpr ===
 const IType *IdentExpr::get_type() const
 {
-	 	throw ExceptionPanic();
+	// 任何符号在env中都有四种状态：
+	// 0, var*1, func*1, func*n
+
+	throw ExceptionPanic();
 }
 
+void IdentExpr::set_type(IType *t) const
+{
+	assert(m_type == nullptr);
+	m_type = t;
+}
+
+// === Block ===
 Block::Block(Env                   *outer_env,
              SrcRange               range,
              std::vector<uptr<Ast>> elems)

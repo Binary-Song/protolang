@@ -318,8 +318,9 @@ public:
 struct IdentExpr : public Expr
 {
 private:
-	Ident m_ident;
-	Env  *m_env;
+	Ident          m_ident;
+	Env           *m_env;
+	mutable IType *m_type = nullptr;
 
 public:
 	explicit IdentExpr(Env *env, Ident ident)
@@ -340,6 +341,7 @@ public:
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
 	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] void         set_type(IType *) const;
 	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g) const;
 };
 
