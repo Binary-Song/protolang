@@ -6,9 +6,15 @@
 #include "typedef.h"
 #include "util.h"
 
+namespace llvm
+{
+class Value;
+}
+
 namespace protolang
 {
 
+struct CodeGenerator;
 struct IType;
 struct IFuncBody;
 

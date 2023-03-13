@@ -140,23 +140,7 @@ const IType *LiteralExpr::get_type() const
 // === IdentExpr ===
 const IType *IdentExpr::get_type() const
 {
-	auto member_entity = env()->get_one(m_ident);
-	if (member_entity)
-	{
-		if (auto member_func =
-		        dynamic_cast<IFunc *>(member_entity))
-		{
-			return member_func->get_type();
-		}
-		else if (auto member_var =
-		             dynamic_cast<IVar *>(member_entity))
-		{
-			return member_var->get_type();
-		}
-	}
-	env()->logger.log(
-	    ErrorSymbolKindIncorrect(m_ident, "non-type", "type"));
-	throw ExceptionPanic();
+	 	throw ExceptionPanic();
 }
 
 Block::Block(Env                   *outer_env,

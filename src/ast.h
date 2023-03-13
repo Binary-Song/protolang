@@ -312,7 +312,7 @@ public:
 	{
 		return m_token;
 	}
-	llvm::Value* codegen(CodeGenerator & g) const;
+	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g) const;
 };
 
 struct IdentExpr : public Expr
@@ -340,6 +340,7 @@ public:
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
 	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g) const;
 };
 
 struct Decl : Ast
