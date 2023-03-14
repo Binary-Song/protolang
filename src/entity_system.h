@@ -40,7 +40,7 @@ struct IType : IEntity
 	[[nodiscard]] virtual bool equal(const IType *) const   = 0;
 	[[nodiscard]] virtual std::string get_type_name() const = 0;
 	[[nodiscard]] virtual const IEntity *get_member(
-	    const std::string &) const
+	    const Ident &) const
 	{
 		return nullptr;
 	}

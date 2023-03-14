@@ -8,7 +8,6 @@ namespace protolang
 {
 namespace ast
 {
-
 // === IdentTypeExpr ===
 IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
     : m_ident(std::move(ident))
@@ -16,7 +15,7 @@ IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
 {}
 const IType *IdentTypeExpr::get_type() const
 {
-	return this->env()->get_one<IType>(ident());
+	return this->env()->get<IType>(ident());
 }
 void IdentTypeExpr::analyze_semantics()
 {
@@ -73,7 +72,10 @@ const IType *CallExpr::get_type() const
 	{
 		IFunc *func = env()->overload_resolution(
 		    ident_expr->ident(), arg_types());
-		return func->get_return_type();
+		auto return_type = func->get_return_type();
+		auto func_type   = func->get_type();
+		ident_expr->set_type(func_type);
+		return return_type;
 	}
 	// 否则，如果是函数指针等，不用重载决策直接调用
 	else if (auto func_type = dynamic_cast<const IFunc *>(
@@ -98,7 +100,7 @@ const IType *CallExpr::get_type() const
 const IType *MemberAccessExpr::get_type() const
 {
 	auto member_entity =
-	    m_left->get_type()->get_member(m_member.name);
+	    m_left->get_type()->get_member(m_member);
 	if (member_entity)
 	{
 		if (auto member_func =
@@ -124,12 +126,12 @@ const IType *LiteralExpr::get_type() const
 {
 	if (m_token.type == Token::Type::Int)
 	{
-		return root_env()->get_one<IType>(
+		return root_env()->get<IType>(
 		    Ident("int", m_token.range()));
 	}
 	else if (m_token.type == Token::Type::Fp)
 	{
-		return root_env()->get_one<IType>(
+		return root_env()->get<IType>(
 		    Ident("double", m_token.range()));
 	}
 	assert(false); // 没有这种literal
@@ -139,13 +141,24 @@ const IType *LiteralExpr::get_type() const
 // === IdentExpr ===
 const IType *IdentExpr::get_type() const
 {
-	// 任何符号在env中都有四种状态：
-	// 0, var*1, func*1, func*n
-
+	if (m_type) // 上层表达式负责写入
+		return m_type;
+	auto entity = env()->get(ident());
+	if (auto overloads = dynamic_cast<OverloadSet *>(entity))
+	{
+		// 如果标识符是重载集合，则需要上层表达式来帮忙决定type
+		env()->logger.log(ErrorAmbiguousSymbol(this->ident()));
+		throw ExceptionPanic();
+	}
+	if (auto typed = dynamic_cast<ITyped *>(entity))
+	{
+		return typed->get_type();
+	}
+	env()->logger.log(ErrorAmbiguousSymbol(this->ident()));
 	throw ExceptionPanic();
 }
 
-void IdentExpr::set_type(IType *t) const
+void IdentExpr::set_type(const IType *t) const
 {
 	assert(m_type == nullptr);
 	m_type = t;

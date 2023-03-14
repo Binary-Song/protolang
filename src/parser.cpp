@@ -23,7 +23,7 @@ uptr<ast::VarDecl> Parser::var_decl()
 	    new ast::VarDecl(Ident(name, name_token.range()),
 	                     std::move(type),
 	                     std::move(init)));
-	curr_env->add_non_func(name, decl.get());
+	curr_env->add(name, decl.get());
 	return decl;
 }
 
@@ -339,7 +339,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	{
 		auto decl = make_uptr(new ast::ParamDecl(
 		    body->env_inner(), ident, std::move(type_expr)));
-		body->env_inner()->add_non_func(ident.name, decl.get());
+		body->env_inner()->add(ident.name, decl.get());
 		params.push_back(std::move(decl));
 	}
 
@@ -352,7 +352,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	    std::move(return_type),
 	    std::move(body));
 
-	curr_env->add_func(func_name, decl.get());
+	curr_env->add(func_name, decl.get());
 	//	uptr<NamedFunc> named_func = uptr<NamedFunc>(
 	//	    dynamic_cast<NamedFunc
 	//*>(decl->declare(props).release()));
@@ -372,8 +372,7 @@ uptr<ast::StructDecl> Parser::struct_decl()
         Ident{struct_name_token.str_data,
               struct_name_token.range()},
         std::move(body));
-	curr_env->add_non_func(struct_name_token.str_data,
-	                       decl.get());
+	curr_env->add(struct_name_token.str_data, decl.get());
 	return decl;
 }
 

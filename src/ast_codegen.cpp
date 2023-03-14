@@ -1,11 +1,11 @@
 #include <llvm/ADT/APFloat.h>
 #include "ast.h"
 #include "code_generator.h"
+#include "exceptions.h"
 namespace protolang
 {
 namespace ast
 {
-
 llvm::Value *LiteralExpr::codegen(CodeGenerator &g) const
 {
 	if (m_token.type == Token::Type::Fp)
