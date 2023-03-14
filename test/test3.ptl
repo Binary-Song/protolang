@@ -3,9 +3,9 @@ func a(p: int) -> int
 {
 
 }
-func a(p: double, q: int) -> int
+func a(p: double, q: int) -> double
 {
-    a(0);
-    a(0,0.0);
-    a();
+    a(p);
+    a(p,q);
+        a(q);
 }

@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "code_generator.h"
 #include "exceptions.h"
+#include "env.h"
 namespace protolang
 {
 namespace ast
@@ -20,6 +21,9 @@ llvm::Value *LiteralExpr::codegen(CodeGenerator &g) const
 }
 llvm::Value *IdentExpr::codegen(CodeGenerator & ) const
 {
+	// 变量：引用变量的值，未定义就报错
+	// 函数：用到就生成，小心递归
+	// todo: 实现具名变量引用
 	throw ExceptionNotImplemented{};
 }
 } // namespace ast

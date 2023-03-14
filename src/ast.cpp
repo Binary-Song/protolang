@@ -242,8 +242,10 @@ Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
 void Expr::analyze_semantics()
 {
 	[[maybe_unused]] auto a = get_type();
-	env()->logger.print_code_ref(
-	    CodeRef{range(), a->get_type_name()});
+	//[[maybe_unused]] auto a = get_type();
+	//[[maybe_unused]] auto b = range();
+	//env()->logger.print_code_ref(
+	//    CodeRef{range(), a->get_type_name()});
 }
 
 } // namespace ast

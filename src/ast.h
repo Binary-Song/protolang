@@ -177,7 +177,7 @@ struct CallExpr : public Expr
 private:
 	uptr<Expr>              m_callee;
 	std::vector<uptr<Expr>> m_args;
-	const SrcRange         &m_src_rng;
+	SrcRange                m_src_rng;
 
 public:
 	CallExpr(const SrcRange         &src_rng,

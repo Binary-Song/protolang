@@ -1,5 +1,11 @@
-12  898945564443 0x241 0.123  0
-// commmmmmmmmmmmmmmmmmmmmmmmmmmmmment
-var myvar func my/* /*func*/ */+ >==> ++1
-test 　// MY COMMENT!　
-　
+func a(p: double) -> double {}
+func a(p: int) -> int
+{
+
+}
+func a(p: double, q: int) -> int
+{
+    a(0);
+    a(0.0,1);
+    a(1.0);
+}
