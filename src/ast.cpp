@@ -236,5 +236,15 @@ Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     , m_root_env(Env::create(logger))
 {}
 
+
+// 表达式默认的语义检查方法是计算一次类型
+
+void Expr::analyze_semantics()
+{
+	[[maybe_unused]] auto a = get_type();
+	env()->logger.print_code_ref(
+	    CodeRef{range(), a->get_type_name()});
+}
+
 } // namespace ast
 } // namespace protolang

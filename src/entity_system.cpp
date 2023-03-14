@@ -18,13 +18,4 @@ std::string IFuncType::get_type_name() const
 	                   get_return_type()->get_type_name());
 }
 
-llvm::Value *IType::codegen()
-{
-	throw ExceptionNotImplemented();
-}
-
-llvm::Value *IVar::codegen()
-{
-	throw ExceptionNotImplemented();
-}
 } // namespace protolang

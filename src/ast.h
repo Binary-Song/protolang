@@ -19,7 +19,7 @@ namespace protolang
 struct IType;
 class Env;
 class Logger;
-class CodeGenerator;
+struct CodeGenerator;
 namespace ast
 {
 struct Ast : virtual IJsonDumper
@@ -83,10 +83,7 @@ struct Expr : public Ast, public ITyped
 		return ValueCat::Pending;
 	}
 	// 表达式默认的语义检查方法是计算一次类型
-	void analyze_semantics() override
-	{
-		[[maybe_unused]] auto a = get_type();
-	}
+	void analyze_semantics() override;
 };
 
 // 二元运算表达式

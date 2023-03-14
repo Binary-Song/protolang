@@ -49,11 +49,13 @@ public:
 
 	void print(const Token &token)
 	{
-		out << "[" << token.first_pos.row << ":" << token.first_pos.column
-		    << "~" << token.last_pos.row << ":" << token.last_pos.column
+		out << "[" << token.first_pos.row << ":"
+		    << token.first_pos.column << "~"
+		    << token.last_pos.row << ":" << token.last_pos.column
 		    << "] T=" << (int)token.type << "\n";
 		print_code_ref({token.first_pos, token.last_pos});
 	}
+ 
 
 	void print_code_ref(const CodeRef &ref)
 	{
@@ -73,10 +75,11 @@ public:
 		for (std::size_t i = start.row; i <= end.row; i++)
 		{
 			std::string _this_line = src.lines[i];
-			std::string this_line(_this_line.begin(), _this_line.end() - 1);
+			std::string this_line(_this_line.begin(),
+			                      _this_line.end() - 1);
 
-			out << std::setw(lineno_width) << i + 1 << " | " << this_line
-			    << "\n";
+			out << std::setw(lineno_width) << i + 1 << " | "
+			    << this_line << "\n";
 
 			// 决定当前行下划线的位置和长度
 			std::size_t underline_begin = lineno_width + 3;

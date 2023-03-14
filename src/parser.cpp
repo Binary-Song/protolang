@@ -171,7 +171,7 @@ uptr<ast::Expr> Parser::unary_pre()
 }
 uptr<ast::Expr> Parser::unary_post()
 {
-	uptr<ast::Expr> operand = member_access();
+	uptr<ast::Expr> lhs = member_access();
 	// matrix[1][2](arg1, arg2)
 	while (eat_if_is_given_type(
 	    {Token::Type::LeftParen, Token::Type::LeftBracket}))
@@ -199,20 +199,21 @@ uptr<ast::Expr> Parser::unary_post()
 		// 吃掉右括号
 		auto right_bound = eat_given_type_or_panic(
 		    rightDelim, isCall ? ")" : "]");
+
+		auto range =
+		    range_union(lhs->range(), right_bound.range());
 		if (isCall)
-			operand = uptr<ast::Expr>(new ast::CallExpr(
-			    range_union(operand->range(),
-			                right_bound.range()),
-			    std::move(operand),
-			    std::move(args)));
+		{
+			lhs = uptr<ast::Expr>(new ast::CallExpr(
+			    range, std::move(lhs), std::move(args)));
+		}
 		else
-			operand = uptr<ast::Expr>(new ast::BracketExpr(
-			    range_union(operand->range(),
-			                right_bound.range()),
-			    std::move(operand),
-			    std::move(args)));
+		{
+			lhs = uptr<ast::Expr>(new ast::BracketExpr(
+			    range, std::move(lhs), std::move(args)));
+		}
 	}
-	return operand;
+	return lhs;
 }
 uptr<ast::Expr> Parser::member_access()
 {

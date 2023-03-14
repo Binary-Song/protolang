@@ -18,7 +18,7 @@ llvm::Value *LiteralExpr::codegen(CodeGenerator &g) const
 	else
 		throw ExceptionNotImplemented{};
 }
-llvm::Value *IdentExpr::codegen(CodeGenerator &g) const
+llvm::Value *IdentExpr::codegen(CodeGenerator & ) const
 {
 	throw ExceptionNotImplemented{};
 }

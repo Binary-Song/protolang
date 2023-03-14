@@ -1,9 +1,11 @@
-var a : int = 1.0;
-
+func a(p: double) -> double {}
 func a(p: int) -> int
 {
-    var b : double = 1.0 + 2.0;
-    var c : double = p + p;
-    var d : double = e;
-    var e : double = 4.0;
+
+}
+func a(p: double, q: int) -> int
+{
+    a(0);
+    a(0,0.0);
+    a();
 }

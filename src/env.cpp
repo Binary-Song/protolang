@@ -157,11 +157,30 @@ OverloadSetIterator OverloadSet::end()
 {
 	return {};
 }
+OverloadSetConstIterator OverloadSet::begin() const
+{
+	return OverloadSetConstIterator{m_funcs.begin(), this};
+}
+OverloadSetConstIterator OverloadSet::end() const
+{
+	return {};
+}
+
+OverloadSetConstIterator OverloadSet::cbegin() const
+{
+	return OverloadSetConstIterator{m_funcs.begin(), this};
+}
+OverloadSetConstIterator OverloadSet::cend() const
+{
+	return {};
+}
+
 std::string OverloadSet::dump_json() const
 {
 	std::vector<const IFunc *> all;
-	for (auto &&f : *this)
+	for (auto iter = begin(); iter != end(); ++iter)
 	{
+		auto f = *iter;
 		all.push_back(f);
 	}
 	return std::format(R"({{"obj":"OverloadSet","funcs":{}}})",
@@ -173,6 +192,7 @@ std::string OverloadSet::dump_json() const
  *                  OVERLOAD SET ITER
  *
  * */
+
 OverloadSetIterator::OverloadSetIterator(
     std::vector<IFunc *>::iterator iter, OverloadSet *curr)
     : m_iter(iter)
@@ -217,7 +237,7 @@ bool OverloadSetIterator::operator==(
 {
 	if (is_end && iter.is_end)
 		return true;
-	return m_iter == iter.m_iter;
+	return is_end == iter.is_end && m_iter == iter.m_iter;
 }
 bool OverloadSetIterator::operator!=(
     const OverloadSetIterator &iter) const
@@ -274,7 +294,7 @@ bool OverloadSetConstIterator::operator==(
 {
 	if (is_end && iter.is_end)
 		return true;
-	return m_iter == iter.m_iter;
+	return is_end == iter.is_end && m_iter == iter.m_iter;
 }
 bool OverloadSetConstIterator::operator!=(
     const OverloadSetConstIterator &iter) const
