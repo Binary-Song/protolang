@@ -18,4 +18,5 @@ std::string IFuncType::get_type_name()
 	                   get_return_type()->get_type_name());
 }
 
+
 } // namespace protolang

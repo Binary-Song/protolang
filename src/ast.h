@@ -344,9 +344,10 @@ struct Decl : Ast
 struct VarDecl : Decl, IVar
 {
 private:
-	Ident          m_ident;
-	uptr<TypeExpr> m_type;
-	uptr<Expr>     m_init;
+	Ident             m_ident;
+	uptr<TypeExpr>    m_type;
+	uptr<Expr>        m_init;
+	llvm::AllocaInst *m_value = nullptr;
 
 public:
 	VarDecl(Ident ident, uptr<TypeExpr> type, uptr<Expr> init)
@@ -362,7 +363,10 @@ public:
 	{
 		return m_type->get_type();
 	}
-	[[nodiscard]] Expr       *get_init() { return m_init.get(); }
+	[[nodiscard]] Expr *get_init() override
+	{
+		return m_init.get();
+	}
 	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
@@ -379,7 +383,15 @@ public:
 	{
 		return m_type->env();
 	}
-	void analyze_semantics() override;
+	void              analyze_semantics() override;
+	llvm::AllocaInst *get_value() const override
+	{
+		return m_value;
+	}
+	void set_value(llvm::AllocaInst *value) override
+	{
+		m_value = value;
+	}
 };
 
 struct ParamDecl : Decl, IVar
@@ -388,6 +400,7 @@ private:
 	Env           *m_env; // env在函数内部
 	Ident          m_ident;
 	uptr<TypeExpr> m_type; // 注意，它的env在函数外部
+	llvm::AllocaInst *m_value = nullptr;
 
 public:
 	ParamDecl(Env *env, Ident ident, uptr<TypeExpr> type)
@@ -400,6 +413,7 @@ public:
 	{
 		return m_ident;
 	}
+	[[nodiscard]] Expr  *get_init() override { return nullptr; }
 	[[nodiscard]] IType *get_type() override
 	{
 		return m_type->get_type();
@@ -419,6 +433,14 @@ public:
 	void               analyze_semantics() override
 	{
 		this->m_type->analyze_semantics();
+	}
+	llvm::AllocaInst *get_value() const override
+	{
+		return m_value;
+	}
+	void set_value(llvm::AllocaInst *value) override
+	{
+		m_value = value;
 	}
 };
 
@@ -636,10 +658,10 @@ public:
 		return m_range;
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
-	bool        can_accept(const IType *iType) const override;
-	bool        equal(const IType *iType) const override;
-	std::string get_type_name() const override;
-	void        analyze_semantics() override
+	bool               can_accept(IType *iType) override;
+	bool               equal(IType *iType) override;
+	std::string        get_type_name() override;
+	void               analyze_semantics() override
 	{
 		m_body->analyze_semantics();
 	}

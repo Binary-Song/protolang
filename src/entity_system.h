@@ -10,6 +10,7 @@ namespace llvm
 {
 class Type;
 class Value;
+class AllocaInst;
 } // namespace llvm
 
 namespace protolang
@@ -49,14 +50,17 @@ struct IType : IEntity
 		return nullptr;
 	}
 	[[nodiscard]] virtual llvm::Type *get_llvm_type(
-	    CodeGenerator &g) const = 0;
+	    CodeGenerator &g)   = 0;
 };
 
 struct IVar : ITyped, IEntity
 {
 	[[nodiscard]] virtual Ident get_ident() const = 0;
-	virtual ast::Expr          *get_init() const  = 0;
-	llvm::Value                *codegen(CodeGenerator &g);
+	virtual ast::Expr          *get_init()        = 0;
+	virtual llvm::AllocaInst   *get_value() const = 0;
+	virtual void set_value(llvm::AllocaInst *)    = 0;
+
+	llvm::Value *codegen(CodeGenerator &g);
 };
 
 struct IFuncType : IType
@@ -93,6 +97,7 @@ struct IFuncType : IType
 		return false;
 	}
 	[[nodiscard]] std::string get_type_name() override;
+	llvm::Type *get_llvm_type(CodeGenerator &g)   override;
 };
 
 struct IFunc : IFuncType, ITyped
@@ -100,6 +105,8 @@ struct IFunc : IFuncType, ITyped
 	[[nodiscard]] virtual IFuncBody *get_body() = 0;
 	// 重写 ITyped
 	[[nodiscard]] IType *get_type() override { return this; }
+
+	llvm::Value *codegen(CodeGenerator &g);
 };
 
 struct IFuncBody
