@@ -8,8 +8,9 @@
 
 namespace llvm
 {
+class Type;
 class Value;
-}
+} // namespace llvm
 
 namespace protolang
 {
@@ -17,6 +18,11 @@ namespace protolang
 struct CodeGenerator;
 struct IType;
 struct IFuncBody;
+
+namespace ast
+{
+struct Expr;
+}
 
 // 可以存放到env里的玩意
 struct IEntity : virtual IJsonDumper
@@ -44,16 +50,20 @@ struct IType : IEntity
 	{
 		return nullptr;
 	}
+	[[nodiscard]] virtual llvm::Type *get_llvm_type(
+	    CodeGenerator &g) const = 0;
 };
 
 struct IVar : ITyped, IEntity
 {
 	[[nodiscard]] virtual const Ident &get_ident() const = 0;
+	virtual ast::Expr                 *get_init() const  = 0;
+	llvm::Value                       *codegen(CodeGenerator &g);
 };
 
 struct IFuncType : IType
 {
-	[[nodiscard]] virtual const IType *get_return_type()
+	[[nodiscard]] virtual   IType *get_return_type()
 	    const                                            = 0;
 	[[nodiscard]] virtual size_t get_param_count() const = 0;
 	[[nodiscard]] virtual const IType *get_param_type(
