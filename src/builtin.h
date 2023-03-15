@@ -26,7 +26,7 @@ struct BuiltInInt : IType
 		return dynamic_cast<const BuiltInInt *>(other);
 	}
 	std::string get_type_name() const override { return "int"; }
-	std::string dump_json() const override
+	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInInt"})";
 	}
@@ -52,7 +52,7 @@ struct BuiltInFloat : IType
 	{
 		return "float";
 	}
-	std::string dump_json() const override
+	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInFloat"})";
 	}
@@ -77,7 +77,7 @@ struct BuiltInDouble : IType
 	{
 		return "double";
 	}
-	std::string dump_json() const override
+	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInDouble"})";
 	}
@@ -85,29 +85,29 @@ struct BuiltInDouble : IType
 struct BuiltInFuncBody : IFuncBody
 {};
 
-template<typename T>
+template <typename T>
 struct BuiltInAdd : IFunc
 {
 private:
 	BuiltInFuncBody body;
 
 public:
-	const IType *get_return_type() const override
+	IType *get_return_type() override
 	{
 		return T::get_instance();
 	}
-	size_t       get_param_count() const override { return 2; }
-	const IType *get_param_type(size_t  ) const override
+	size_t get_param_count() const override { return 2; }
+	IType *get_param_type(size_t) override
 	{
 		return T::get_instance();
 	}
-	const IFuncBody *get_body() const override { return &body; }
-	std::string      dump_json() const override
+	IFuncBody  *get_body() override { return &body; }
+	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInAdd"})";
 	}
-};
 
+};
 
 } // namespace protolang
 

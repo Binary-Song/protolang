@@ -7,7 +7,7 @@ namespace protolang
 struct IJsonDumper
 {
 	virtual ~IJsonDumper()                = default;
-	virtual std::string dump_json() const = 0;
+	virtual std::string dump_json() = 0;
 };
 
 template <typename T>

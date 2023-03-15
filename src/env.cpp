@@ -13,9 +13,9 @@ static SrcRange try_get_range(const IEntity *entity)
 	return {};
 }
 
-bool Env::check_args(const IFuncType                  *func,
-                     const std::vector<const IType *> &arg_types,
-                     bool throw_error)
+bool Env::check_args(  IFuncType            *func,
+                     const std::vector<IType *> &arg_types,
+                     bool                        throw_error)
 {
 	if (func->get_param_count() != arg_types.size())
 		return false;
@@ -41,8 +41,8 @@ bool Env::check_args(const IFuncType                  *func,
 }
 
 IFunc *Env::overload_resolution(
-    const Ident                      &func_ident,
-    const std::vector<const IType *> &arg_types)
+    const Ident                &func_ident,
+    const std::vector<IType *> &arg_types)
 {
 	auto overloads = get<OverloadSet>(func_ident);
 	std::vector<IFunc *> fits;
@@ -117,7 +117,7 @@ void Env::add(const std::string &name, IEntity *obj)
 	}
 }
 
-std::string Env::dump_json() const
+std::string Env::dump_json()
 {
 	std::vector<IEntity *> vals;
 	for (auto &&[_, value] : m_symbol_table)
@@ -175,7 +175,7 @@ OverloadSetConstIterator OverloadSet::cend() const
 	return {};
 }
 
-std::string OverloadSet::dump_json() const
+std::string OverloadSet::dump_json()
 {
 	std::vector<const IFunc *> all;
 	for (auto iter = begin(); iter != end(); ++iter)

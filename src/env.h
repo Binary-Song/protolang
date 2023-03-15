@@ -37,7 +37,7 @@ public:
 	OverloadSetConstIterator cend() const;
 
 private:
-	std::string dump_json() const override;
+	std::string dump_json() override;
 };
 
 class OverloadSetIterator
@@ -115,8 +115,8 @@ public:
 		return env_ptr;
 	}
 
-	bool check_args(const IFuncType                  *func,
-	                const std::vector<const IType *> &arg_types,
+	bool check_args(IFuncType                  *func,
+	                const std::vector<IType *> &arg_types,
 	                bool throw_error = false);
 
 	void add(const std::string &name, IEntity *obj);
@@ -161,12 +161,12 @@ public:
 	}
 
 	IFunc *overload_resolution(
-	    const Ident                      &func_ident,
-	    const std::vector<const IType *> &arg_types);
+	    const Ident                &func_ident,
+	    const std::vector<IType *> &arg_types);
 
 	void add_built_in_facility();
 
-	std::string dump_json() const;
+	std::string dump_json();
 
 	Env *get_parent() { return m_parent; }
 	Env *get_root()

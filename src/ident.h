@@ -16,6 +16,6 @@ public:
 	    : name(std::move(name))
 	    , range(location)
 	{}
-	std::string dump_json() const { return '"' + name + '"'; }
+	std::string dump_json() { return '"' + name + '"'; }
 };
 } // namespace protolang

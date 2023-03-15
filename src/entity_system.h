@@ -33,20 +33,18 @@ struct IEntity : virtual IJsonDumper
 // 有类型
 struct ITyped : virtual IJsonDumper
 {
-	virtual ~ITyped() = default;
-	[[nodiscard]] virtual const IType *get_type() const = 0;
+	virtual ~ITyped()                       = default;
+	[[nodiscard]] virtual IType *get_type() = 0;
 };
 
 // 类型
 struct IType : IEntity
 {
 	virtual ~IType() = default;
-	[[nodiscard]] virtual bool can_accept(
-	    const IType *) const                                = 0;
-	[[nodiscard]] virtual bool equal(const IType *) const   = 0;
-	[[nodiscard]] virtual std::string get_type_name() const = 0;
-	[[nodiscard]] virtual const IEntity *get_member(
-	    const Ident &) const
+	[[nodiscard]] virtual bool        can_accept(IType *) = 0;
+	[[nodiscard]] virtual bool        equal(IType *)      = 0;
+	[[nodiscard]] virtual std::string get_type_name()     = 0;
+	[[nodiscard]] virtual IEntity    *get_member(const Ident &)
 	{
 		return nullptr;
 	}
@@ -56,29 +54,25 @@ struct IType : IEntity
 
 struct IVar : ITyped, IEntity
 {
-	[[nodiscard]] virtual const Ident &get_ident() const = 0;
-	virtual ast::Expr                 *get_init() const  = 0;
-	llvm::Value                       *codegen(CodeGenerator &g);
+	[[nodiscard]] virtual Ident get_ident() const = 0;
+	virtual ast::Expr          *get_init() const  = 0;
+	llvm::Value                *codegen(CodeGenerator &g);
 };
 
 struct IFuncType : IType
 {
-	[[nodiscard]] virtual   IType *get_return_type()
-	    const                                            = 0;
+	[[nodiscard]] virtual IType *get_return_type()       = 0;
 	[[nodiscard]] virtual size_t get_param_count() const = 0;
-	[[nodiscard]] virtual const IType *get_param_type(
-	    size_t) const = 0;
+	[[nodiscard]] virtual IType *get_param_type(size_t)  = 0;
 
 	// === 实现 IType  ===
-	[[nodiscard]] bool can_accept(
-	    const IType *other) const override
+	[[nodiscard]] bool can_accept(IType *other) override
 	{
 		return this->equal(other);
 	}
-	[[nodiscard]] bool equal(const IType *other) const override
+	[[nodiscard]] bool equal(IType *other) override
 	{
-		if (auto other_func =
-		        dynamic_cast<const IFuncType *>(other))
+		if (auto other_func = dynamic_cast<IFuncType *>(other))
 		{
 			// 检查参数、返回值类型
 			if (this->get_param_count() !=
@@ -98,18 +92,14 @@ struct IFuncType : IType
 		}
 		return false;
 	}
-	[[nodiscard]] std::string get_type_name() const override;
+	[[nodiscard]] std::string get_type_name() override;
 };
 
 struct IFunc : IFuncType, ITyped
 {
-	[[nodiscard]] virtual const IFuncBody *get_body() const = 0;
-
+	[[nodiscard]] virtual IFuncBody *get_body() = 0;
 	// 重写 ITyped
-	[[nodiscard]] const IType *get_type() const override
-	{
-		return this;
-	}
+	[[nodiscard]] IType *get_type() override { return this; }
 };
 
 struct IFuncBody

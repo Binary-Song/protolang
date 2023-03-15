@@ -13,7 +13,7 @@ IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
     : m_ident(std::move(ident))
     , m_env(env)
 {}
-const IType *IdentTypeExpr::get_type() const
+IType *IdentTypeExpr::get_type()
 {
 	return this->env()->get<IType>(ident());
 }
@@ -23,7 +23,7 @@ void IdentTypeExpr::analyze_semantics()
 }
 
 // === BinaryExpr ===
-const IType *BinaryExpr::get_type() const
+IType *BinaryExpr::get_type()
 {
 	auto   lhs_type = this->left->get_type();
 	auto   rhs_type = this->right->get_type();
@@ -33,7 +33,7 @@ const IType *BinaryExpr::get_type() const
 }
 
 // === UnaryExpr ===
-const IType *UnaryExpr::get_type() const
+IType *UnaryExpr::get_type()
 {
 	auto   operand_type = operand->get_type();
 	IFunc *func = env()->overload_resolution(op, {operand_type});
@@ -41,17 +41,12 @@ const IType *UnaryExpr::get_type() const
 }
 
 // === CallExpr ===
-std::vector<const IType *> CallExpr::arg_types() const
+IType *CallExpr::get_arg_type(size_t index)
 {
-	std::vector<const IType *> result;
-	for (auto &&arg : m_args)
-	{
-		result.push_back(arg->get_type());
-	}
-	return result;
+	return m_args[index]->get_type();
 }
 
-const IType *CallExpr::get_type() const
+IType *CallExpr::get_type()
 {
 	// non-member call: func(1,2,3)
 	// member call:
@@ -71,18 +66,18 @@ const IType *CallExpr::get_type() const
 	        dynamic_cast<IdentExpr *>(m_callee.get()))
 	{
 		IFunc *func = env()->overload_resolution(
-		    ident_expr->ident(), arg_types());
+		    ident_expr->ident(), get_arg_types());
 		auto return_type = func->get_return_type();
 		auto func_type   = func->get_type();
 		ident_expr->set_type(func_type);
 		return return_type;
 	}
 	// 否则，如果是函数指针等，不用重载决策直接调用
-	else if (auto func_type = dynamic_cast<const IFunc *>(
-	             m_callee->get_type()))
+	else if (auto func_type =
+	             dynamic_cast<IFunc *>(m_callee->get_type()))
 	{
 		// 检查参数类型
-		env()->check_args(func_type, arg_types(), true);
+		env()->check_args(func_type, get_arg_types(), true);
 		return func_type->get_return_type();
 	}
 	else
@@ -97,21 +92,21 @@ const IType *CallExpr::get_type() const
 }
 
 // === MemberAccessExpr ===
-const IType *MemberAccessExpr::get_type() const
+IType *MemberAccessExpr::get_type()
 {
 	auto member_entity =
 	    m_left->get_type()->get_member(m_member);
 	if (member_entity)
 	{
 		if (auto member_func =
-		        dynamic_cast<const IFunc *>(member_entity))
+		        dynamic_cast<IFunc *>(member_entity))
 		{
 			// todo : member func 的 type 应该不一样！但我建议
 			// 不要在这里改，在 IFunc 的实现类改！
 			return member_func->get_type();
 		}
 		else if (auto member_var =
-		             dynamic_cast<const IVar *>(member_entity))
+		             dynamic_cast<IVar *>(member_entity))
 		{
 			return member_var->get_type();
 		}
@@ -122,7 +117,7 @@ const IType *MemberAccessExpr::get_type() const
 }
 
 // === LiteralExpr ===
-const IType *LiteralExpr::get_type() const
+IType *LiteralExpr::get_type()
 {
 	if (m_token.type == Token::Type::Int)
 	{
@@ -139,7 +134,7 @@ const IType *LiteralExpr::get_type() const
 }
 
 // === IdentExpr ===
-const IType *IdentExpr::get_type() const
+IType *IdentExpr::get_type()
 {
 	if (m_type) // 上层表达式负责写入
 		return m_type;
@@ -158,7 +153,7 @@ const IType *IdentExpr::get_type() const
 	throw ExceptionPanic();
 }
 
-void IdentExpr::set_type(const IType *t) const
+void IdentExpr::set_type(  IType *t)
 {
 	assert(m_type == nullptr);
 	m_type = t;
@@ -236,7 +231,6 @@ Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     , m_root_env(Env::create(logger))
 {}
 
-
 // 表达式默认的语义检查方法是计算一次类型
 
 void Expr::analyze_semantics()
@@ -244,7 +238,7 @@ void Expr::analyze_semantics()
 	[[maybe_unused]] auto a = get_type();
 	//[[maybe_unused]] auto a = get_type();
 	//[[maybe_unused]] auto b = range();
-	//env()->logger.print_code_ref(
+	// env()->logger.print_code_ref(
 	//    CodeRef{range(), a->get_type_name()});
 }
 

@@ -50,9 +50,9 @@ private:
 	// 函数
 public:
 	explicit IdentTypeExpr(Env *env, Ident ident);
-	[[nodiscard]] const Ident &ident() const { return m_ident; }
+	[[nodiscard]] Ident       ident() const { return m_ident; }
 	// 实现基类成员
-	[[nodiscard]] std::string  dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"IdentTypeExpr","ident":{}}})",
@@ -62,9 +62,9 @@ public:
 	{
 		return m_ident.range;
 	}
-	[[nodiscard]] Env *env() const override { return m_env; }
-	[[nodiscard]] const IType *get_type() const override;
-	void                       analyze_semantics() override;
+	[[nodiscard]] Env   *env() const override { return m_env; }
+	[[nodiscard]] IType *get_type() override;
+	void                 analyze_semantics() override;
 };
 
 // 表达式，抽象类
@@ -84,6 +84,8 @@ struct Expr : public Ast, public ITyped
 	}
 	// 表达式默认的语义检查方法是计算一次类型
 	void analyze_semantics() override;
+
+	virtual llvm::Value *codegen(CodeGenerator &g) = 0;
 };
 
 // 二元运算表达式
@@ -102,16 +104,10 @@ public:
 	    , op(std::move(op))
 	    , right(std::move(right))
 	{}
-	[[nodiscard]] const std::unique_ptr<Expr> &get_left() const
-	{
-		return left;
-	}
-	[[nodiscard]] const std::unique_ptr<Expr> &get_right() const
-	{
-		return right;
-	}
-	[[nodiscard]] const Ident &get_op() const { return op; }
-	[[nodiscard]] SrcRange     range() const override
+	[[nodiscard]] Expr    *get_left() { return left.get(); }
+	[[nodiscard]] Expr    *get_right() { return right.get(); }
+	[[nodiscard]] Ident    get_op() const { return op; }
+	[[nodiscard]] SrcRange range() const override
 	{
 		return left->range() + right->range();
 	}
@@ -120,8 +116,8 @@ public:
 		assert(left->env() == right->env());
 		return left->env();
 	}
-	[[nodiscard]] const IType *get_type() const override;
-	[[nodiscard]] std::string  dump_json() const override
+	[[nodiscard]] IType      *get_type() override;
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
@@ -147,13 +143,10 @@ public:
 	    , op(std::move(op))
 	{}
 
-	[[nodiscard]] bool is_prefix() const { return prefix; }
-	[[nodiscard]] const uptr<Expr> &get_operand() const
-	{
-		return operand;
-	}
-	[[nodiscard]] const Ident &get_op() const { return op; }
-	[[nodiscard]] std::string  dump_json() const override
+	[[nodiscard]] bool  is_prefix() const { return prefix; }
+	[[nodiscard]] Expr *get_operand() { return operand.get(); }
+	[[nodiscard]] Ident get_op() const { return op; }
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"UnaryExpr","op":{},"oprd":{}}})",
@@ -168,13 +161,13 @@ public:
 	{
 		return operand->env();
 	}
-	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] IType *get_type() override;
 };
 
 struct CallExpr : public Expr
 {
 	// 数据
-private:
+protected:
 	uptr<Expr>              m_callee;
 	std::vector<uptr<Expr>> m_args;
 	SrcRange                m_src_rng;
@@ -188,20 +181,33 @@ public:
 	    , m_src_rng(src_rng)
 	{}
 
-	[[nodiscard]] const std::unique_ptr<Expr> &get_callee() const
+	[[nodiscard]] Expr *get_callee() const
 	{
-		return m_callee;
+		return m_callee.get();
 	}
-	[[nodiscard]] const std::vector<uptr<Expr>> &get_args() const
+	[[nodiscard]] size_t get_arg_count() const
 	{
-		return m_args;
+		return m_args.size();
 	}
-	[[nodiscard]] const SrcRange &get_range() const
+	[[nodiscard]] Expr *get_arg(size_t index) const
+	{
+		return m_args[index].get();
+	}
+	[[nodiscard]] SrcRange get_range() const
 	{
 		return m_src_rng;
 	}
-	[[nodiscard]] std::vector<const IType *> arg_types() const;
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] IType *get_arg_type(size_t index);
+	[[nodiscard]] std::vector<IType *> get_arg_types()
+	{
+		std::vector<IType *> types;
+		for (size_t i = 0; i < get_arg_count(); i++)
+		{
+			types.push_back(get_arg_type(i));
+		}
+		return types;
+	}
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"CallExpr","callee":{},"args":{}}})",
@@ -216,7 +222,7 @@ public:
 	{
 		return m_callee->env();
 	}
-	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] IType *get_type() override;
 };
 
 struct BracketExpr : public CallExpr
@@ -228,12 +234,12 @@ public:
 	    : CallExpr(src_rng, std::move(callee), std::move(args))
 	{}
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BracketExpr","callee":{},"args":{}}})",
 		    get_callee()->dump_json(),
-		    dump_json_for_vector_of_ptr(get_args()));
+		    dump_json_for_vector_of_ptr(m_args));
 	}
 
 	// virtual uptr<Type> solve_type(TypeChecker *);
@@ -253,15 +259,9 @@ public:
 	    , m_member(std::move(member))
 	{}
 
-	[[nodiscard]] const uptr<Expr> &get_left() const
-	{
-		return m_left;
-	}
-	[[nodiscard]] const Ident &get_member() const
-	{
-		return m_member;
-	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] Expr       *get_left() { return m_left.get(); }
+	[[nodiscard]] Ident       get_member() { return m_member; }
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"MemberAccessExpr","left":{},"member":{}}})",
@@ -276,7 +276,7 @@ public:
 	{
 		return m_left->env();
 	}
-	[[nodiscard]] const IType *get_type() const override;
+	[[nodiscard]] IType *get_type() override;
 };
 
 struct LiteralExpr : public Expr
@@ -291,7 +291,7 @@ public:
 	    , m_token(std::move(token))
 	{}
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format("\"{}/{}/{}\"",
 		                   m_token.str_data,
@@ -302,21 +302,18 @@ public:
 	{
 		return m_token.range();
 	}
-	[[nodiscard]] Env *env() const override { return m_env; }
-	[[nodiscard]] const IType *get_type() const override;
-	[[nodiscard]] const Token &get_token() const
-	{
-		return m_token;
-	}
-	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g) const;
+	[[nodiscard]] Env   *env() const override { return m_env; }
+	[[nodiscard]] IType *get_type() override;
+	[[nodiscard]] Token  get_token() const { return m_token; }
+	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g);
 };
 
 struct IdentExpr : public Expr
 {
 private:
-	Ident                m_ident;
-	Env                 *m_env;
-	mutable const IType *m_type = nullptr;
+	Ident  m_ident;
+	Env   *m_env;
+	IType *m_type = nullptr;
 
 public:
 	explicit IdentExpr(Env *env, Ident ident)
@@ -324,9 +321,9 @@ public:
 	    , m_ident(ident)
 	{}
 
-	[[nodiscard]] const Ident &ident() const { return m_ident; }
+	[[nodiscard]] Ident ident() const { return m_ident; }
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format("\"{}\"", m_ident.name);
 	}
@@ -335,10 +332,10 @@ public:
 	{
 		return m_ident.range;
 	}
-	[[nodiscard]] Env *env() const override { return m_env; }
-	[[nodiscard]] const IType *get_type() const override;
-	[[nodiscard]] void         set_type(const IType *) const;
-	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g) const;
+	[[nodiscard]] Env   *env() const override { return m_env; }
+	[[nodiscard]] IType *get_type() override;
+	[[nodiscard]] void   set_type(IType *type);
+	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g);
 };
 
 struct Decl : Ast
@@ -357,19 +354,16 @@ public:
 	    , m_type(std::move(type))
 	    , m_init(std::move(init))
 	{}
-	[[nodiscard]] const Ident &get_ident() const override
+	[[nodiscard]] Ident get_ident() const override
 	{
 		return m_ident;
 	}
-	[[nodiscard]] const IType *get_type() const override
+	[[nodiscard]] IType *get_type() override
 	{
 		return m_type->get_type();
 	}
-	[[nodiscard]] const uptr<Expr> &get_init() const
-	{
-		return m_init;
-	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] Expr       *get_init() { return m_init.get(); }
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"VarDecl","ident":{},"type":{},"init":{}}})",
@@ -402,15 +396,15 @@ public:
 	    , m_type(std::move(type))
 	{}
 
-	[[nodiscard]] const Ident &get_ident() const override
+	[[nodiscard]] Ident get_ident() const override
 	{
 		return m_ident;
 	}
-	[[nodiscard]] const IType *get_type() const override
+	[[nodiscard]] IType *get_type() override
 	{
 		return m_type->get_type();
 	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"ParamDecl","ident":{},"type":{} }})",
@@ -440,11 +434,8 @@ public:
 	explicit ExprStmt(uptr<Expr> expr)
 	    : m_expr(std::move(expr))
 	{}
-	[[nodiscard]] const std::unique_ptr<Expr> &get_expr() const
-	{
-		return m_expr;
-	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] Expr       *get_expr() { return m_expr.get(); }
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(R"({{"obj":"ExprStmt","expr":{}}})",
 		                   m_expr->dump_json());
@@ -478,7 +469,7 @@ public:
 	      SrcRange               range,
 	      std::vector<uptr<Ast>> elems);
 
-	[[nodiscard]] std::string dump_json() const
+	[[nodiscard]] std::string dump_json()
 	{
 		return dump_json_for_vector_of_ptr(m_elems);
 	}
@@ -486,9 +477,13 @@ public:
 	[[nodiscard]] Env     *env() const { return m_outer_env; }
 	[[nodiscard]] Env *env_inner() const { return m_inner_env; }
 	[[nodiscard]] Env *env_outer() const { return m_outer_env; }
-	[[nodiscard]] const std::vector<uptr<Ast>> &elems() const
+	[[nodiscard]] size_t elem_count() const
 	{
-		return m_elems;
+		return m_elems.size();
+	}
+	[[nodiscard]] Ast *get_elem(size_t index)
+	{
+		return m_elems[index].get();
 	};
 	[[nodiscard]] void add_elem(uptr<Ast> e)
 	{
@@ -519,7 +514,7 @@ struct CompoundStmt : Block, Stmt, IFuncBody
 	{
 		return Block::env();
 	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return Block::dump_json();
 	}
@@ -548,7 +543,7 @@ public:
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
@@ -556,21 +551,15 @@ public:
 		    m_return_type->dump_json(),
 		    m_body->dump_json());
 	}
-	[[nodiscard]] const Ident &get_ident() const
-	{
-		return m_ident;
-	}
-	[[nodiscard]] const IType *get_type() const override
-	{
-		return this;
-	}
+	[[nodiscard]] Ident    get_ident() const { return m_ident; }
+	[[nodiscard]] IType   *get_type() override { return this; }
 	[[nodiscard]] SrcRange range() const override
 	{
 		return m_range;
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
 
-	[[nodiscard]] const IType *get_return_type() const override
+	[[nodiscard]] IType *get_return_type() override
 	{
 		return m_return_type->get_type();
 	}
@@ -578,12 +567,11 @@ public:
 	{
 		return m_params.size();
 	}
-	[[nodiscard]] const IType *get_param_type(
-	    size_t i) const override
+	[[nodiscard]] IType *get_param_type(size_t i) override
 	{
 		return m_params[i]->get_type();
 	}
-	[[nodiscard]] IFuncBody *get_body() const override
+	[[nodiscard]] IFuncBody *get_body() override
 	{
 		return m_body.get();
 	}
@@ -612,7 +600,7 @@ struct StructBody : Block, Ast
 	{
 		return Block::env();
 	}
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return Block::dump_json();
 	}
@@ -636,7 +624,7 @@ public:
 	           Ident            ident,
 	           uptr<StructBody> body);
 
-	[[nodiscard]] std::string dump_json() const override
+	[[nodiscard]] std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"StructDecl","ident":{},"body":{}}})",
@@ -667,7 +655,7 @@ public:
 	explicit Program(std::vector<uptr<Decl>> decls,
 	                 Logger                 &logger);
 
-	std::string dump_json() const
+	std::string dump_json()
 	{
 		return std::format(R"({{"obj":"Program","decls":[{}]}})",
 		                   dump_json_for_vector_of_ptr(m_decls));

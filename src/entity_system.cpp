@@ -3,7 +3,7 @@
 #include "util.h"
 namespace protolang
 {
-std::string IFuncType::get_type_name() const
+std::string IFuncType::get_type_name()
 {
 	std::string param_list;
 	size_t      param_count = this->get_param_count();
