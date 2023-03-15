@@ -11,6 +11,7 @@ namespace llvm
 class Type;
 class Value;
 class AllocaInst;
+class FunctionType;
 } // namespace llvm
 
 namespace protolang
@@ -50,17 +51,18 @@ struct IType : IEntity
 		return nullptr;
 	}
 	[[nodiscard]] virtual llvm::Type *get_llvm_type(
-	    CodeGenerator &g)   = 0;
+	    CodeGenerator &g) = 0;
 };
 
 struct IVar : ITyped, IEntity
 {
 	[[nodiscard]] virtual Ident get_ident() const = 0;
 	virtual ast::Expr          *get_init()        = 0;
-	virtual llvm::AllocaInst   *get_value() const = 0;
-	virtual void set_value(llvm::AllocaInst *)    = 0;
+	virtual llvm::AllocaInst   *get_stack_addr() const = 0;
+	virtual void set_stack_addr(llvm::AllocaInst *)    = 0;
 
 	llvm::Value *codegen(CodeGenerator &g);
+	llvm::Value *codegen(CodeGenerator &g, llvm::Value *init);
 };
 
 struct IFuncType : IType
@@ -97,35 +99,26 @@ struct IFuncType : IType
 		return false;
 	}
 	[[nodiscard]] std::string get_type_name() override;
-	llvm::Type *get_llvm_type(CodeGenerator &g)   override;
+	llvm::FunctionType       *get_llvm_type_f(CodeGenerator &g);
+	llvm::Type *get_llvm_type(CodeGenerator &g) override;
 };
 
 struct IFunc : IFuncType, ITyped
 {
-	[[nodiscard]] virtual IFuncBody *get_body() = 0;
-	// 重写 ITyped
-	[[nodiscard]] IType *get_type() override { return this; }
+public:
+	virtual void        set_mangled_name(std::string name);
+	virtual std::string get_mangled_name() const = 0;
+	virtual IFuncBody  *get_body()               = 0;
+	IType              *get_type() override { return this; }
+	virtual std::string get_param_name(size_t) const = 0;
+	virtual IVar       *get_param(size_t)            = 0;
 
 	llvm::Value *codegen(CodeGenerator &g);
+
+private:
 };
 
 struct IFuncBody
 {};
-
-template <typename Data>
-struct Cache
-{
-private:
-	mutable uptr<Data> m_cache;
-	virtual void reevaluate_cache(uptr<Data> &result) const = 0;
-
-public:
-	Data *read_cache() const
-	{
-		if (m_cache == nullptr)
-			reevaluate_cache(m_cache);
-		return m_cache.get();
-	}
-};
 
 } // namespace protolang

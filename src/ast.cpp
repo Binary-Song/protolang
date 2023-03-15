@@ -199,6 +199,7 @@ FuncDecl::FuncDecl(Env                         *env,
     , m_body(std::move(body))
 {}
 
+
 StructDecl::StructDecl(Env             *env,
                        const SrcRange  &range,
                        Ident            ident,

@@ -27,8 +27,9 @@ public:
 	explicit OverloadSet(OverloadSet *next)
 	    : m_next(next)
 	{}
-	void add_func(IFunc *func) { m_funcs.push_back(func); }
-	void set_next(OverloadSet *next) { m_next = next; }
+	void   add_func(IFunc *func) { m_funcs.push_back(func); }
+	void   set_next(OverloadSet *next) { m_next = next; }
+	size_t count() const;
 	OverloadSetIterator      begin();
 	OverloadSetIterator      end();
 	OverloadSetConstIterator begin() const;
@@ -93,6 +94,7 @@ private:
 	std::vector<uptr<Env>>           m_subenvs;
 	std::vector<uptr<IEntity>>       m_owned_entities;
 	std::map<std::string, IEntity *> m_symbol_table;
+	std::string                      m_scope_name;
 
 private:
 	explicit Env(Env *parent, Logger &logger)
@@ -101,9 +103,12 @@ private:
 	{}
 
 public:
-	static uptr<Env> create(Logger &logger)
+	static uptr<Env> create(std::string scope_name,
+	                        Logger     &logger)
+
 	{
-		auto env = make_uptr(new Env(nullptr, logger));
+		auto env          = make_uptr(new Env(nullptr, logger));
+		env->m_scope_name = std::move(scope_name);
 		return env;
 	}
 
@@ -113,6 +118,29 @@ public:
 		auto env_ptr = env.get();
 		parent->m_subenvs.push_back(std::move(env));
 		return env_ptr;
+	}
+
+	std::string get_qualifier() const
+	{
+		if (m_parent)
+		{
+			auto parent_qualifier = m_parent->get_qualifier();
+			if (parent_qualifier.empty() == false)
+				return parent_qualifier + "::" + m_scope_name;
+			else
+				return m_scope_name;
+		}
+		else
+			return m_scope_name;
+	}
+
+	std::string get_full_qualified_name(
+	    const std::string &unqualified) const
+	{
+		auto q = get_qualifier();
+		if (!q.empty())
+			return q + "::" + unqualified;
+		return unqualified;
 	}
 
 	bool check_args(IFuncType                  *func,
@@ -197,6 +225,9 @@ private:
 		}
 		return nullptr;
 	}
+	void add_to_overload_set(OverloadSet       *overloads,
+	                         IFunc             *func,
+	                         const std::string &name)
 };
 
 struct EnvGuard

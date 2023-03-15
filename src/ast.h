@@ -78,7 +78,7 @@ struct Expr : public Ast, public ITyped
 		Rvalue,
 	};
 
-	[[nodiscard]] virtual ValueCat get_value_cat() const
+	[[nodiscard]] virtual ValueCat get_stack_addr_cat() const
 	{
 		return ValueCat::Pending;
 	}
@@ -384,11 +384,11 @@ public:
 		return m_type->env();
 	}
 	void              analyze_semantics() override;
-	llvm::AllocaInst *get_value() const override
+	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
 	}
-	void set_value(llvm::AllocaInst *value) override
+	void set_stack_addr(llvm::AllocaInst *value) override
 	{
 		m_value = value;
 	}
@@ -434,11 +434,11 @@ public:
 	{
 		this->m_type->analyze_semantics();
 	}
-	llvm::AllocaInst *get_value() const override
+	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
 	}
-	void set_value(llvm::AllocaInst *value) override
+	void set_stack_addr(llvm::AllocaInst *value) override
 	{
 		m_value = value;
 	}
@@ -555,6 +555,7 @@ private:
 	std::vector<uptr<ParamDecl>> m_params;
 	uptr<TypeExpr>               m_return_type;
 	uptr<CompoundStmt>           m_body;
+	std::string                  m_mangled_name;
 
 public:
 	FuncDecl() = default;
@@ -607,6 +608,22 @@ public:
 		}
 		m_return_type->analyze_semantics();
 		m_body->analyze_semantics();
+	}
+	std::string get_mangled_name() const override
+	{
+		return m_mangled_name;
+	}
+	void set_mangled_name(std::string name) override
+	{
+		m_mangled_name = std::move(name);
+	}
+	std::string get_param_name(size_t i) const override
+	{
+		return this->m_params[i]->get_ident().name;
+	}
+	IVar *get_param(size_t i) override
+	{
+		return this->m_params[i].get();
 	}
 };
 

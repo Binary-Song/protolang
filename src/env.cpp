@@ -1,3 +1,4 @@
+#include <iterator>
 #include "env.h"
 #include "ast.h"
 #include "builtin.h"
@@ -13,7 +14,7 @@ static SrcRange try_get_range(const IEntity *entity)
 	return {};
 }
 
-bool Env::check_args(  IFuncType            *func,
+bool Env::check_args(IFuncType                  *func,
                      const std::vector<IType *> &arg_types,
                      bool                        throw_error)
 {
@@ -66,19 +67,28 @@ IFunc *Env::overload_resolution(
 	}
 	return fits[0];
 }
+void Env::add_to_overload_set(OverloadSet       *overloads,
+                              IFunc             *func,
+                              const std::string &name)
+{
+	// 设置函数名
+	func->set_mangled_name(get_full_qualified_name(name) + "#" +
+	                       std::to_string(overloads->count()));
+	overloads->add_func(func);
+}
+
 void Env::add(const std::string &name, IEntity *obj)
 {
 	bool name_clash = m_symbol_table.contains(name);
 	if (auto func = dynamic_cast<IFunc *>(obj))
 	{
 		if (name_clash)
-		// 同名的玩意必须是函数重载集
-		{
+		{ // 同名的玩意必须是函数重载集
 			if (auto overloads = dynamic_cast<OverloadSet *>(
 			        m_symbol_table.at(name)))
 			{
 				// ok: 有重名，但是函数
-				overloads->add_func(func);
+				add_to_overload_set(overloads, func, name);
 			}
 			else
 			{
@@ -95,12 +105,14 @@ void Env::add(const std::string &name, IEntity *obj)
 			    make_uptr<OverloadSet>(new OverloadSet{
 			        m_parent ? m_parent->get_overload_set(name)
 			                 : nullptr});
-			overloads->add_func(func);
+			add_to_overload_set(overloads.get(), func, name);
+			// 设置函数名
+			func->set_mangled_name(name);
 			m_symbol_table.insert({name, overloads.get()});
 			m_owned_entities.push_back(std::move(overloads));
 		}
 	}
-	else
+	else // 不是函数
 	{
 		if (name_clash)
 		{
@@ -177,7 +189,7 @@ OverloadSetConstIterator OverloadSet::cend() const
 
 std::string OverloadSet::dump_json()
 {
-	std::vector<const IFunc *> all;
+	std::vector<IFunc *> all;
 	for (auto iter = begin(); iter != end(); ++iter)
 	{
 		auto f = *iter;
@@ -185,6 +197,12 @@ std::string OverloadSet::dump_json()
 	}
 	return std::format(R"({{"obj":"OverloadSet","funcs":{}}})",
 	                   dump_json_for_vector_of_ptr(all));
+}
+size_t OverloadSet::count() const
+{
+	if (m_next)
+		return this->m_funcs.size() + m_next->count();
+	return this->m_funcs.size();
 }
 
 /*
