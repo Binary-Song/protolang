@@ -27,13 +27,17 @@ namespace ast
 struct Expr;
 }
 
-// 可以存放到env里的玩意
+// 有名之物，曰实体
+// 声明会引入实体，并存放到作用域内。
+// 有名，但不要求保存它。因此不提供get_name虚函数。
+// 表达式不算实体。因为没有名字。
 struct IEntity : virtual IJsonDumper
 {
 	virtual ~IEntity() = default;
 };
 
-// 有类型
+// 有类型之物，函数、变量、表达式都是有类型的。
+// 类型自己不算有类型。
 struct ITyped : virtual IJsonDumper
 {
 	virtual ~ITyped()                       = default;

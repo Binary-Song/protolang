@@ -4,6 +4,7 @@
 #include "entity_system.h"
 #include "env.h"
 #include "exceptions.h"
+
 namespace protolang
 {
 
@@ -98,8 +99,15 @@ llvm::Value *IFunc::codegen(CodeGenerator &g)
 		// 循环
 		i++;
 	}
-
 	return f;
+}
+
+void ast::CompoundStmt::codegen(CodeGenerator &g)
+{
+	for (auto &&elem : this->m_elems)
+	{
+
+	}
 }
 
 llvm::FunctionType *IFuncType::get_llvm_type_f(CodeGenerator &g)

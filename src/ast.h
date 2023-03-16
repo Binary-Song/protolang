@@ -37,7 +37,7 @@ public:
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
-struct TypeExpr : Ast, ITyped
+struct TypeExpr : Ast
 {};
 
 // 类型标识符
@@ -544,10 +544,7 @@ struct CompoundStmt : Block, Stmt, IFuncBody
 	{
 		Block::analyze_semantics();
 	}
-	void codegen(CodeGenerator &g) override
-	{
-
-	}
+	void codegen(CodeGenerator &g) override;
 };
 
 struct FuncDecl : Decl, IFunc
