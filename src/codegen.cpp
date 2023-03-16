@@ -37,23 +37,25 @@ llvm::Value *IdentExpr::codegen(CodeGenerator &g)
 	// 这里只生成变量引用。
 	auto var =
 	    env()->get<IVar>(ident()); // 从环境中找到对应的var，读取
-	g.builder().CreateLoad(var->get_stack_addr()->getAllocatedType(),
-	                       var->get_stack_addr(), // 读内存
-	                       ident().name); // 给写入的内存取个名称
+	g.builder().CreateLoad(
+	    var->get_stack_addr()->getAllocatedType(),
+	    var->get_stack_addr(), // 读内存
+	    ident().name);         // 给写入的内存取个名称
 }
 
 } // namespace ast
-llvm::Value *IVar::codegen(CodeGenerator &g)
+llvm::Value *IVar::codegen(CodeGenerator  &g,
+                           llvm::Function *func)
 {
-	return codegen(g, this->get_init()->codegen(g));
+	return codegen(g, func, this->get_init()->codegen(g));
 }
-llvm::Value *IVar::codegen(CodeGenerator &g, llvm::Value *init)
+llvm::Value *IVar::codegen(CodeGenerator  &g,
+                           llvm::Function *func,
+                           llvm::Value    *init)
 {
 	// 这个默认是局部变量！！！！！！！！
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!
 	assert(this->get_stack_addr() == nullptr);
-	// fixme: 目前只能考虑var是局部变量的情形
-	auto func = g.builder().GetInsertBlock()->getParent();
 
 	// 在当前函数的入口块申请栈空间
 	auto alloca_inst =
@@ -89,10 +91,10 @@ llvm::Value *IFunc::codegen(CodeGenerator &g)
 	size_t i = 0;
 	for (auto &&arg : f->args())
 	{
-		// LLVM: 设置arg的名字
+		// LLVM: 设置实参的名字
 		arg.setName(this->get_param_name(i));
 		// 分配实参的内存，并且将实参赋值给形参
-		this->get_param(i)->codegen(g, &arg);
+		this->get_param(i)->codegen(g, f, &arg);
 		// 循环
 		i++;
 	}

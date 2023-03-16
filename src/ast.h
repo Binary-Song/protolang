@@ -544,6 +544,10 @@ struct CompoundStmt : Block, Stmt, IFuncBody
 	{
 		Block::analyze_semantics();
 	}
+	void codegen(CodeGenerator &g) override
+	{
+
+	}
 };
 
 struct FuncDecl : Decl, IFunc

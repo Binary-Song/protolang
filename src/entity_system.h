@@ -12,6 +12,7 @@ class Type;
 class Value;
 class AllocaInst;
 class FunctionType;
+class Function;
 } // namespace llvm
 
 namespace protolang
@@ -56,13 +57,15 @@ struct IType : IEntity
 
 struct IVar : ITyped, IEntity
 {
-	[[nodiscard]] virtual Ident get_ident() const = 0;
-	virtual ast::Expr          *get_init()        = 0;
+	[[nodiscard]] virtual Ident get_ident() const      = 0;
+	virtual ast::Expr          *get_init()             = 0;
 	virtual llvm::AllocaInst   *get_stack_addr() const = 0;
 	virtual void set_stack_addr(llvm::AllocaInst *)    = 0;
 
-	llvm::Value *codegen(CodeGenerator &g);
-	llvm::Value *codegen(CodeGenerator &g, llvm::Value *init);
+	llvm::Value *codegen(CodeGenerator &g, llvm::Function *func);
+	llvm::Value *codegen(CodeGenerator  &g,
+	                     llvm::Function *func,
+	                     llvm::Value    *init);
 };
 
 struct IFuncType : IType
@@ -119,6 +122,9 @@ private:
 };
 
 struct IFuncBody
-{};
+{
+public:
+	virtual void codegen(CodeGenerator &g) = 0;
+};
 
 } // namespace protolang
