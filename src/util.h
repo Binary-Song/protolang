@@ -1,12 +1,34 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
+#include "exceptions.h"
 namespace protolang
 {
+/// 强制dyn_cast：
+/// 失败会 throw 的 dynamic_cast
+template <typename Derived, typename Base>
+Derived fdyn_cast(Base &&u)
+{
+	if (auto x = dynamic_cast<Derived>(u))
+		return x;
+	throw ExceptionCastError();
+}
+
+/// 失败会 throw 的 dynamic_cast
+/// for unique_ptr
+template <typename Derived, typename Base>
+std::unique_ptr<Derived> dyn_ptr_cast_f(std::unique_ptr<Base> u)
+{
+
+	throw ExceptionCastError();
+}
+
+
 struct IJsonDumper
 {
-	virtual ~IJsonDumper()                = default;
+	virtual ~IJsonDumper()          = default;
 	virtual std::string dump_json() = 0;
 };
 

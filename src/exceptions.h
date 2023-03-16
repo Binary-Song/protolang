@@ -25,4 +25,15 @@ public:
 		return "Dev is too lazy to implement this functionality";
 	}
 };
+
+class ExceptionCastError : public std::exception
+{
+public:
+	const char *what() const override
+	{
+		return "Invalid under cast";
+	}
+};
+
+
 } // namespace protolang

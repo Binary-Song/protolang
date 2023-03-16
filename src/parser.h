@@ -111,11 +111,10 @@ private:
 
 	// 解析一个块，T为具体是什么块，elem_handler用来解析块中的一条语句
 	// (不同的块对块中的语句可能有不同的要求)
-	template <typename T>
-	    requires(std::derived_from<T, ast::Block>)
-	[[nodiscard]] uptr<T> block(
-	    std::function<void(std::unique_ptr<T> &_blk)>
-	        elem_handler);
+
+	void parse_block(
+	    ast::IBlock                       *block,
+	    std::function<void(ast::IBlock *)> elem_handler);
 
 	bool is_curr_eof() const
 	{

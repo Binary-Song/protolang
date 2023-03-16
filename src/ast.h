@@ -22,6 +22,22 @@ class Logger;
 struct CodeGenerator;
 namespace ast
 {
+
+struct IBlockContent
+{
+	virtual ~IBlockContent() = 0;
+};
+
+struct ICompoundStmtContent : IBlockContent
+{
+	virtual ~ICompoundStmtContent() = 0;
+};
+
+struct IStructBodyContent : IBlockContent
+{
+	virtual ~IStructBodyContent() = 0;
+};
+
 struct Ast : virtual IJsonDumper
 {
 	// 函数
@@ -341,7 +357,10 @@ public:
 struct Decl : Ast
 {};
 
-struct VarDecl : Decl, IVar
+struct VarDecl : Decl,
+                 IVar,
+                 ICompoundStmtContent,
+                 IStructBodyContent
 {
 private:
 	Ident             m_ident;
@@ -444,10 +463,10 @@ public:
 	}
 };
 
-struct Stmt : public Ast
+struct Stmt : Ast, ICompoundStmtContent
 {};
 
-struct ExprStmt : public Stmt
+struct ExprStmt : Stmt
 {
 private:
 	uptr<Expr> m_expr;
@@ -476,66 +495,62 @@ public:
 	}
 };
 
-struct Block
+Env *create_env(Env *parent, Logger &logger);
+
+struct IBlock : Ast
 {
-protected:
-	Env                   *m_outer_env;
-	Env                   *m_inner_env;
-	SrcRange               m_range;
-	// FuncBody: statement或var_decl
-	// StructBody: var_decl或func_decl
-	std::vector<uptr<Ast>> m_elems;
+	virtual ~IBlock()                              = default;
+	virtual Env           *get_outer_env() const   = 0;
+	virtual void           set_inner_env(Env *env) = 0;
+	virtual Env           *get_inner_env() const   = 0;
+	virtual void           set_range(const SrcRange &range) = 0;
+	virtual void           add_content(uptr<IBlockContent>) = 0;
+	virtual IBlockContent *get_content(size_t i)            = 0;
+	virtual size_t         get_content_size() const         = 0;
 
-public:
-	Block(Env                   *outer_env,
-	      SrcRange               range,
-	      std::vector<uptr<Ast>> elems);
-
-	[[nodiscard]] std::string dump_json()
+	template <typename BlockType>
+	    requires(std::derived_from<BlockType, IBlock>)
+	static uptr<BlockType> create_with_inner_env(Env *outer_env)
 	{
-		return dump_json_for_vector_of_ptr(m_elems);
-	}
-	[[nodiscard]] SrcRange range() const { return m_range; }
-	[[nodiscard]] Env     *env() const { return m_outer_env; }
-	[[nodiscard]] Env *env_inner() const { return m_inner_env; }
-	[[nodiscard]] Env *env_outer() const { return m_outer_env; }
-	[[nodiscard]] size_t elem_count() const
-	{
-		return m_elems.size();
-	}
-	[[nodiscard]] Ast *get_elem(size_t index)
-	{
-		return m_elems[index].get();
-	};
-	[[nodiscard]] void add_elem(uptr<Ast> e)
-	{
-		m_elems.push_back(std::move(e));
-	}
-	[[nodiscard]] void set_range(const SrcRange &range)
-	{
-		this->m_range = range;
-	}
-	void analyze_semantics()
-	{
-		for (auto &&elem : m_elems)
-		{
-			elem->analyze_semantics();
-		}
+		auto ptr = make_uptr(new BlockType());
+		ptr->set_outer_env(outer_env);
+		auto inner_env = create_env(
+		    ptr->get_outer_env(), ptr->get_outer_env()->logger);
+		ptr->set_inner_env(inner_env);
 	}
 };
 
-struct CompoundStmt : Block, Stmt, IFuncBody
+struct CompoundStmt : IBlock, Stmt, IFuncBody
 {
-	using Block::Block;
+private:
+	SrcRange m_range;
+	Env     *m_inner_env = nullptr;
+	Env     *m_outer_env = nullptr;
+	std::vector<uptr<ICompoundStmtContent>> m_content;
 
-	[[nodiscard]] SrcRange range() const override
+public:
+	CompoundStmt() {}
+
+	SrcRange range() const override { return m_range; }
+
+	Env *env() const override { return m_outer_env; }
+	Env *get_outer_env() const override { return m_outer_env; }
+	void set_inner_env(Env *env) override { m_inner_env = env; }
+	Env *get_inner_env() const override { return m_inner_env; }
+	void set_range(const SrcRange &range) override
 	{
-		return Block::range();
+		m_range = range;
 	}
-	[[nodiscard]] Env *env() const override
+	void add_content(uptr<IBlockContent> content) override
 	{
-		return Block::env();
+		m_content.push_back( std::move(content));
 	}
+	IBlockContent *get_content(size_t i) override
+	{
+		return nullptr;
+	}
+	size_t get_content_size() const override { return 0; }
+
 	[[nodiscard]] std::string dump_json() override
 	{
 		return Block::dump_json();
@@ -547,7 +562,7 @@ struct CompoundStmt : Block, Stmt, IFuncBody
 	void codegen(CodeGenerator &g) override;
 };
 
-struct FuncDecl : Decl, IFunc
+struct FuncDecl : Decl, IFunc, IStructBodyContent
 {
 private:
 	Env                         *m_env;

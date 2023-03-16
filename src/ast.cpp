@@ -160,15 +160,6 @@ void IdentExpr::set_type(  IType *t)
 }
 
 // === Block ===
-Block::Block(Env                   *outer_env,
-             SrcRange               range,
-             std::vector<uptr<Ast>> elems)
-    : m_elems(std::move(elems))
-    , m_range(range)
-    , m_outer_env(outer_env)
-{
-	m_inner_env = Env::create(outer_env, outer_env->logger);
-}
 
 void VarDecl::analyze_semantics()
 {
@@ -209,14 +200,17 @@ StructDecl::StructDecl(Env             *env,
     , m_ident(std::move(ident))
     , m_body(std::move(body))
 {}
+
 bool StructDecl::can_accept(const IType *other) const
 {
 	return this->equal(other);
 }
+
 bool StructDecl::equal(const IType *other) const
 {
 	return this == dynamic_cast<const StructDecl *>(other);
 }
+
 std::string StructDecl::get_type_name() const
 {
 	return m_ident.name;

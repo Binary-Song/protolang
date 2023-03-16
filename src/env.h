@@ -84,6 +84,8 @@ public:
 private:
 	void jump_until_valid();
 };
+
+
 class Env
 {
 public:
@@ -244,5 +246,10 @@ struct EnvGuard
 
 	~EnvGuard() { curr_env = old_env; }
 };
+
+inline Env *create_env(Env *parent, Logger &logger)
+{
+	return Env::create(parent, logger);
+}
 
 } // namespace protolang

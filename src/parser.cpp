@@ -35,36 +35,37 @@ uptr<ast::ExprStmt> Parser::expression_statement()
 	return make_uptr(new ast::ExprStmt(std::move(expr)));
 }
 
-template <typename T>
-    requires(std::derived_from<T, ast::Block>)
-uptr<T> Parser::block(
-    std::function<void(std::unique_ptr<T> &_blk)> elem_handler)
+void Parser::parse_block(
+    ast::IBlock                       *block,
+    std::function<void(ast::IBlock *)> elem_handler)
 {
-	auto     _block = make_uptr(new T(curr_env, {}, {}));
-	EnvGuard guard(curr_env, _block->env_inner());
+	EnvGuard guard(curr_env, block->get_inner_env());
 	auto     left_brace =
 	    eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 	while (!is_curr_of_type(Token::Type::RightBrace))
 	{
-		elem_handler(_block);
+		elem_handler(block);
 	}
 	auto right_brace =
 	    eat_given_type_or_panic(Token::Type::RightBrace, "}");
-	_block->set_range(
+	block->set_range(
 	    range_union(left_brace.range(), right_brace.range()));
-	return _block;
 }
 
 uptr<ast::CompoundStmt> Parser::compound_statement()
 {
-	return block<ast::CompoundStmt>(
-	    [this](std::unique_ptr<ast::CompoundStmt> &_blk)
+	auto compound =
+	    ast::IBlock::create_with_inner_env<ast::CompoundStmt>(
+	        curr_env);
+	parse_block(
+	    [this](ast::IBlock *b)
 	    {
 		    if (is_curr_keyword(Keyword::KW_VAR))
-			    _blk->add_elem(var_decl());
+			    b->add_content(var_decl());
 		    else
-			    _blk->add_elem(statement());
+			    b->add_content(statement());
 	    });
+	return compound;
 }
 
 uptr<ast::StructBody> Parser::struct_body()
