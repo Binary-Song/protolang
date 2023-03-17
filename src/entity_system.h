@@ -33,30 +33,48 @@ struct Expr;
 // 表达式不算实体。因为没有名字。
 struct IEntity : virtual IJsonDumper
 {
-	virtual ~IEntity() = default;
+	~IEntity() override = default;
 };
 
 // 有类型之物，函数、变量、表达式都是有类型的。
 // 类型自己不算有类型。
 struct ITyped : virtual IJsonDumper
 {
-	virtual ~ITyped()                       = default;
+	~ITyped() override                      = default;
 	[[nodiscard]] virtual IType *get_type() = 0;
+};
+
+struct TypeCache
+{
+private:
+	IType *m_type_cache = nullptr;
+
+public:
+	IType *lazy_get_type()
+	{
+		if (m_type_cache)
+			return m_type_cache;
+		m_type_cache = recompute_type();
+		return m_type_cache;
+	}
+	virtual IType *recompute_type() = 0;
+
+protected:
+	void set_type_cache(IType *t) { m_type_cache = t; }
 };
 
 // 类型
 struct IType : IEntity
 {
-	virtual ~IType() = default;
-	[[nodiscard]] virtual bool        can_accept(IType *) = 0;
-	[[nodiscard]] virtual bool        equal(IType *)      = 0;
-	[[nodiscard]] virtual std::string get_type_name()     = 0;
-	[[nodiscard]] virtual IEntity    *get_member(const Ident &)
+	~IType() override                       = default;
+	virtual bool        can_accept(IType *) = 0;
+	virtual bool        equal(IType *)      = 0;
+	virtual std::string get_type_name()     = 0;
+	virtual IEntity    *get_member(const Ident &)
 	{
 		return nullptr;
 	}
-	[[nodiscard]] virtual llvm::Type *get_llvm_type(
-	    CodeGenerator &g) = 0;
+	virtual llvm::Type *get_llvm_type(CodeGenerator &g) = 0;
 };
 
 struct IVar : ITyped, IEntity
@@ -66,10 +84,11 @@ struct IVar : ITyped, IEntity
 	virtual llvm::AllocaInst   *get_stack_addr() const = 0;
 	virtual void set_stack_addr(llvm::AllocaInst *)    = 0;
 
-	llvm::Value *codegen(CodeGenerator &g, llvm::Function *func);
-	llvm::Value *codegen(CodeGenerator  &g,
-	                     llvm::Function *func,
-	                     llvm::Value    *init);
+	llvm::Value *codegen_value(CodeGenerator  &g,
+	                           llvm::Function *func);
+	llvm::Value *codegen_value(CodeGenerator  &g,
+	                           llvm::Function *func,
+	                           llvm::Value    *init);
 };
 
 struct IFuncType : IType
@@ -110,25 +129,28 @@ struct IFuncType : IType
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
 };
 
-struct IFunc : IFuncType, ITyped
+struct IFunc : IFuncType, virtual ITyped
 {
 public:
-	virtual void        set_mangled_name(std::string name);
-	virtual std::string get_mangled_name() const = 0;
-	virtual IFuncBody  *get_body()               = 0;
+	virtual void        set_mangled_name(std::string name) = 0;
+	virtual std::string get_mangled_name() const           = 0;
+	virtual IFuncBody  *get_body()                         = 0;
 	IType              *get_type() override { return this; }
 	virtual std::string get_param_name(size_t) const = 0;
 	virtual IVar       *get_param(size_t)            = 0;
 
-	llvm::Value *codegen(CodeGenerator &g);
-
-private:
+	llvm::Function *codegen_func(CodeGenerator &g);
 };
 
-struct IFuncBody
+struct ICodeGen
+{
+	virtual ~ICodeGen()                    = default;
+	virtual void codegen(CodeGenerator &g) = 0;
+};
+
+struct IFuncBody : virtual ICodeGen
 {
 public:
-	virtual void codegen(CodeGenerator &g) = 0;
 };
 
 } // namespace protolang

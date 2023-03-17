@@ -57,7 +57,7 @@ uptr<ast::CompoundStmt> Parser::compound_statement()
 	auto compound =
 	    ast::IBlock::create_with_inner_env<ast::CompoundStmt>(
 	        curr_env);
-	parse_block(
+	parse_block(compound.get(),
 	    [this](ast::IBlock *b)
 	    {
 		    if (is_curr_keyword(Keyword::KW_VAR))

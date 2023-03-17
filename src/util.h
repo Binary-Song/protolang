@@ -9,7 +9,7 @@ namespace protolang
 /// 强制dyn_cast：
 /// 失败会 throw 的 dynamic_cast
 template <typename Derived, typename Base>
-Derived fdyn_cast(Base &&u)
+Derived dyn_cast_force(Base &&u)
 {
 	if (auto x = dynamic_cast<Derived>(u))
 		return x;
@@ -19,12 +19,16 @@ Derived fdyn_cast(Base &&u)
 /// 失败会 throw 的 dynamic_cast
 /// for unique_ptr
 template <typename Derived, typename Base>
-std::unique_ptr<Derived> dyn_ptr_cast_f(std::unique_ptr<Base> u)
+std::unique_ptr<Derived> dyn_cast_uptr_force(
+    std::unique_ptr<Base> u)
 {
-
+	if (auto d = dynamic_cast<Derived *>(u.get()))
+	{
+		u.release();
+		return std::unique_ptr<Derived>(d);
+	}
 	throw ExceptionCastError();
 }
-
 
 struct IJsonDumper
 {

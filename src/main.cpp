@@ -16,11 +16,12 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
+#include <type_traits>
 int main()
 {
 	try
 	{
-		std::string file_name =
+  		std::string file_name =
 		    __FILE__ R"(\..\..\test\test3.ptl)";
 		std::string output_file_name =
 		    __FILE__ R"(\..\..\dump\dump.json)";
@@ -48,7 +49,7 @@ int main()
 		    << root_env->dump_json() << "\n";
 		try
 		{
-			prog->analyze_semantics();	
+			prog->validate_types();
 		}
 		catch (const protolang::ExceptionPanic &)
 		{

@@ -4,26 +4,34 @@
 #include "env.h"
 #include "logger.h"
 
-namespace protolang
-{
-namespace ast
+namespace protolang::ast
 {
 // === IdentTypeExpr ===
 IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
     : m_ident(std::move(ident))
     , m_env(env)
 {}
+
 IType *IdentTypeExpr::get_type()
+{
+	return lazy_get_type();
+}
+IType *IdentTypeExpr::recompute_type()
 {
 	return this->env()->get<IType>(ident());
 }
-void IdentTypeExpr::analyze_semantics()
+
+void IdentTypeExpr::validate_types()
 {
-	[[maybe_unused]] auto a = get_type();
+	[[maybe_unused]] auto _ = get_type();
 }
 
 // === BinaryExpr ===
 IType *BinaryExpr::get_type()
+{
+	return lazy_get_type();
+}
+IType *BinaryExpr::recompute_type()
 {
 	auto   lhs_type = this->left->get_type();
 	auto   rhs_type = this->right->get_type();
@@ -45,8 +53,11 @@ IType *CallExpr::get_arg_type(size_t index)
 {
 	return m_args[index]->get_type();
 }
-
 IType *CallExpr::get_type()
+{
+	return lazy_get_type();
+}
+IType *CallExpr::recompute_type()
 {
 	// non-member call: func(1,2,3)
 	// member call:
@@ -94,6 +105,10 @@ IType *CallExpr::get_type()
 // === MemberAccessExpr ===
 IType *MemberAccessExpr::get_type()
 {
+	return lazy_get_type();
+}
+IType *MemberAccessExpr::recompute_type()
+{
 	auto member_entity =
 	    m_left->get_type()->get_member(m_member);
 	if (member_entity)
@@ -119,6 +134,11 @@ IType *MemberAccessExpr::get_type()
 // === LiteralExpr ===
 IType *LiteralExpr::get_type()
 {
+	return lazy_get_type();
+}
+
+IType *LiteralExpr::recompute_type()
+{
 	if (m_token.type == Token::Type::Int)
 	{
 		return root_env()->get<IType>(
@@ -136,10 +156,12 @@ IType *LiteralExpr::get_type()
 // === IdentExpr ===
 IType *IdentExpr::get_type()
 {
-	if (m_type) // 上层表达式负责写入
-		return m_type;
+	return lazy_get_type();
+}
+IType *IdentExpr::recompute_type()
+{
 	auto entity = env()->get(ident());
-	if (auto overloads = dynamic_cast<OverloadSet *>(entity))
+	if (dynamic_cast<OverloadSet *>(entity))
 	{
 		// 如果标识符是重载集合，则需要上层表达式来帮忙决定type
 		env()->logger.log(ErrorAmbiguousSymbol(this->ident()));
@@ -153,15 +175,14 @@ IType *IdentExpr::get_type()
 	throw ExceptionPanic();
 }
 
-void IdentExpr::set_type(  IType *t)
+void IdentExpr::set_type(IType *t)
 {
-	assert(m_type == nullptr);
-	m_type = t;
+	set_type_cache(t);
 }
 
 // === Block ===
 
-void VarDecl::analyze_semantics()
+void VarDecl::validate_types()
 {
 	auto init_type = m_init->get_type();
 	auto var_type  = m_type->get_type();
@@ -190,7 +211,6 @@ FuncDecl::FuncDecl(Env                         *env,
     , m_body(std::move(body))
 {}
 
-
 StructDecl::StructDecl(Env             *env,
                        const SrcRange  &range,
                        Ident            ident,
@@ -201,17 +221,17 @@ StructDecl::StructDecl(Env             *env,
     , m_body(std::move(body))
 {}
 
-bool StructDecl::can_accept(const IType *other) const
+bool StructDecl::can_accept(IType *other)
 {
 	return this->equal(other);
 }
 
-bool StructDecl::equal(const IType *other) const
+bool StructDecl::equal(IType *other)
 {
 	return this == dynamic_cast<const StructDecl *>(other);
 }
 
-std::string StructDecl::get_type_name() const
+std::string StructDecl::get_type_name()
 {
 	return m_ident.name;
 }
@@ -223,20 +243,14 @@ Env *Ast::root_env() const
 
 Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     : m_decls(std::move(decls))
-    , m_root_env(Env::create(logger))
+    , m_root_env(Env::create("", logger))
 {}
 
 // 表达式默认的语义检查方法是计算一次类型
 
-void Expr::analyze_semantics()
+void Expr::validate_types()
 {
-	[[maybe_unused]] auto a = get_type();
-	//[[maybe_unused]] auto a = get_type();
-	//[[maybe_unused]] auto b = range();
-	// env()->logger.print_code_ref(
-	//    CodeRef{range(), a->get_type_name()});
+	[[maybe_unused]] auto _ = get_type();
 }
 
-
-} // namespace ast
-} // namespace protolang
+} // namespace protolang::ast

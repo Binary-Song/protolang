@@ -17,15 +17,15 @@ struct BuiltInInt : IType
 		return s_instance.get();
 	}
 
-	bool can_accept(const IType *other) const override
+	bool can_accept(IType *other) override
 	{
 		return equal(other);
 	}
-	bool equal(const IType *other) const override
+	bool equal(IType *other) override
 	{
 		return dynamic_cast<const BuiltInInt *>(other);
 	}
-	std::string get_type_name() const override { return "int"; }
+	std::string get_type_name() override { return "int"; }
 	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInInt"})";
@@ -40,18 +40,15 @@ struct BuiltInFloat : IType
 		return s_instance.get();
 	}
 
-	bool can_accept(const IType *other) const override
+	bool can_accept(IType *other) override
 	{
 		return equal(other);
 	}
-	bool equal(const IType *other) const override
+	bool equal(IType *other) override
 	{
 		return dynamic_cast<const BuiltInFloat *>(other);
 	}
-	std::string get_type_name() const override
-	{
-		return "float";
-	}
+	std::string get_type_name() override { return "float"; }
 	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInFloat"})";
@@ -65,18 +62,15 @@ struct BuiltInDouble : IType
 		return s_instance.get();
 	}
 
-	bool can_accept(const IType *other) const override
+	bool can_accept(IType *other) override
 	{
 		return equal(other);
 	}
-	bool equal(const IType *other) const override
+	bool equal(IType *other) override
 	{
 		return dynamic_cast<const BuiltInDouble *>(other);
 	}
-	std::string get_type_name() const override
-	{
-		return "double";
-	}
+	std::string get_type_name() override { return "double"; }
 	std::string dump_json() override
 	{
 		return R"({"obj":"BuiltInDouble"})";
@@ -106,7 +100,6 @@ public:
 	{
 		return R"({"obj":"BuiltInAdd"})";
 	}
-
 };
 
 } // namespace protolang

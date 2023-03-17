@@ -23,21 +23,6 @@ struct CodeGenerator;
 namespace ast
 {
 
-struct IBlockContent
-{
-	virtual ~IBlockContent() = 0;
-};
-
-struct ICompoundStmtContent : IBlockContent
-{
-	virtual ~ICompoundStmtContent() = 0;
-};
-
-struct IStructBodyContent : IBlockContent
-{
-	virtual ~IStructBodyContent() = 0;
-};
-
 struct Ast : virtual IJsonDumper
 {
 	// 函数
@@ -46,18 +31,35 @@ public:
 
 	// 虚函数
 public:
-	virtual ~Ast()                                     = default;
-	[[nodiscard]] virtual SrcRange range() const       = 0;
-	[[nodiscard]] virtual Env     *env() const         = 0;
-	virtual void                   analyze_semantics() = 0;
+	~Ast() override                                 = default;
+	[[nodiscard]] virtual SrcRange range() const    = 0;
+	[[nodiscard]] virtual Env     *env() const      = 0;
+	virtual void                   validate_types() = 0;
+};
+
+struct IBlockContent : Ast
+{
+	~IBlockContent() override = default;
+};
+
+struct ICompoundStmtContent : IBlockContent, virtual ICodeGen
+{
+	~ICompoundStmtContent() override = default;
+};
+
+struct IStructBodyContent : IBlockContent
+{
+	~IStructBodyContent() override = default;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
 struct TypeExpr : Ast
-{};
+{
+	virtual IType *get_type() = 0;
+};
 
 // 类型标识符
-struct IdentTypeExpr : TypeExpr
+struct IdentTypeExpr : TypeExpr, TypeCache
 {
 	// 数据
 private:
@@ -80,11 +82,12 @@ public:
 	}
 	[[nodiscard]] Env   *env() const override { return m_env; }
 	[[nodiscard]] IType *get_type() override;
-	void                 analyze_semantics() override;
+	void                 validate_types() override;
+	IType               *recompute_type() override;
 };
 
 // 表达式，抽象类
-struct Expr : public Ast, public ITyped
+struct Expr : Ast, ITyped, ICodeGen
 {
 	// 类
 	enum class ValueCat
@@ -94,18 +97,24 @@ struct Expr : public Ast, public ITyped
 		Rvalue,
 	};
 
-	[[nodiscard]] virtual ValueCat get_stack_addr_cat() const
+	[[nodiscard]] virtual ValueCat get_cat() const
 	{
 		return ValueCat::Pending;
 	}
 	// 表达式默认的语义检查方法是计算一次类型
-	void analyze_semantics() override;
+	void validate_types() override;
+	void codegen(CodeGenerator &g) override { codegen_value(g); }
+	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
 
-	virtual llvm::Value *codegen(CodeGenerator &g) = 0;
+protected:
+	llvm::Value *gen_overload_call(
+	    const Ident                       &ident,
+	    std::initializer_list<ast::Expr *> arg_exprs,
+	    CodeGenerator                     &g);
 };
 
 // 二元运算表达式
-struct BinaryExpr : public Expr
+struct BinaryExpr : Expr, TypeCache
 {
 	// 数据
 private:
@@ -141,8 +150,11 @@ public:
 		    left->dump_json(),
 		    right->dump_json());
 	}
+	llvm::Value *codegen_value(CodeGenerator &g) override;
+	IType       *recompute_type() override;
 };
 
+// 一元运算
 struct UnaryExpr : public Expr
 {
 	// 数据
@@ -150,7 +162,6 @@ public:
 	bool       prefix;
 	uptr<Expr> operand;
 	Ident      op;
-
 	// 函数
 public:
 	UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
@@ -178,9 +189,10 @@ public:
 		return operand->env();
 	}
 	[[nodiscard]] IType *get_type() override;
+	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
-struct CallExpr : public Expr
+struct CallExpr : Expr, TypeCache
 {
 	// 数据
 protected:
@@ -239,9 +251,10 @@ public:
 		return m_callee->env();
 	}
 	[[nodiscard]] IType *get_type() override;
+	IType               *recompute_type() override;
 };
 
-struct BracketExpr : public CallExpr
+struct BracketExpr : CallExpr
 {
 public:
 	BracketExpr(const SrcRange         &src_rng,
@@ -257,11 +270,9 @@ public:
 		    get_callee()->dump_json(),
 		    dump_json_for_vector_of_ptr(m_args));
 	}
-
-	// virtual uptr<Type> solve_type(TypeChecker *);
 };
 struct IdentExpr;
-struct MemberAccessExpr : public Expr
+struct MemberAccessExpr : Expr, TypeCache
 {
 	// 数据
 public:
@@ -293,9 +304,10 @@ public:
 		return m_left->env();
 	}
 	[[nodiscard]] IType *get_type() override;
+	IType               *recompute_type() override;
 };
 
-struct LiteralExpr : public Expr
+struct LiteralExpr : Expr, TypeCache
 {
 public:
 	Token m_token;
@@ -321,37 +333,36 @@ public:
 	[[nodiscard]] Env   *env() const override { return m_env; }
 	[[nodiscard]] IType *get_type() override;
 	[[nodiscard]] Token  get_token() const { return m_token; }
-	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g);
+	[[nodiscard]] llvm::Value *codegen_value(
+	    CodeGenerator &g) override;
+	IType *recompute_type() override;
 };
 
-struct IdentExpr : public Expr
+struct IdentExpr : Expr, TypeCache
 {
 private:
-	Ident  m_ident;
-	Env   *m_env;
-	IType *m_type = nullptr;
+	Ident m_ident;
+	Env  *m_env;
 
 public:
 	explicit IdentExpr(Env *env, Ident ident)
 	    : m_env(env)
-	    , m_ident(ident)
+	    , m_ident(std::move(ident))
 	{}
 
-	[[nodiscard]] Ident ident() const { return m_ident; }
+	Ident ident() const { return m_ident; }
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format("\"{}\"", m_ident.name);
 	}
 
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_ident.range;
-	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() override;
-	[[nodiscard]] void   set_type(IType *type);
-	[[nodiscard]] llvm::Value *codegen(CodeGenerator &g);
+	SrcRange     range() const override { return m_ident.range; }
+	Env         *env() const override { return m_env; }
+	IType       *get_type() override;
+	void         set_type(IType *type);
+	llvm::Value *codegen_value(CodeGenerator &g) override;
+	IType       *recompute_type() override;
 };
 
 struct Decl : Ast
@@ -402,7 +413,7 @@ public:
 	{
 		return m_type->env();
 	}
-	void              analyze_semantics() override;
+	void              validate_types() override;
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -449,9 +460,9 @@ public:
 		return m_ident.range + m_type->range();
 	}
 	[[nodiscard]] Env *env() const override { return m_env; }
-	void               analyze_semantics() override
+	void               validate_types() override
 	{
-		this->m_type->analyze_semantics();
+		this->m_type->validate_types();
 	}
 	llvm::AllocaInst *get_stack_addr() const override
 	{
@@ -463,7 +474,7 @@ public:
 	}
 };
 
-struct Stmt : Ast, ICompoundStmtContent
+struct Stmt : ICompoundStmtContent
 {};
 
 struct ExprStmt : Stmt
@@ -489,17 +500,15 @@ public:
 	{
 		return m_expr->env();
 	}
-	void analyze_semantics() override
-	{
-		m_expr->analyze_semantics();
-	}
+	void validate_types() override { m_expr->validate_types(); }
+	void codegen(CodeGenerator &g) override;
 };
 
 Env *create_env(Env *parent, Logger &logger);
 
 struct IBlock : Ast
 {
-	virtual ~IBlock()                              = default;
+	~IBlock() override                             = default;
 	virtual Env           *get_outer_env() const   = 0;
 	virtual void           set_inner_env(Env *env) = 0;
 	virtual Env           *get_inner_env() const   = 0;
@@ -520,7 +529,7 @@ struct IBlock : Ast
 	}
 };
 
-struct CompoundStmt : IBlock, Stmt, IFuncBody
+struct CompoundStmt : Stmt, IBlock, IFuncBody
 {
 private:
 	SrcRange m_range;
@@ -529,7 +538,7 @@ private:
 	std::vector<uptr<ICompoundStmtContent>> m_content;
 
 public:
-	CompoundStmt() {}
+	CompoundStmt() = default;
 
 	SrcRange range() const override { return m_range; }
 
@@ -543,21 +552,29 @@ public:
 	}
 	void add_content(uptr<IBlockContent> content) override
 	{
-		m_content.push_back( std::move(content));
+		m_content.push_back(
+		    dyn_cast_uptr_force<ICompoundStmtContent>(
+		        std::move(content)));
 	}
 	IBlockContent *get_content(size_t i) override
 	{
-		return nullptr;
+		return m_content[i].get();
 	}
-	size_t get_content_size() const override { return 0; }
+	size_t get_content_size() const override
+	{
+		return m_content.size();
+	}
 
 	[[nodiscard]] std::string dump_json() override
 	{
-		return Block::dump_json();
+		return dump_json_for_vector_of_ptr(m_content);
 	}
-	void analyze_semantics() override
+	void validate_types() override
 	{
-		Block::analyze_semantics();
+		for (auto &&elem : m_content)
+		{
+			elem->validate_types();
+		}
 	}
 	void codegen(CodeGenerator &g) override;
 };
@@ -565,7 +582,7 @@ public:
 struct FuncDecl : Decl, IFunc, IStructBodyContent
 {
 private:
-	Env                         *m_env;
+	Env                         *m_env = nullptr;
 	SrcRange                     m_range;
 	Ident                        m_ident;
 	std::vector<uptr<ParamDecl>> m_params;
@@ -616,14 +633,14 @@ public:
 	}
 	// todo: params 如果有默认值，可能还得check一下
 	// todo: body 里的 return 必须 check
-	void analyze_semantics() override
+	void validate_types() override
 	{
 		for (auto &&p : m_params)
 		{
-			p->analyze_semantics();
+			p->validate_types();
 		}
-		m_return_type->analyze_semantics();
-		m_body->analyze_semantics();
+		m_return_type->validate_types();
+		m_body->validate_types();
 	}
 	std::string get_mangled_name() const override
 	{
@@ -643,27 +660,8 @@ public:
 	}
 };
 
-struct StructBody : Block, Ast
-{
-	using Block::Block;
-
-	[[nodiscard]] SrcRange range() const override
-	{
-		return Block::range();
-	}
-	[[nodiscard]] Env *env() const override
-	{
-		return Block::env();
-	}
-	[[nodiscard]] std::string dump_json() override
-	{
-		return Block::dump_json();
-	}
-	void analyze_semantics() override
-	{
-		Block::analyze_semantics();
-	}
-};
+struct StructBody : IBlock
+{};
 
 struct StructDecl : Decl, IType
 {
@@ -694,10 +692,7 @@ public:
 	bool               can_accept(IType *iType) override;
 	bool               equal(IType *iType) override;
 	std::string        get_type_name() override;
-	void               analyze_semantics() override
-	{
-		m_body->analyze_semantics();
-	}
+	void validate_types() override { m_body->validate_types(); }
 };
 
 struct Program : public Ast
@@ -710,7 +705,7 @@ public:
 	explicit Program(std::vector<uptr<Decl>> decls,
 	                 Logger                 &logger);
 
-	std::string dump_json()
+	std::string dump_json() override
 	{
 		return std::format(R"({{"obj":"Program","decls":[{}]}})",
 		                   dump_json_for_vector_of_ptr(m_decls));
@@ -722,11 +717,11 @@ public:
 	{
 		return m_decls;
 	}
-	void analyze_semantics() override
+	void validate_types() override
 	{
 		for (auto &&decl : m_decls)
 		{
-			decl->analyze_semantics();
+			decl->validate_types();
 		}
 	}
 };
