@@ -427,11 +427,13 @@ struct Stmt : IBlockContent
 struct ExprStmt : Stmt
 {
 private:
+	SrcRange   m_range;
 	uptr<Expr> m_expr;
 
 public:
-	explicit ExprStmt(uptr<Expr> expr)
+	explicit ExprStmt(const SrcRange &range, uptr<Expr> expr)
 	    : m_expr(std::move(expr))
+	    , m_range(range)
 	{}
 	Expr       *get_expr() { return m_expr.get(); }
 	std::string dump_json() override
@@ -517,6 +519,18 @@ public:
 		}
 	}
 	void codegen(CodeGenerator &g) override;
+};
+
+struct ReturnStmt : ExprStmt
+{
+public:
+	using ExprStmt::ExprStmt;
+	void        codegen(CodeGenerator &g) override;
+	std::string dump_json() override
+	{
+		return std::format(R"({{"obj":"ReturnStmt","expr":{}}})",
+		                   get_expr()->dump_json());
+	}
 };
 
 struct FuncDecl : Decl, IFunc, IBlockContent

@@ -56,14 +56,8 @@ public:
 	uptr<ast::Program> parse() { return program(); }
 
 private:
-	 const Token &curr() const
-	{
-		return tokens[index];
-	}
-	 const Token &prev() const
-	{
-		return tokens[index - 1];
-	}
+	const Token &curr() const { return tokens[index]; }
+	const Token &prev() const { return tokens[index - 1]; }
 
 	void sync()
 	{
@@ -78,26 +72,27 @@ private:
 		}
 	}
 
-	 uptr<ast::Program>      program();
-	 uptr<ast::Decl>         declaration();
-	 uptr<ast::TypeExpr>     type_expr();
-	 uptr<ast::VarDecl>      var_decl();
-	 uptr<ast::FuncDecl>     func_decl();
-	 uptr<ast::StructDecl>   struct_decl();
-	 uptr<ast::Stmt>         statement();
-	 uptr<ast::ExprStmt>     expression_statement();
-	 uptr<ast::CompoundStmt> compound_statement();
-	 uptr<ast::StructBody>   struct_body();
-	 uptr<ast::Expr>         expression();
-	 uptr<ast::Expr>         assignment();
-	 uptr<ast::Expr>         equality();
-	 uptr<ast::Expr>         comparison();
-	 uptr<ast::Expr>         term();
-	 uptr<ast::Expr>         factor();
-	 uptr<ast::Expr>         unary_pre();
-	 uptr<ast::Expr>         unary_post();
-	 uptr<ast::Expr>         member_access();
-	 uptr<ast::Expr>         primary();
+	uptr<ast::Program>      program();
+	uptr<ast::Decl>         declaration();
+	uptr<ast::TypeExpr>     type_expr();
+	uptr<ast::VarDecl>      var_decl();
+	uptr<ast::FuncDecl>     func_decl();
+	uptr<ast::StructDecl>   struct_decl();
+	uptr<ast::Stmt>         statement();
+	uptr<ast::ReturnStmt>   return_statement();
+	uptr<ast::ExprStmt>     expression_statement();
+	uptr<ast::CompoundStmt> compound_statement();
+	uptr<ast::StructBody>   struct_body();
+	uptr<ast::Expr>         expression();
+	uptr<ast::Expr>         assignment();
+	uptr<ast::Expr>         equality();
+	uptr<ast::Expr>         comparison();
+	uptr<ast::Expr>         term();
+	uptr<ast::Expr>         factor();
+	uptr<ast::Expr>         unary_pre();
+	uptr<ast::Expr>         unary_post();
+	uptr<ast::Expr>         member_access();
+	uptr<ast::Expr>         primary();
 	/*
 	 *
 	 *

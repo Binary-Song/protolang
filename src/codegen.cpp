@@ -1,4 +1,6 @@
 #include <llvm/ADT/APFloat.h>
+#include <llvm/IR/Verifier.h>
+
 #include "ast.h"
 #include "code_generator.h"
 #include "entity_system.h"
@@ -150,6 +152,7 @@ void IFunc::codegen_param_and_body(CodeGenerator  &g,
 		i++;
 	}
 	get_body()->codegen(g);
+	llvm::verifyFunction(*f);
 }
 
 void ast::CompoundStmt::codegen(CodeGenerator &g)
@@ -165,6 +168,12 @@ void ast::ExprStmt::codegen(CodeGenerator &g)
 	m_expr->codegen(g);
 }
 
+void ast::ReturnStmt::codegen(CodeGenerator &g)
+{
+	auto expr_val = get_expr()->codegen_value(g);
+	g.builder().CreateRet(expr_val);
+}
+
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)
 {
 	return gen_overload_call(
@@ -178,7 +187,8 @@ llvm::Value *ast::UnaryExpr::codegen_value(CodeGenerator &g)
 
 llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
 {
-	// todo: 如果callee不是一个单名，那就根据callee的类型找调用的函数
+	// todo:
+	// 如果callee不是一个单名，那就根据callee的类型找调用的函数
 	if (auto callee =
 	        dynamic_cast<IdentExpr *>(this->m_callee.get()))
 	{

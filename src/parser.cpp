@@ -2,8 +2,8 @@
 #include "ast.h"
 #include "entity_system.h"
 #include "env.h"
-#include "log.h"
 #include "exceptions.h"
+#include "log.h"
 namespace protolang
 {
 
@@ -33,7 +33,18 @@ uptr<ast::ExprStmt> Parser::expression_statement()
 	auto expr = expression();
 	auto semi_col =
 	    eat_given_type_or_panic(Token::Type::SemiColumn, ";");
-	return make_uptr(new ast::ExprStmt(std::move(expr)));
+	auto range = expr->range() + semi_col.range();
+
+	return make_uptr(new ast::ExprStmt(range, std::move(expr)));
+}
+uptr<ast::ReturnStmt> Parser::return_statement()
+{
+	auto return_kw = eat_keyword_or_panic(Keyword::KW_RETURN);
+	auto expr      = expression();
+	auto range     = return_kw.range() + expr->range();
+
+	return make_uptr(
+	    new ast::ReturnStmt(range, std::move(expr)));
 }
 
 void Parser::parse_block(
@@ -376,18 +387,19 @@ uptr<ast::FuncDecl> Parser::func_decl()
 uptr<ast::StructDecl> Parser::struct_decl()
 {
 	throw ExceptionNotImplemented();
-//	auto struct_kw_token   = eat_keyword_or_panic(KW_STRUCT);
-//	auto struct_name_token = eat_ident_or_panic();
-//	auto body              = struct_body();
-//	auto decl              = std::make_unique<ast::StructDecl>(
-//        curr_env,
-//        range_union(struct_kw_token.range(),
-//                    struct_name_token.range()),
-//        Ident{struct_name_token.str_data,
-//              struct_name_token.range()},
-//        std::move(body));
-//	curr_env->add(struct_name_token.str_data, decl.get());
-//	return decl;
+	//	auto struct_kw_token   = eat_keyword_or_panic(KW_STRUCT);
+	//	auto struct_name_token = eat_ident_or_panic();
+	//	auto body              = struct_body();
+	//	auto decl              =
+	// std::make_unique<ast::StructDecl>(
+	//        curr_env,
+	//        range_union(struct_kw_token.range(),
+	//                    struct_name_token.range()),
+	//        Ident{struct_name_token.str_data,
+	//              struct_name_token.range()},
+	//        std::move(body));
+	//	curr_env->add(struct_name_token.str_data, decl.get());
+	//	return decl;
 }
 
 uptr<ast::TypeExpr> Parser::type_expr()
@@ -404,6 +416,10 @@ uptr<ast::Stmt> Parser::statement()
 	if (is_curr_of_type(Token::Type::LeftBrace))
 	{
 		return compound_statement();
+	}
+	else if (is_curr_keyword(KW_RETURN))
+	{
+		return return_statement();
 	}
 	else
 	{
