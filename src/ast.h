@@ -23,7 +23,7 @@ struct CodeGenerator;
 namespace ast
 {
 
-struct Ast : virtual IJsonDumper
+struct Ast : virtual IJsonDumper, virtual ICodeGen
 {
 	// 函数
 public:
@@ -31,15 +31,11 @@ public:
 
 	// 虚函数
 public:
-	~Ast() override                   = default;
+	~Ast() override = default;
+	void             codegen(CodeGenerator &) override {}
 	virtual SrcRange range() const    = 0;
 	virtual Env     *env() const      = 0;
 	virtual void     validate_types() = 0;
-};
-
-struct IBlockContent : Ast, ICodeGen
-{
-	~IBlockContent() override = default;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
@@ -74,7 +70,7 @@ public:
 };
 
 // 表达式，抽象类
-struct Expr : Ast, ITyped, ICodeGen
+struct Expr : Ast, ITyped
 {
 	// 类
 	enum class ValueCat
@@ -332,7 +328,7 @@ public:
 struct Decl : Ast
 {};
 
-struct VarDecl : Decl, IVar, IBlockContent
+struct VarDecl : Decl, IVar
 {
 private:
 	Ident             m_ident;
@@ -421,7 +417,7 @@ public:
 	}
 };
 
-struct Stmt : IBlockContent
+struct Stmt: Ast
 {};
 
 struct ExprStmt : Stmt
@@ -449,15 +445,15 @@ public:
 
 struct IBlock : Ast
 {
-	~IBlock() override                             = default;
-	virtual void           set_outer_env(Env *env) = 0;
-	virtual Env           *get_outer_env() const   = 0;
-	virtual void           set_inner_env(Env *env) = 0;
-	virtual Env           *get_inner_env() const   = 0;
-	virtual void           set_range(const SrcRange &range) = 0;
-	virtual void           add_content(uptr<IBlockContent>) = 0;
-	virtual IBlockContent *get_content(size_t i)            = 0;
-	virtual size_t         get_content_size() const         = 0;
+	~IBlock() override                              = default;
+	virtual void   set_outer_env(Env *env)          = 0;
+	virtual Env   *get_outer_env() const            = 0;
+	virtual void   set_inner_env(Env *env)          = 0;
+	virtual Env   *get_inner_env() const            = 0;
+	virtual void   set_range(const SrcRange &range) = 0;
+	virtual void   add_content(uptr<Ast>)           = 0;
+	virtual Ast   *get_content(size_t i)            = 0;
+	virtual size_t get_content_size() const         = 0;
 
 	template <std::derived_from<IBlock> BlockType>
 	static uptr<BlockType> create_with_inner_env(Env *outer_env)
@@ -474,10 +470,10 @@ struct IBlock : Ast
 struct CompoundStmt : Stmt, IBlock
 {
 private:
-	SrcRange                         m_range;
-	Env                             *m_inner_env = nullptr;
-	Env                             *m_outer_env = nullptr;
-	std::vector<uptr<IBlockContent>> m_content;
+	SrcRange               m_range;
+	Env                   *m_inner_env = nullptr;
+	Env                   *m_outer_env = nullptr;
+	std::vector<uptr<Ast>> m_content;
 
 public:
 	CompoundStmt() = default;
@@ -494,11 +490,11 @@ public:
 	{
 		m_range = range;
 	}
-	void add_content(uptr<IBlockContent> content) override
+	void add_content(uptr<Ast> content) override
 	{
 		m_content.push_back(std::move(content));
 	}
-	IBlockContent *get_content(size_t i) override
+	Ast *get_content(size_t i) override
 	{
 		return m_content[i].get();
 	}
@@ -533,7 +529,7 @@ public:
 	}
 };
 
-struct FuncDecl : Decl, IFunc, IBlockContent
+struct FuncDecl : Decl, IFunc
 {
 private:
 	Env                         *m_env = nullptr;
@@ -644,7 +640,7 @@ public:
 	void validate_types() override { m_body->validate_types(); }
 };
 
-struct Program : public Ast
+struct Program : Ast
 {
 private:
 	std::vector<uptr<Decl>> m_decls;
@@ -666,6 +662,15 @@ public:
 	{
 		return m_decls;
 	}
+
+	void codegen(CodeGenerator &g)
+	{
+		for (auto &&d : m_decls)
+		{
+			d->codegen(g);
+		}
+	}
+
 	void validate_types() override
 	{
 		for (auto &&decl : m_decls)

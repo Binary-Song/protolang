@@ -35,7 +35,7 @@ IType *BinaryExpr::recompute_type()
 {
 	auto   lhs_type = this->left->get_type();
 	auto   rhs_type = this->right->get_type();
-	IFunc *func =
+	IOp *func =
 	    env()->overload_resolution(op, {lhs_type, rhs_type});
 	return func->get_return_type();
 }
@@ -44,7 +44,7 @@ IType *BinaryExpr::recompute_type()
 IType *UnaryExpr::get_type()
 {
 	auto   operand_type = operand->get_type();
-	IFunc *func = env()->overload_resolution(op, {operand_type});
+	IOp *func = env()->overload_resolution(op, {operand_type});
 	return func->get_return_type();
 }
 
@@ -76,7 +76,7 @@ IType *CallExpr::recompute_type()
 	if (auto ident_expr =
 	        dynamic_cast<IdentExpr *>(m_callee.get()))
 	{
-		IFunc *func = env()->overload_resolution(
+		IOp *func = env()->overload_resolution(
 		    ident_expr->ident(), get_arg_types());
 		auto return_type = func->get_return_type();
 		auto func_type   = func->get_type();
@@ -85,7 +85,7 @@ IType *CallExpr::recompute_type()
 	}
 	// 否则，如果是函数指针等，不用重载决策直接调用
 	else if (auto func_type =
-	             dynamic_cast<IFunc *>(m_callee->get_type()))
+	             dynamic_cast<IOp *>(m_callee->get_type()))
 	{
 		// 检查参数类型
 		env()->check_args(func_type, get_arg_types(), true);
@@ -113,7 +113,7 @@ IType *MemberAccessExpr::recompute_type()
 	if (member_entity)
 	{
 		if (auto member_func =
-		        dynamic_cast<IFunc *>(member_entity))
+		        dynamic_cast<IOp *>(member_entity))
 		{
 			// todo : member func 的 type 应该不一样！但我建议
 			// 不要在这里改，在 IFunc 的实现类改！

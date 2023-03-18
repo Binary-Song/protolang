@@ -41,15 +41,15 @@ bool Env::check_args(IFuncType                  *func,
 	return true;
 }
 
-IFunc *Env::overload_resolution(
+IOp *Env::overload_resolution(
     const Ident                &func_ident,
     const std::vector<IType *> &arg_types)
 {
 	auto overloads = get<OverloadSet>(func_ident);
-	std::vector<IFunc *> fits;
+	std::vector<IOp *> fits;
 	for (auto &&entity : *overloads)
 	{
-		IFunc *func = entity;
+		IOp *func = entity;
 		if (check_args(func, arg_types))
 		{
 			fits.push_back(func);
@@ -68,7 +68,7 @@ IFunc *Env::overload_resolution(
 	return fits[0];
 }
 void Env::add_to_overload_set(OverloadSet       *overloads,
-                              IFunc             *func,
+                              IOp               *func,
                               const std::string &name)
 {
 	// 设置函数名
@@ -80,7 +80,7 @@ void Env::add_to_overload_set(OverloadSet       *overloads,
 void Env::add(const std::string &name, IEntity *obj)
 {
 	bool name_clash = m_symbol_table.contains(name);
-	if (auto func = dynamic_cast<IFunc *>(obj))
+	if (auto func = dynamic_cast<IOp *>(obj))
 	{
 		if (name_clash)
 		{ // 同名的玩意必须是函数重载集
@@ -190,7 +190,7 @@ OverloadSetConstIterator OverloadSet::cend() const
 
 std::string OverloadSet::dump_json()
 {
-	std::vector<IFunc *> all;
+	std::vector<IOp *> all;
 	for (auto iter = begin(); iter != end(); ++iter)
 	{
 		auto f = *iter;
@@ -213,7 +213,7 @@ size_t OverloadSet::count() const
  * */
 
 OverloadSetIterator::OverloadSetIterator(
-    std::vector<IFunc *>::iterator iter, OverloadSet *curr)
+    std::vector<IOp *>::iterator iter, OverloadSet *curr)
     : m_iter(iter)
     , m_curr_set(curr)
 {}
@@ -269,7 +269,7 @@ bool OverloadSetIterator::operator!=(
  *
  * */
 OverloadSetConstIterator::OverloadSetConstIterator(
-    std::vector<IFunc *>::const_iterator iter,
+    std::vector<IOp *>::const_iterator iter,
     const OverloadSet                   *curr)
     : m_iter(iter)
     , m_curr_set(curr)

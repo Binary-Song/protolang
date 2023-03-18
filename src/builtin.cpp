@@ -227,10 +227,10 @@ void add_scalar_and_op(Env *env, const char *type_name)
 
 void add_builtins(Env *env)
 {
-	add_scalar_and_op<BuiltInIntType<32, true>>(env, "i32");
-	add_scalar_and_op<BuiltInIntType<64, true>>(env, "i32");
-	add_scalar_and_op<BuiltInIntType<32, false>>(env, "u32");
-	add_scalar_and_op<BuiltInIntType<64, false>>(env, "u64");
+	add_scalar_and_op<BuiltInIntType<32, true>>(env, "int");
+	add_scalar_and_op<BuiltInIntType<64, true>>(env, "long");
+	add_scalar_and_op<BuiltInIntType<32, false>>(env, "uint");
+	add_scalar_and_op<BuiltInIntType<64, false>>(env, "ulong");
 }
 
 // 这个函数可以生成任何scalar之间的cast。

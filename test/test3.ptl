@@ -1,11 +1,5 @@
-func a(p: double) -> double {}
-func a(p: int) -> int
-{
 
-}
-func a(p: double, q: int) -> double
+func a(p: int, q: int) -> int
 {
-    a(p);
-    a(p,q);
-        a(q);
+    return a(q, p);
 }

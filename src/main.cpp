@@ -11,6 +11,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 #include <type_traits>
+#include "code_generator.h"
 #include "env.h"
 #include "lexer.h"
 #include "logger.h"
@@ -46,11 +47,12 @@ int main()
 		auto prog = parser.parse();
 		if (!prog)
 			return 1;
-		std::ofstream(output_file_name)
-		    << root_env->dump_json() << "\n";
+		protolang::CodeGenerator g{"test"};
 		try
 		{
 			prog->validate_types();
+			prog->codegen(g);
+			g.module().print(llvm::errs(), nullptr);
 		}
 		catch (const protolang::ExceptionPanic &)
 		{
