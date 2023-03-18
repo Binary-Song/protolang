@@ -40,8 +40,8 @@ struct IEntity : virtual IJsonDumper
 // 类型自己不算有类型。
 struct ITyped : virtual IJsonDumper
 {
-	~ITyped() override                      = default;
-	[[nodiscard]] virtual IType *get_type() = 0;
+	~ITyped() override        = default;
+	virtual IType *get_type() = 0;
 };
 
 struct TypeCache
@@ -101,10 +101,10 @@ struct ICodeGen
 
 struct IVar : ITyped, IEntity
 {
-	[[nodiscard]] virtual Ident get_ident() const      = 0;
-	virtual ast::Expr          *get_init()             = 0;
-	virtual llvm::AllocaInst   *get_stack_addr() const = 0;
-	virtual void set_stack_addr(llvm::AllocaInst *)    = 0;
+	virtual Ident             get_ident() const      = 0;
+	virtual ast::Expr        *get_init()             = 0;
+	virtual llvm::AllocaInst *get_stack_addr() const = 0;
+	virtual void set_stack_addr(llvm::AllocaInst *)  = 0;
 
 	llvm::Value *codegen_value(CodeGenerator &g);
 	llvm::Value *codegen_value(CodeGenerator &g,
@@ -113,16 +113,16 @@ struct IVar : ITyped, IEntity
 
 struct IFuncType : IType
 {
-	[[nodiscard]] virtual IType *get_return_type()       = 0;
-	[[nodiscard]] virtual size_t get_param_count() const = 0;
-	[[nodiscard]] virtual IType *get_param_type(size_t)  = 0;
+	virtual IType *get_return_type()       = 0;
+	virtual size_t get_param_count() const = 0;
+	virtual IType *get_param_type(size_t)  = 0;
 
 	// === 实现 IType  ===
-	[[nodiscard]] bool can_accept(IType *other) override
+	bool can_accept(IType *other) override
 	{
 		return this->equal(other);
 	}
-	[[nodiscard]] bool equal(IType *other) override
+	bool equal(IType *other) override
 	{
 		if (auto other_func = dynamic_cast<IFuncType *>(other))
 		{
@@ -144,9 +144,9 @@ struct IFuncType : IType
 		}
 		return false;
 	}
-	[[nodiscard]] std::string get_type_name() override;
-	llvm::FunctionType       *get_llvm_type_f(CodeGenerator &g);
-	llvm::Type *get_llvm_type(CodeGenerator &g) override;
+	std::string         get_type_name() override;
+	llvm::FunctionType *get_llvm_type_f(CodeGenerator &g);
+	llvm::Type         *get_llvm_type(CodeGenerator &g) override;
 
 private:
 	llvm::Value *cast_inst_no_check(

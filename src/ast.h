@@ -27,14 +27,14 @@ struct Ast : virtual IJsonDumper
 {
 	// 函数
 public:
-	[[nodiscard]] Env *root_env() const;
+	Env *root_env() const;
 
 	// 虚函数
 public:
-	~Ast() override                                 = default;
-	[[nodiscard]] virtual SrcRange range() const    = 0;
-	[[nodiscard]] virtual Env     *env() const      = 0;
-	virtual void                   validate_types() = 0;
+	~Ast() override                   = default;
+	virtual SrcRange range() const    = 0;
+	virtual Env     *env() const      = 0;
+	virtual void     validate_types() = 0;
 };
 
 struct IBlockContent : Ast, ICodeGen
@@ -58,22 +58,19 @@ private:
 	// 函数
 public:
 	explicit IdentTypeExpr(Env *env, Ident ident);
-	[[nodiscard]] Ident       ident() const { return m_ident; }
+	Ident       ident() const { return m_ident; }
 	// 实现基类成员
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"IdentTypeExpr","ident":{}}})",
 		    m_ident.dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_ident.range;
-	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() override;
-	void                 validate_types() override;
-	IType               *recompute_type() override;
+	SrcRange range() const override { return m_ident.range; }
+	Env     *env() const override { return m_env; }
+	IType   *get_type() override;
+	void     validate_types() override;
+	IType   *recompute_type() override;
 };
 
 // 表达式，抽象类
@@ -119,20 +116,20 @@ public:
 	    , op(std::move(op))
 	    , right(std::move(right))
 	{}
-	[[nodiscard]] Expr    *get_left() { return left.get(); }
-	[[nodiscard]] Expr    *get_right() { return right.get(); }
-	[[nodiscard]] Ident    get_op() const { return op; }
-	[[nodiscard]] SrcRange range() const override
+	Expr    *get_left() { return left.get(); }
+	Expr    *get_right() { return right.get(); }
+	Ident    get_op() const { return op; }
+	SrcRange range() const override
 	{
 		return left->range() + right->range();
 	}
-	[[nodiscard]] Env *env() const override
+	Env *env() const override
 	{
 		assert(left->env() == right->env());
 		return left->env();
 	}
-	[[nodiscard]] IType      *get_type() override;
-	[[nodiscard]] std::string dump_json() override
+	IType      *get_type() override;
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
@@ -160,25 +157,22 @@ public:
 	    , op(std::move(op))
 	{}
 
-	[[nodiscard]] bool  is_prefix() const { return prefix; }
-	[[nodiscard]] Expr *get_operand() { return operand.get(); }
-	[[nodiscard]] Ident get_op() const { return op; }
-	[[nodiscard]] std::string dump_json() override
+	bool        is_prefix() const { return prefix; }
+	Expr       *get_operand() { return operand.get(); }
+	Ident       get_op() const { return op; }
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"UnaryExpr","op":{},"oprd":{}}})",
 		    op.dump_json(),
 		    operand->dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
+	SrcRange range() const override
 	{
 		return op.range + operand->range();
 	}
-	[[nodiscard]] Env *env() const override
-	{
-		return operand->env();
-	}
-	[[nodiscard]] IType *get_type() override;
+	Env         *env() const override { return operand->env(); }
+	IType       *get_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
@@ -199,24 +193,15 @@ public:
 	    , m_src_rng(src_rng)
 	{}
 
-	[[nodiscard]] Expr *get_callee() const
-	{
-		return m_callee.get();
-	}
-	[[nodiscard]] size_t get_arg_count() const
-	{
-		return m_args.size();
-	}
-	[[nodiscard]] Expr *get_arg(size_t index) const
+	Expr  *get_callee() const { return m_callee.get(); }
+	size_t get_arg_count() const { return m_args.size(); }
+	Expr  *get_arg(size_t index) const
 	{
 		return m_args[index].get();
 	}
-	[[nodiscard]] SrcRange get_range() const
-	{
-		return m_src_rng;
-	}
-	[[nodiscard]] IType *get_arg_type(size_t index);
-	[[nodiscard]] std::vector<IType *> get_arg_types()
+	SrcRange             get_range() const { return m_src_rng; }
+	IType               *get_arg_type(size_t index);
+	std::vector<IType *> get_arg_types()
 	{
 		std::vector<IType *> types;
 		for (size_t i = 0; i < get_arg_count(); i++)
@@ -225,23 +210,17 @@ public:
 		}
 		return types;
 	}
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"CallExpr","callee":{},"args":{}}})",
 		    m_callee->dump_json(),
 		    dump_json_for_vector_of_ptr(m_args));
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_src_rng;
-	}
-	[[nodiscard]] Env *env() const override
-	{
-		return m_callee->env();
-	}
-	[[nodiscard]] IType *get_type() override;
-	IType               *recompute_type() override;
+	SrcRange     range() const override { return m_src_rng; }
+	Env         *env() const override { return m_callee->env(); }
+	IType       *get_type() override;
+	IType       *recompute_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
@@ -254,7 +233,7 @@ public:
 	    : CallExpr(src_rng, std::move(callee), std::move(args))
 	{}
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BracketExpr","callee":{},"args":{}}})",
@@ -277,25 +256,22 @@ public:
 	    , m_member(std::move(member))
 	{}
 
-	[[nodiscard]] Expr       *get_left() { return m_left.get(); }
-	[[nodiscard]] Ident       get_member() { return m_member; }
-	[[nodiscard]] std::string dump_json() override
+	Expr       *get_left() { return m_left.get(); }
+	Ident       get_member() { return m_member; }
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"MemberAccessExpr","left":{},"member":{}}})",
 		    m_left->dump_json(),
 		    m_member.dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
+	SrcRange range() const override
 	{
 		return m_left->range() + m_member.range;
 	}
-	[[nodiscard]] Env *env() const override
-	{
-		return m_left->env();
-	}
-	[[nodiscard]] IType *get_type() override;
-	IType               *recompute_type() override;
+	Env         *env() const override { return m_left->env(); }
+	IType       *get_type() override;
+	IType       *recompute_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
@@ -311,23 +287,19 @@ public:
 	    , m_token(std::move(token))
 	{}
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format("\"{}/{}/{}\"",
 		                   m_token.str_data,
 		                   m_token.int_data,
 		                   m_token.fp_data);
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_token.range();
-	}
-	[[nodiscard]] Env   *env() const override { return m_env; }
-	[[nodiscard]] IType *get_type() override;
-	[[nodiscard]] Token  get_token() const { return m_token; }
-	[[nodiscard]] llvm::Value *codegen_value(
-	    CodeGenerator &g) override;
-	IType *recompute_type() override;
+	SrcRange range() const override { return m_token.range(); }
+	Env     *env() const override { return m_env; }
+	IType   *get_type() override;
+	Token    get_token() const { return m_token; }
+	llvm::Value *codegen_value(CodeGenerator &g) override;
+	IType       *recompute_type() override;
 };
 
 struct IdentExpr : Expr, TypeCache
@@ -385,15 +357,12 @@ public:
 		    m_type->dump_json(),
 		    m_init->dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
+	SrcRange range() const override
 	{
 		return m_ident.range + m_init->range();
 	}
-	[[nodiscard]] Env *env() const override
-	{
-		return m_type->env();
-	}
-	void              validate_types() override;
+	Env *env() const override { return m_type->env(); }
+	void validate_types() override;
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -423,28 +392,22 @@ public:
 	    , m_type(std::move(type))
 	{}
 
-	[[nodiscard]] Ident get_ident() const override
-	{
-		return m_ident;
-	}
-	[[nodiscard]] Expr  *get_init() override { return nullptr; }
-	[[nodiscard]] IType *get_type() override
-	{
-		return m_type->get_type();
-	}
-	[[nodiscard]] std::string dump_json() override
+	Ident  get_ident() const override { return m_ident; }
+	Expr  *get_init() override { return nullptr; }
+	IType *get_type() override { return m_type->get_type(); }
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"ParamDecl","ident":{},"type":{} }})",
 		    m_ident.dump_json(),
 		    m_type->dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
+	SrcRange range() const override
 	{
 		return m_ident.range + m_type->range();
 	}
-	[[nodiscard]] Env *env() const override { return m_env; }
-	void               validate_types() override
+	Env *env() const override { return m_env; }
+	void validate_types() override
 	{
 		this->m_type->validate_types();
 	}
@@ -470,20 +433,14 @@ public:
 	explicit ExprStmt(uptr<Expr> expr)
 	    : m_expr(std::move(expr))
 	{}
-	[[nodiscard]] Expr       *get_expr() { return m_expr.get(); }
-	[[nodiscard]] std::string dump_json() override
+	Expr       *get_expr() { return m_expr.get(); }
+	std::string dump_json() override
 	{
 		return std::format(R"({{"obj":"ExprStmt","expr":{}}})",
 		                   m_expr->dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_expr->range();
-	}
-	[[nodiscard]] Env *env() const override
-	{
-		return m_expr->env();
-	}
+	SrcRange range() const override { return m_expr->range(); }
+	Env     *env() const override { return m_expr->env(); }
 	void validate_types() override { m_expr->validate_types(); }
 	void codegen(CodeGenerator &g) override;
 };
@@ -548,7 +505,7 @@ public:
 		return m_content.size();
 	}
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return dump_json_for_vector_of_ptr(m_content);
 	}
@@ -582,7 +539,7 @@ public:
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
@@ -590,33 +547,27 @@ public:
 		    m_return_type->dump_json(),
 		    m_body->dump_json());
 	}
-	[[nodiscard]] Ident    get_ident() const { return m_ident; }
-	[[nodiscard]] IType   *get_type() override { return this; }
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_range;
-	}
-	[[nodiscard]] Env *env() const override { return m_env; }
+	Ident    get_ident() const { return m_ident; }
+	IType   *get_type() override { return this; }
+	SrcRange range() const override { return m_range; }
+	Env     *env() const override { return m_env; }
 
-	[[nodiscard]] IType *get_return_type() override
+	IType *get_return_type() override
 	{
 		return m_return_type->get_type();
 	}
-	[[nodiscard]] size_t get_param_count() const override
+	size_t get_param_count() const override
 	{
 		return m_params.size();
 	}
-	[[nodiscard]] IType *get_param_type(size_t i) override
+	IType *get_param_type(size_t i) override
 	{
 		return m_params[i]->get_type();
 	}
-	[[nodiscard]] ICodeGen *get_body() override
-	{
-		return m_body.get();
-	}
+	ICodeGen *get_body() override { return m_body.get(); }
 	// todo: params 如果有默认值，可能还得check一下
 	// todo: body 里的 return 必须 check
-	void validate_types() override
+	void      validate_types() override
 	{
 		for (auto &&p : m_params)
 		{
@@ -664,21 +615,18 @@ public:
 	           Ident            ident,
 	           uptr<StructBody> body);
 
-	[[nodiscard]] std::string dump_json() override
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"StructDecl","ident":{},"body":{}}})",
 		    m_ident.dump_json(),
 		    m_body->dump_json());
 	}
-	[[nodiscard]] SrcRange range() const override
-	{
-		return m_range;
-	}
-	[[nodiscard]] Env *env() const override { return m_env; }
-	bool               can_accept(IType *iType) override;
-	bool               equal(IType *iType) override;
-	std::string        get_type_name() override;
+	SrcRange    range() const override { return m_range; }
+	Env        *env() const override { return m_env; }
+	bool        can_accept(IType *iType) override;
+	bool        equal(IType *iType) override;
+	std::string get_type_name() override;
 	void validate_types() override { m_body->validate_types(); }
 };
 

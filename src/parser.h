@@ -56,11 +56,11 @@ public:
 	uptr<ast::Program> parse() { return program(); }
 
 private:
-	[[nodiscard]] const Token &curr() const
+	 const Token &curr() const
 	{
 		return tokens[index];
 	}
-	[[nodiscard]] const Token &prev() const
+	 const Token &prev() const
 	{
 		return tokens[index - 1];
 	}
@@ -78,26 +78,26 @@ private:
 		}
 	}
 
-	[[nodiscard]] uptr<ast::Program>      program();
-	[[nodiscard]] uptr<ast::Decl>         declaration();
-	[[nodiscard]] uptr<ast::TypeExpr>     type_expr();
-	[[nodiscard]] uptr<ast::VarDecl>      var_decl();
-	[[nodiscard]] uptr<ast::FuncDecl>     func_decl();
-	[[nodiscard]] uptr<ast::StructDecl>   struct_decl();
-	[[nodiscard]] uptr<ast::Stmt>         statement();
-	[[nodiscard]] uptr<ast::ExprStmt>     expression_statement();
-	[[nodiscard]] uptr<ast::CompoundStmt> compound_statement();
-	[[nodiscard]] uptr<ast::StructBody>   struct_body();
-	[[nodiscard]] uptr<ast::Expr>         expression();
-	[[nodiscard]] uptr<ast::Expr>         assignment();
-	[[nodiscard]] uptr<ast::Expr>         equality();
-	[[nodiscard]] uptr<ast::Expr>         comparison();
-	[[nodiscard]] uptr<ast::Expr>         term();
-	[[nodiscard]] uptr<ast::Expr>         factor();
-	[[nodiscard]] uptr<ast::Expr>         unary_pre();
-	[[nodiscard]] uptr<ast::Expr>         unary_post();
-	[[nodiscard]] uptr<ast::Expr>         member_access();
-	[[nodiscard]] uptr<ast::Expr>         primary();
+	 uptr<ast::Program>      program();
+	 uptr<ast::Decl>         declaration();
+	 uptr<ast::TypeExpr>     type_expr();
+	 uptr<ast::VarDecl>      var_decl();
+	 uptr<ast::FuncDecl>     func_decl();
+	 uptr<ast::StructDecl>   struct_decl();
+	 uptr<ast::Stmt>         statement();
+	 uptr<ast::ExprStmt>     expression_statement();
+	 uptr<ast::CompoundStmt> compound_statement();
+	 uptr<ast::StructBody>   struct_body();
+	 uptr<ast::Expr>         expression();
+	 uptr<ast::Expr>         assignment();
+	 uptr<ast::Expr>         equality();
+	 uptr<ast::Expr>         comparison();
+	 uptr<ast::Expr>         term();
+	 uptr<ast::Expr>         factor();
+	 uptr<ast::Expr>         unary_pre();
+	 uptr<ast::Expr>         unary_post();
+	 uptr<ast::Expr>         member_access();
+	 uptr<ast::Expr>         primary();
 	/*
 	 *
 	 *

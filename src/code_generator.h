@@ -24,20 +24,10 @@ public:
 	                                              *m_context))
 	{}
 
-	[[nodiscard]] llvm::LLVMContext &context()
-	{
-		return *m_context.get();
-	}
-	[[nodiscard]] llvm::IRBuilder<> &builder()
-	{
-		return *m_builder.get();
-	}
-	[[nodiscard]] llvm::Module &module()
-	{
-		return *m_module.get();
-	}
-	[[nodiscard]] llvm::Value *get_named_value(
-	    const std::string &key) const
+	llvm::LLVMContext &context() { return *m_context.get(); }
+	llvm::IRBuilder<> &builder() { return *m_builder.get(); }
+	llvm::Module      &module() { return *m_module.get(); }
+	llvm::Value *get_named_value(const std::string &key) const
 	{
 		return m_named_values.at(key);
 	}
