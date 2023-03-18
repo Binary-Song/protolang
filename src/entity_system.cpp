@@ -1,6 +1,10 @@
+#include <concepts>
 #include "entity_system.h"
+#include "builtin.h"
+#include "code_generator.h"
 #include "env.h"
 #include "util.h"
+#include "llvm/IR/Type.h"
 namespace protolang
 {
 std::string IFuncType::get_type_name()
@@ -16,6 +20,26 @@ std::string IFuncType::get_type_name()
 	return std::format("func({})->{}",
 	                   param_list,
 	                   get_return_type()->get_type_name());
+}
+
+llvm::Value *IType::cast_implicit(CodeGenerator &g,
+                                  llvm::Value   *val,
+                                  IType         *type)
+{
+	if (type->equal(this))
+		return val;
+	if (!type->can_accept(this))
+		return nullptr;
+	return this->cast_inst_no_check(g, val, type);
+}
+
+llvm::Value *IType::cast_explicit(CodeGenerator &g,
+                                  llvm::Value   *val,
+                                  IType         *type)
+{
+	if (type->equal(this))
+		return val;
+	return this->cast_inst_no_check(g, val, type);
 }
 
 

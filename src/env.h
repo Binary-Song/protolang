@@ -85,7 +85,6 @@ private:
 	void jump_until_valid();
 };
 
-
 class Env
 {
 public:
@@ -105,12 +104,11 @@ private:
 	{}
 
 public:
-	static uptr<Env> create(std::string scope_name,
-	                        Logger     &logger)
+	static uptr<Env> create_root(Logger &logger)
 
 	{
 		auto env          = make_uptr(new Env(nullptr, logger));
-		env->m_scope_name = std::move(scope_name);
+		env->m_scope_name = "";
 		return env;
 	}
 
@@ -159,8 +157,7 @@ public:
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
 	/// fixme: 不但要找到，还要找全
-	template <typename T = IEntity>
-	    requires std::derived_from<T, IEntity>
+	template <std::derived_from<IEntity> T = IEntity>
 	T *get(const Ident &ident) const
 	{
 		std::string name = ident.name;
@@ -229,7 +226,7 @@ private:
 	}
 	void add_to_overload_set(OverloadSet       *overloads,
 	                         IFunc             *func,
-	                         const std::string &name)
+	                         const std::string &name);
 };
 
 struct EnvGuard

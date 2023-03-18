@@ -3,6 +3,7 @@
 #include "entity_system.h"
 #include "env.h"
 #include "log.h"
+#include "exceptions.h"
 namespace protolang
 {
 
@@ -58,26 +59,40 @@ uptr<ast::CompoundStmt> Parser::compound_statement()
 	    ast::IBlock::create_with_inner_env<ast::CompoundStmt>(
 	        curr_env);
 	parse_block(compound.get(),
-	    [this](ast::IBlock *b)
-	    {
-		    if (is_curr_keyword(Keyword::KW_VAR))
-			    b->add_content(var_decl());
-		    else
-			    b->add_content(statement());
-	    });
+	            [this](ast::IBlock *b)
+	            {
+		            if (is_curr_keyword(Keyword::KW_VAR))
+			            b->add_content(var_decl());
+		            else
+			            b->add_content(statement());
+	            });
 	return compound;
 }
 
 uptr<ast::StructBody> Parser::struct_body()
 {
-	return block<ast::StructBody>(
-	    [this](std::unique_ptr<ast::StructBody> &_blk)
-	    {
-		    if (is_curr_keyword(Keyword::KW_VAR))
-			    _blk->add_elem(var_decl());
-		    else
-			    _blk->add_elem(func_decl());
-	    });
+	return {};
+	//	return block<ast::StructBody>(
+	//	    [this](std::unique_ptr<ast::StructBody> &b)
+	//	    {
+	//		    if (is_curr_keyword(Keyword::KW_VAR))
+	//			    b->add_elem(var_decl());
+	//		    else
+	//			    b->add_elem(func_decl());
+	//	    });
+	//
+	//	auto struct_body =
+	//	    ast::IBlock::create_with_inner_env<ast::StructBody>(
+	//	        curr_env);
+	//	parse_block(compound.get(),
+	//	            [this](ast::IBlock *b)
+	//	            {
+	//		            if (is_curr_keyword(Keyword::KW_VAR))
+	//			            b->add_content(var_decl());
+	//		            else
+	//			            b->add_content(statement());
+	//	            });
+	//	return compound;
 }
 
 uptr<ast::Expr> Parser::expression()
@@ -340,8 +355,8 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	for (auto &&[ident, type_expr] : data)
 	{
 		auto decl = make_uptr(new ast::ParamDecl(
-		    body->env_inner(), ident, std::move(type_expr)));
-		body->env_inner()->add(ident.name, decl.get());
+		    body->get_inner_env(), ident, std::move(type_expr)));
+		body->get_inner_env()->add(ident.name, decl.get());
 		params.push_back(std::move(decl));
 	}
 
@@ -355,27 +370,24 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	    std::move(body));
 
 	curr_env->add(func_name, decl.get());
-	//	uptr<NamedFunc> named_func = uptr<NamedFunc>(
-	//	    dynamic_cast<NamedFunc
-	//*>(decl->declare(props).release()));
-	//	curr_env->add_func(std::move(named_func));
 	return decl;
 }
 
 uptr<ast::StructDecl> Parser::struct_decl()
 {
-	auto struct_kw_token   = eat_keyword_or_panic(KW_STRUCT);
-	auto struct_name_token = eat_ident_or_panic();
-	auto body              = struct_body();
-	auto decl              = std::make_unique<ast::StructDecl>(
-        curr_env,
-        range_union(struct_kw_token.range(),
-                    struct_name_token.range()),
-        Ident{struct_name_token.str_data,
-              struct_name_token.range()},
-        std::move(body));
-	curr_env->add(struct_name_token.str_data, decl.get());
-	return decl;
+	throw ExceptionNotImplemented();
+//	auto struct_kw_token   = eat_keyword_or_panic(KW_STRUCT);
+//	auto struct_name_token = eat_ident_or_panic();
+//	auto body              = struct_body();
+//	auto decl              = std::make_unique<ast::StructDecl>(
+//        curr_env,
+//        range_union(struct_kw_token.range(),
+//                    struct_name_token.range()),
+//        Ident{struct_name_token.str_data,
+//              struct_name_token.range()},
+//        std::move(body));
+//	curr_env->add(struct_name_token.str_data, decl.get());
+//	return decl;
 }
 
 uptr<ast::TypeExpr> Parser::type_expr()

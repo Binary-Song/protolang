@@ -37,19 +37,9 @@ public:
 	virtual void                   validate_types() = 0;
 };
 
-struct IBlockContent : Ast
+struct IBlockContent : Ast, ICodeGen
 {
 	~IBlockContent() override = default;
-};
-
-struct ICompoundStmtContent : IBlockContent, virtual ICodeGen
-{
-	~ICompoundStmtContent() override = default;
-};
-
-struct IStructBodyContent : IBlockContent
-{
-	~IStructBodyContent() override = default;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
@@ -97,7 +87,7 @@ struct Expr : Ast, ITyped, ICodeGen
 		Rvalue,
 	};
 
-	[[nodiscard]] virtual ValueCat get_cat() const
+	virtual ValueCat get_cat() const
 	{
 		return ValueCat::Pending;
 	}
@@ -108,9 +98,9 @@ struct Expr : Ast, ITyped, ICodeGen
 
 protected:
 	llvm::Value *gen_overload_call(
-	    const Ident                       &ident,
-	    std::initializer_list<ast::Expr *> arg_exprs,
-	    CodeGenerator                     &g);
+	    CodeGenerator                  &g,
+	    const Ident                    &ident,
+	    const std::vector<ast::Expr *> &arg_exprs);
 };
 
 // 二元运算表达式
@@ -252,6 +242,7 @@ public:
 	}
 	[[nodiscard]] IType *get_type() override;
 	IType               *recompute_type() override;
+	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
 struct BracketExpr : CallExpr
@@ -305,6 +296,7 @@ public:
 	}
 	[[nodiscard]] IType *get_type() override;
 	IType               *recompute_type() override;
+	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
 struct LiteralExpr : Expr, TypeCache
@@ -368,10 +360,7 @@ public:
 struct Decl : Ast
 {};
 
-struct VarDecl : Decl,
-                 IVar,
-                 ICompoundStmtContent,
-                 IStructBodyContent
+struct VarDecl : Decl, IVar, IBlockContent
 {
 private:
 	Ident             m_ident;
@@ -385,19 +374,10 @@ public:
 	    , m_type(std::move(type))
 	    , m_init(std::move(init))
 	{}
-	[[nodiscard]] Ident get_ident() const override
-	{
-		return m_ident;
-	}
-	[[nodiscard]] IType *get_type() override
-	{
-		return m_type->get_type();
-	}
-	[[nodiscard]] Expr *get_init() override
-	{
-		return m_init.get();
-	}
-	[[nodiscard]] std::string dump_json() override
+	Ident  get_ident() const override { return m_ident; }
+	IType *get_type() override { return m_type->get_type(); }
+	Expr  *get_init() override { return m_init.get(); }
+	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"VarDecl","ident":{},"type":{},"init":{}}})",
@@ -421,6 +401,10 @@ public:
 	void set_stack_addr(llvm::AllocaInst *value) override
 	{
 		m_value = value;
+	}
+	void codegen(CodeGenerator &g) override
+	{
+		this->codegen_value(g);
 	}
 };
 
@@ -474,7 +458,7 @@ public:
 	}
 };
 
-struct Stmt : ICompoundStmtContent
+struct Stmt : IBlockContent
 {};
 
 struct ExprStmt : Stmt
@@ -504,11 +488,10 @@ public:
 	void codegen(CodeGenerator &g) override;
 };
 
-Env *create_env(Env *parent, Logger &logger);
-
 struct IBlock : Ast
 {
 	~IBlock() override                             = default;
+	virtual void           set_outer_env(Env *env) = 0;
 	virtual Env           *get_outer_env() const   = 0;
 	virtual void           set_inner_env(Env *env) = 0;
 	virtual Env           *get_inner_env() const   = 0;
@@ -517,8 +500,7 @@ struct IBlock : Ast
 	virtual IBlockContent *get_content(size_t i)            = 0;
 	virtual size_t         get_content_size() const         = 0;
 
-	template <typename BlockType>
-	    requires(std::derived_from<BlockType, IBlock>)
+	template <std::derived_from<IBlock> BlockType>
 	static uptr<BlockType> create_with_inner_env(Env *outer_env)
 	{
 		auto ptr = make_uptr(new BlockType());
@@ -526,35 +508,36 @@ struct IBlock : Ast
 		auto inner_env = create_env(
 		    ptr->get_outer_env(), ptr->get_outer_env()->logger);
 		ptr->set_inner_env(inner_env);
+		return ptr;
 	}
 };
 
-struct CompoundStmt : Stmt, IBlock, IFuncBody
+struct CompoundStmt : Stmt, IBlock
 {
 private:
-	SrcRange m_range;
-	Env     *m_inner_env = nullptr;
-	Env     *m_outer_env = nullptr;
-	std::vector<uptr<ICompoundStmtContent>> m_content;
+	SrcRange                         m_range;
+	Env                             *m_inner_env = nullptr;
+	Env                             *m_outer_env = nullptr;
+	std::vector<uptr<IBlockContent>> m_content;
 
 public:
 	CompoundStmt() = default;
 
 	SrcRange range() const override { return m_range; }
 
-	Env *env() const override { return m_outer_env; }
+	Env *env() const override { return get_outer_env(); }
 	Env *get_outer_env() const override { return m_outer_env; }
-	void set_inner_env(Env *env) override { m_inner_env = env; }
 	Env *get_inner_env() const override { return m_inner_env; }
+	void set_outer_env(Env *env) override { m_outer_env = env; }
+	void set_inner_env(Env *env) override { m_inner_env = env; }
+
 	void set_range(const SrcRange &range) override
 	{
 		m_range = range;
 	}
 	void add_content(uptr<IBlockContent> content) override
 	{
-		m_content.push_back(
-		    dyn_cast_uptr_force<ICompoundStmtContent>(
-		        std::move(content)));
+		m_content.push_back(std::move(content));
 	}
 	IBlockContent *get_content(size_t i) override
 	{
@@ -579,7 +562,7 @@ public:
 	void codegen(CodeGenerator &g) override;
 };
 
-struct FuncDecl : Decl, IFunc, IStructBodyContent
+struct FuncDecl : Decl, IFunc, IBlockContent
 {
 private:
 	Env                         *m_env = nullptr;
@@ -627,7 +610,7 @@ public:
 	{
 		return m_params[i]->get_type();
 	}
-	[[nodiscard]] IFuncBody *get_body() override
+	[[nodiscard]] ICodeGen *get_body() override
 	{
 		return m_body.get();
 	}
@@ -657,6 +640,10 @@ public:
 	IVar *get_param(size_t i) override
 	{
 		return this->m_params[i].get();
+	}
+	void codegen(CodeGenerator &g) override
+	{
+		this->codegen_func(g);
 	}
 };
 

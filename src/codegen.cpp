@@ -6,6 +6,52 @@
 #include "exceptions.h"
 namespace protolang
 {
+static std::vector<IType *> get_arg_types(
+    const std::vector<ast::Expr *> &args)
+{
+	std::vector<IType *> types;
+	for (auto &&arg_expr : args)
+	{
+		auto arg_type = arg_expr->get_type();
+		types.push_back(arg_type);
+	}
+	return types;
+}
+
+llvm::Value *ast::Expr::gen_overload_call(
+    CodeGenerator                  &g,
+    const Ident                    &ident,
+    const std::vector<ast::Expr *> &arg_exprs)
+{
+	auto arg_types = get_arg_types(arg_exprs);
+	auto func =
+	    this->env()->overload_resolution(ident, arg_types);
+	auto func_llvm = func->codegen_func(g);
+
+	size_t i = 0;
+	std::vector<llvm::Value *>
+	    arg_vals; // 存放经过隐式转换的实参
+	for (auto &&arg_expr : arg_exprs)
+	{
+		auto arg_type   = arg_expr->get_type();
+		auto param_type = func->get_param_type(i);
+
+		auto arg_val_raw = arg_expr->codegen_value(g);
+		auto arg_val_cast =
+		    param_type->cast_implicit(g, arg_val_raw, arg_type);
+
+		arg_vals.push_back(arg_val_cast);
+		i++;
+	}
+
+	if (func_llvm->arg_size() != arg_vals.size())
+	{
+		throw ExceptionPanic();
+	}
+
+	return g.builder().CreateCall(
+	    func_llvm, arg_vals, "calltmp");
+}
 
 static llvm::AllocaInst *alloca_for_local_var(
     llvm::Function *func, llvm::Type *type, llvm::StringRef name)
@@ -37,28 +83,27 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 	// 这里只生成变量引用。
 	auto var =
 	    env()->get<IVar>(ident()); // 从环境中找到对应的var，读取
-	g.builder().CreateLoad(
+	auto load_inst = g.builder().CreateLoad(
 	    var->get_stack_addr()->getAllocatedType(),
 	    var->get_stack_addr(), // 读内存
 	    ident().name);         // 给写入的内存取个名称
+	return load_inst;
 }
 
 } // namespace ast
-llvm::Value *IVar::codegen_value(CodeGenerator  &g,
-                                 llvm::Function *func)
+llvm::Value *IVar::codegen_value(CodeGenerator &g)
 {
-	return codegen_value(
-	    g, func, this->get_init()->codegen_value(g));
+	return codegen_value(g, this->get_init()->codegen_value(g));
 }
-llvm::Value *IVar::codegen_value(CodeGenerator  &g,
-                                 llvm::Function *func,
-                                 llvm::Value    *init)
+llvm::Value *IVar::codegen_value(CodeGenerator &g,
+                                 llvm::Value   *init)
 {
 	// 这个默认是局部变量！！！！！！！！
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!
 	assert(this->get_stack_addr() == nullptr);
 
 	// 在当前函数的入口块申请栈空间
+	auto func = g.builder().GetInsertBlock()->getParent();
 	auto alloca_inst =
 	    alloca_for_local_var(func,
 	                         this->get_type()->get_llvm_type(g),
@@ -74,7 +119,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator  &g,
 	return alloca_inst; // 代表栈空间的位置
 }
 
-llvm::Function *IFunc::codegen_func(CodeGenerator &g)
+llvm::Function *IOp::codegen_func(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
 	// get到llvm函数和函数类型
@@ -88,18 +133,23 @@ llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 	llvm::BasicBlock *bb =
 	    llvm::BasicBlock::Create(g.context(), "entry", f);
 	g.builder().SetInsertPoint(bb);
+	this->codegen_param_and_body(g, f);
+	return f;
+}
+void IFunc::codegen_param_and_body(CodeGenerator  &g,
+                                   llvm::Function *f)
+{
 	// 遍历参数
 	size_t i = 0;
+	// 设置实参的名字 = 形参
+	//  形参codegen，需要f
 	for (auto &&arg : f->args())
 	{
-		// LLVM: 设置实参的名字
 		arg.setName(this->get_param_name(i));
-		// 分配实参的内存，并且将实参赋值给形参
-		this->get_param(i)->codegen_value(g, f, &arg);
-		// 循环
+		this->get_param(i)->codegen_value(g, &arg);
 		i++;
 	}
-	return f;
+	get_body()->codegen(g);
 }
 
 void ast::CompoundStmt::codegen(CodeGenerator &g)
@@ -115,45 +165,31 @@ void ast::ExprStmt::codegen(CodeGenerator &g)
 	m_expr->codegen(g);
 }
 
-llvm::Value *ast::Expr::gen_overload_call(
-    const Ident                       &ident,
-    std::initializer_list<ast::Expr *> arg_exprs,
-    CodeGenerator                     &g)
-{
-	std::vector<IType *>       types;
-	std::vector<llvm::Value *> args;
-	for (auto &&arg_expr : arg_exprs)
-	{
-		args.push_back(arg_expr->codegen_value(g));
-		types.push_back(arg_expr->get_type());
-	}
-
-	auto func = this->env()
-	                ->overload_resolution(ident, types)
-	                ->codegen_func(g);
-
-	if (func->arg_size() != args.size())
-	{
-		throw ExceptionPanic();
-	}
-	size_t i = 0;
-	// 这里就不检查参数类型了
-	//	for(auto&& arg_expr : arg_exprs)
-	//	{
-	//		i++;
-	//	}
-	return g.builder().CreateCall(func, args, "calltmp");
-}
-
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)
 {
 	return gen_overload_call(
-	    this->op, {left.get(), right.get()}, g);
+	    g, this->op, {left.get(), right.get()});
 }
 
 llvm::Value *ast::UnaryExpr::codegen_value(CodeGenerator &g)
 {
-	return gen_overload_call(this->op, {this->operand.get()}, g);
+	return gen_overload_call(g, this->op, {this->operand.get()});
+}
+
+llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
+{
+	// todo: 如果callee不是一个单名，那就根据callee的类型找调用的函数
+	if (auto callee =
+	        dynamic_cast<IdentExpr *>(this->m_callee.get()))
+	{
+		std::vector<Expr *> arg_ptrs;
+		for (auto &&arg : m_args)
+		{
+			arg_ptrs.push_back(arg.get());
+		}
+		return gen_overload_call(g, callee->ident(), arg_ptrs);
+	}
+	throw ExceptionPanic();
 }
 
 llvm::FunctionType *IFuncType::get_llvm_type_f(CodeGenerator &g)

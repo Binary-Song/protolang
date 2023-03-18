@@ -95,8 +95,7 @@ IType *CallExpr::recompute_type()
 	{
 		ErrorNotCallable e;
 		e.actual_type = m_callee->get_type()->get_type_name();
-		e.code_refs.push_back(
-		    CodeRef(m_callee->range(), "callee:"));
+		e.code_refs.emplace_back(m_callee->range(), "callee:");
 		env()->logger.log(e);
 		throw ExceptionPanic();
 	}
@@ -129,6 +128,11 @@ IType *MemberAccessExpr::recompute_type()
 	env()->logger.log(
 	    ErrorNoMember({}, m_left->get_type()->get_type_name()));
 	throw ExceptionPanic();
+}
+llvm::Value *MemberAccessExpr::codegen_value(
+    [[maybe_unused]] CodeGenerator &g)
+{
+	throw ExceptionNotImplemented{};
 }
 
 // === LiteralExpr ===
@@ -243,7 +247,7 @@ Env *Ast::root_env() const
 
 Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     : m_decls(std::move(decls))
-    , m_root_env(Env::create("", logger))
+    , m_root_env(Env::create_root(logger))
 {}
 
 // 表达式默认的语义检查方法是计算一次类型

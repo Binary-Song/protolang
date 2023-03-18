@@ -144,15 +144,16 @@ std::string Env::dump_json()
 
 void Env::add_built_in_facility()
 {
-	// 神说：
-	// 要有int和float！
-	add("int", BuiltInInt::get_instance());
-	add("float", BuiltInFloat::get_instance());
-	add("double", BuiltInDouble::get_instance());
-	// 要有加法
-	add("+", make_uptr(new BuiltInAdd<BuiltInInt>()));
-	add("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
-	add("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
+	protolang::add_builtins(this);
+	//	// 神说：
+	//	// 要有int和float！
+	//	add("int", BuiltInInt::get_instance());
+	//	add("float", BuiltInFloat::get_instance());
+	//	add("double", BuiltInDouble::get_instance());
+	//	// 要有加法
+	//	add("+", make_uptr(new BuiltInAdd<BuiltInInt>()));
+	//	add("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
+	//	add("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
 }
 
 /*

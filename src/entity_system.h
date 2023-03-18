@@ -75,6 +75,28 @@ struct IType : IEntity
 		return nullptr;
 	}
 	virtual llvm::Type *get_llvm_type(CodeGenerator &g) = 0;
+
+	// 将类型为type的val转换到本类型，将检查是不是equal以及can_accept。
+	llvm::Value *cast_implicit(CodeGenerator &g,
+	                           llvm::Value   *val,
+	                           IType         *type);
+
+	// 将类型为type的val转换到本类型，将检查是不是equal。
+	llvm::Value *cast_explicit(CodeGenerator &g,
+	                           llvm::Value   *val,
+	                           IType         *type);
+
+private:
+	// 本函数不负责检查src是不是本类型。能cast的尽量cast。
+	virtual llvm::Value *cast_inst_no_check(CodeGenerator &g,
+	                                        llvm::Value   *val,
+	                                        IType *type) = 0;
+};
+
+struct ICodeGen
+{
+	virtual ~ICodeGen()                    = default;
+	virtual void codegen(CodeGenerator &g) = 0;
 };
 
 struct IVar : ITyped, IEntity
@@ -84,11 +106,9 @@ struct IVar : ITyped, IEntity
 	virtual llvm::AllocaInst   *get_stack_addr() const = 0;
 	virtual void set_stack_addr(llvm::AllocaInst *)    = 0;
 
-	llvm::Value *codegen_value(CodeGenerator  &g,
-	                           llvm::Function *func);
-	llvm::Value *codegen_value(CodeGenerator  &g,
-	                           llvm::Function *func,
-	                           llvm::Value    *init);
+	llvm::Value *codegen_value(CodeGenerator &g);
+	llvm::Value *codegen_value(CodeGenerator &g,
+	                           llvm::Value   *init);
 };
 
 struct IFuncType : IType
@@ -127,30 +147,44 @@ struct IFuncType : IType
 	[[nodiscard]] std::string get_type_name() override;
 	llvm::FunctionType       *get_llvm_type_f(CodeGenerator &g);
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
+
+private:
+	llvm::Value *cast_inst_no_check(
+	    [[maybe_unused]] CodeGenerator &g,
+	    [[maybe_unused]] llvm::Value   *val,
+	    [[maybe_unused]] IType         *type) override
+	{
+		return nullptr;
+	}
 };
 
-struct IFunc : IFuncType, virtual ITyped
+/// 内置运算符，没有堆栈的开销，因此无法获取IVar类型的
+/// 参数信息。
+struct IOp : virtual ITyped, IFuncType
+{
+	virtual std::string get_mangled_name() const           = 0;
+	virtual void        set_mangled_name(std::string name) = 0;
+	llvm::Function     *codegen_func(CodeGenerator &g);
+	IType              *get_type() override { return this; }
+
+private:
+	/// 为参数和函数体生成代码。
+	/// 实现本函数时，实参用f->args()获取，形参自己实现。
+	virtual void codegen_param_and_body(CodeGenerator  &g,
+	                                    llvm::Function *f) = 0;
+};
+
+struct IFunc : IOp
+/* 继承是能力的拓展，不是所谓的is-a */
 {
 public:
-	virtual void        set_mangled_name(std::string name) = 0;
-	virtual std::string get_mangled_name() const           = 0;
-	virtual IFuncBody  *get_body()                         = 0;
-	IType              *get_type() override { return this; }
+	virtual ICodeGen   *get_body()                   = 0;
 	virtual std::string get_param_name(size_t) const = 0;
 	virtual IVar       *get_param(size_t)            = 0;
 
-	llvm::Function *codegen_func(CodeGenerator &g);
-};
-
-struct ICodeGen
-{
-	virtual ~ICodeGen()                    = default;
-	virtual void codegen(CodeGenerator &g) = 0;
-};
-
-struct IFuncBody : virtual ICodeGen
-{
-public:
+private:
+	virtual void codegen_param_and_body(
+	    CodeGenerator &g, llvm::Function *f) override;
 };
 
 } // namespace protolang

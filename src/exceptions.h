@@ -31,7 +31,7 @@ class ExceptionCastError : public std::exception
 public:
 	const char *what() const override
 	{
-		return "Invalid under cast";
+		return "Invalid under cast_implicit";
 	}
 };
 
