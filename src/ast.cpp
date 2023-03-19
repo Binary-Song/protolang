@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "entity_system.h"
 #include "env.h"
+#include "log.h"
 #include "logger.h"
 
 namespace protolang::ast
@@ -33,8 +34,8 @@ IType *BinaryExpr::get_type()
 }
 IType *BinaryExpr::recompute_type()
 {
-	auto   lhs_type = this->left->get_type();
-	auto   rhs_type = this->right->get_type();
+	auto lhs_type = this->left->get_type();
+	auto rhs_type = this->right->get_type();
 	IOp *func =
 	    env()->overload_resolution(op, {lhs_type, rhs_type});
 	return func->get_return_type();
@@ -43,7 +44,7 @@ IType *BinaryExpr::recompute_type()
 // === UnaryExpr ===
 IType *UnaryExpr::get_type()
 {
-	auto   operand_type = operand->get_type();
+	auto operand_type = operand->get_type();
 	IOp *func = env()->overload_resolution(op, {operand_type});
 	return func->get_return_type();
 }
@@ -88,16 +89,16 @@ IType *CallExpr::recompute_type()
 	             dynamic_cast<IOp *>(m_callee->get_type()))
 	{
 		// 检查参数类型
-		env()->check_args(func_type, get_arg_types(), true, false);
+		env()->check_args(
+		    func_type, get_arg_types(), true, false);
 		return func_type->get_return_type();
 	}
 	else
 	{
 		ErrorNotCallable e;
-		e.actual_type = m_callee->get_type()->get_type_name();
-		e.code_refs.emplace_back(m_callee->range(), "callee:");
-		env()->logger.log(e);
-		throw ExceptionPanic();
+		e.callee = m_callee->range();
+		e.type   = m_callee->get_type()->get_type_name();
+		throw std::move(e);
 	}
 }
 
@@ -125,9 +126,11 @@ IType *MemberAccessExpr::recompute_type()
 			return member_var->get_type();
 		}
 	}
-	env()->logger.log(
-	    ErrorNoMember({}, m_left->get_type()->get_type_name()));
-	throw ExceptionPanic();
+	ErrorMemberNotFound e;
+	e.type   = m_left->get_type()->get_type_name();
+	e.member = m_member.name;
+	e.here   = m_member.range;
+	throw std::move(e);
 }
 llvm::Value *MemberAccessExpr::codegen_value(
     [[maybe_unused]] CodeGenerator &g)
@@ -168,15 +171,17 @@ IType *IdentExpr::recompute_type()
 	if (dynamic_cast<OverloadSet *>(entity))
 	{
 		// 如果标识符是重载集合，则需要上层表达式来帮忙决定type
-		env()->logger.log(ErrorAmbiguousSymbol(this->ident()));
-		throw ExceptionPanic();
+		ErrorNameInThisContextIsAmbiguous e;
+		e.name = this->ident();
+		throw std::move(e);
 	}
 	if (auto typed = dynamic_cast<ITyped *>(entity))
 	{
 		return typed->get_type();
 	}
-	env()->logger.log(ErrorAmbiguousSymbol(this->ident()));
-	throw ExceptionPanic();
+	ErrorNameInThisContextIsAmbiguous e;
+	e.name = this->ident();
+	throw std::move(e);
 }
 
 void IdentExpr::set_type(IType *t)
@@ -192,12 +197,12 @@ void VarDecl::validate_types()
 	auto var_type  = m_type->get_type();
 	if (!var_type->can_accept(init_type))
 	{
-		env()->logger.log(
-		    ErrorTypeMismatch(init_type->get_type_name(),
-		                      m_init->range(),
-		                      var_type->get_type_name(),
-		                      m_type->range()));
-		throw ExceptionPanic();
+		ErrorVarDeclInitExprTypeMismatch e;
+		e.init_type    = init_type->get_type_name();
+		e.var_type     = var_type->get_type_name();
+		e.init_range   = m_init->range();
+		e.var_ty_range = m_type->range();
+		throw std::move(e);
 	}
 }
 
@@ -214,7 +219,6 @@ FuncDecl::FuncDecl(Env                         *env,
     , m_return_type(std::move(return_type))
     , m_body(std::move(body))
 {}
-
 
 StructDecl::StructDecl(Env             *env,
                        const SrcRange  &range,

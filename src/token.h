@@ -25,6 +25,15 @@ struct SrcRange
 {
 	SrcPos head;
 	SrcPos tail;
+
+	bool operator==(const SrcRange &rhs) const
+	{
+		return head == rhs.head && tail == rhs.tail;
+	}
+	bool operator!=(const SrcRange &rhs) const
+	{
+		return !(rhs == *this);
+	}
 };
 static i64 operator<=>(const SrcPos &a, const SrcPos &b)
 {
@@ -44,7 +53,7 @@ static SrcRange range_union(const SrcRange &first,
 }
 
 static inline SrcRange operator+(const SrcRange &first,
-                          const SrcRange &second)
+                                 const SrcRange &second)
 {
 	return range_union(first, second);
 }

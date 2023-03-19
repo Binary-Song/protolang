@@ -86,6 +86,7 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 	// 这里只生成变量引用。
 	auto var =
 	    env()->get<IVar>(ident()); // 从环境中找到对应的var，读取
+	
 	auto load_inst = g.builder().CreateLoad(
 	    var->get_stack_addr()->getAllocatedType(),
 	    var->get_stack_addr(), // 读内存

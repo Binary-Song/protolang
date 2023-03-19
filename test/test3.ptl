@@ -1,8 +1,6 @@
-
-func f(p: long, q: int) -> int
+func f2() -> int
 {
-    var a : int = 666;
-    var b : long = 999;
-    var c : long = a + b;
-    return c;
+    var b : int = c;
+    var c : int = 11;
 }
+

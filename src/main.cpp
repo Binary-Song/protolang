@@ -18,8 +18,10 @@
 #include "parser.h"
 #include "source_code.h"
 #include "token.h"
+
 int main()
 {
+	using a = int ();
 	try
 	{
 		std::string file_name =
