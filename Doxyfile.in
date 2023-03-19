@@ -1,0 +1,18 @@
+DOXYFILE_ENCODING      = UTF-8 
+
+PROJECT_NAME            = "Protolang"
+INPUT                   = "@CMAKE_CURRENT_SOURCE_DIR@/README.md" "@CMAKE_CURRENT_SOURCE_DIR@/"
+OUTPUT_DIRECTORY        = "@CMAKE_CURRENT_BINARY_DIR@/Doc"
+OUTPUT_LANGUAGE         = Chinese
+EXTRACT_ALL             = YES
+SOURCE_BROWSER          = NO
+VERBATIM_HEADERS        = NO
+REFERENCES_LINK_SOURCE  = NO
+SHOW_FILES              = NO
+FILE_PATTERNS           = *.c *.h *.cpp *.hpp
+RECURSIVE              = YES
+HTML_EXTRA_STYLESHEET  = "@CMAKE_CURRENT_SOURCE_DIR@/resource/doxygen-awesome-css-main/doxygen-awesome.css"
+GENERATE_TREEVIEW      = YES
+GENERATE_LATEX         = NO
+USE_MDFILE_AS_MAINPAGE = "@CMAKE_CURRENT_SOURCE_DIR@/README.md"
+JAVADOC_AUTOBRIEF      = YES

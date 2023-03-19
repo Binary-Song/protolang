@@ -32,7 +32,7 @@ find_package(LLVM REQUIRED)
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/src/*.h")
 add_executable(Protolang
-        ${SOURCE_FILES} )
+        ${SOURCE_FILES})
 
 # 设置reflex输出目录
 set(REFLEX_OUTPUT_DIR "${PROJECT_BINARY_DIR}/src_generated")
@@ -63,6 +63,12 @@ separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
 llvm_map_components_to_libnames(llvm_libs support core irreader)
 target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
+
+option(BUILD_DOC "Generate documentation" FALSE)
+if (BUILD_DOC)
+    include(Doc)
+    add_doc()
+endif ()
 
 # Google test
 #set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
