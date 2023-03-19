@@ -1,7 +1,8 @@
 
 func f(p: long, q: int) -> int
 {
-    var a : int = 1;
-    var b : long = 2;
+    var a : int = 666;
+    var b : long = 999;
     var c : long = a + b;
+    return c;
 }

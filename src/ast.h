@@ -90,10 +90,7 @@ struct Expr : Ast, ITyped
 	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
 
 protected:
-	llvm::Value *gen_overload_call(
-	    CodeGenerator                  &g,
-	    const Ident                    &ident,
-	    const std::vector<ast::Expr *> &arg_exprs);
+
 };
 
 // 二元运算表达式
@@ -610,6 +607,8 @@ public:
 	{
 		this->codegen_func(g);
 	}
+	llvm::Value *gen_call(std::vector<llvm::Value *> args,
+	                      CodeGenerator             &g) override;
 };
 
 struct StructBody : IBlock

@@ -167,15 +167,9 @@ struct IOp : virtual ITyped, IFuncType
 	virtual void        set_mangled_name(std::string name) = 0;
 	IType              *get_type() override { return this; }
 
-	llvm::Function *get_func(CodeGenerator &g);
-	llvm::Function *codegen_func(CodeGenerator &g);
-	llvm::Function *codegen_prototype(CodeGenerator &g);
-
-private:
-	/// 为参数和函数体生成代码。
-	/// 实现本函数时，实参用f->args()获取，形参自己实现。
-	virtual void codegen_param_and_body(CodeGenerator  &g,
-	                                    llvm::Function *f) = 0;
+	// 生成对运算符的调用
+	virtual llvm::Value *gen_call(
+	    std::vector<llvm::Value *> args, CodeGenerator &g) = 0;
 };
 
 /// 用户定义的函数，有参数（占用栈空间）和函数体。
@@ -187,9 +181,8 @@ public:
 	virtual std::string get_param_name(size_t) const = 0;
 	virtual IVar       *get_param(size_t)            = 0;
 
-private:
-	virtual void codegen_param_and_body(
-	    CodeGenerator &g, llvm::Function *f) override;
+	llvm::Function *codegen_func(CodeGenerator &g);
+	llvm::Function *codegen_prototype(CodeGenerator &g);
 };
 
 } // namespace protolang

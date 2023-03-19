@@ -207,24 +207,6 @@ public:
 		return e;
 	}
 
-	void codegen_all_funcs(CodeGenerator &g)
-	{
-		for (auto &&[_, sym] : this->m_symbol_table)
-		{
-			if (auto op = dynamic_cast<IOp *>(sym))
-			{
-				op->codegen_prototype(g);
-			}
-		}
-		for (auto &&[_, sym] : this->m_symbol_table)
-		{
-			if (auto op = dynamic_cast<IOp *>(sym))
-			{
-				op->codegen_func(g);
-			}
-		}
-	}
-
 private:
 	OverloadSet *get_overload_set(const std::string &name)
 	{

@@ -48,11 +48,12 @@ struct IScalarType : IType
 template <unsigned bits, bool is_signed>
 struct BuiltInIntType : IScalarType
 {
-	llvm::Value *cast_inst_no_check(CodeGenerator &g,
-	                                llvm::Value   *val,
-	                                IType         *type) override
+	llvm::Value *cast_inst_no_check(
+	    CodeGenerator          &g,
+	    llvm::Value            *val,
+	    [[maybe_unused]] IType *type) override
 	{
-		return scalar_cast(g, val, type->get_llvm_type(g));
+		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
 	std::string get_type_name() override
@@ -135,15 +136,9 @@ public:
 		                   m_scalar_type->get_type_name());
 	}
 
-private:
-	void codegen_param_and_body(CodeGenerator  &g,
-	                            llvm::Function *f) override
+	llvm::Value *gen_call(std::vector<llvm::Value *> args,
+	                      CodeGenerator             &g) override
 	{
-		std::vector<llvm::Argument *> args;
-		for (auto &&arg : f->args())
-		{
-			args.push_back(&arg);
-		}
 		assert(args.size() == 2);
 		switch (m_scalar_type->get_scalar_kind())
 		{
@@ -151,54 +146,49 @@ private:
 			switch (Ar)
 			{
 			case ArithmaticType::Add:
-				g.builder().CreateNSWAdd(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWAdd(args[0],
+				                                args[1]);
 			case ArithmaticType::Sub:
-				g.builder().CreateNSWSub(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWSub(args[0],
+				                                args[1]);
 			case ArithmaticType::Mul:
-				g.builder().CreateNSWMul(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWMul(args[0],
+				                                args[1]);
 			case ArithmaticType::Div:
-				g.builder().CreateUDiv(args[0], args[1]);
-				break;
+				return g.builder().CreateUDiv(args[0], args[1]);
 			}
 			break;
 		case IScalarType::ScalarKind::Int:
 			switch (Ar)
 			{
 			case ArithmaticType::Add:
-				g.builder().CreateNSWAdd(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWAdd(args[0],
+				                                args[1]);
 			case ArithmaticType::Sub:
-				g.builder().CreateNSWSub(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWSub(args[0],
+				                                args[1]);
 			case ArithmaticType::Mul:
-				g.builder().CreateNSWMul(args[0], args[1]);
-				break;
+				return g.builder().CreateNSWMul(args[0],
+				                                args[1]);
 			case ArithmaticType::Div:
-				g.builder().CreateSDiv(args[0], args[1]);
-				break;
+				return g.builder().CreateSDiv(args[0], args[1]);
 			}
 			break;
 		case IScalarType::ScalarKind::Float:
 			switch (Ar)
 			{
 			case ArithmaticType::Add:
-				g.builder().CreateFAdd(args[0], args[1]);
-				break;
+				return g.builder().CreateFAdd(args[0], args[1]);
 			case ArithmaticType::Sub:
-				g.builder().CreateFSub(args[0], args[1]);
-				break;
+				return g.builder().CreateFSub(args[0], args[1]);
 			case ArithmaticType::Mul:
-				g.builder().CreateFMul(args[0], args[1]);
-				break;
+				return g.builder().CreateFMul(args[0], args[1]);
 			case ArithmaticType::Div:
-				g.builder().CreateFDiv(args[0], args[1]);
-				break;
+				return g.builder().CreateFDiv(args[0], args[1]);
 			}
 			break;
 		}
+		return nullptr;
 	}
 };
 
@@ -238,9 +228,6 @@ llvm::Value *scalar_cast(CodeGenerator &g,
                          llvm::Value   *input,
                          llvm::Type    *out_type)
 {
-	if (input->getType() == out_type)
-		return input;
-
 	// double -> float
 	if (input->getType()->isDoubleTy() && out_type->isFloatTy())
 		return g.builder().CreateFPTrunc(input, out_type);

@@ -26,10 +26,9 @@ llvm::Value *IType::cast_implicit(CodeGenerator &g,
                                   llvm::Value   *val,
                                   IType         *type)
 {
-	if (type->equal(this))
+	if (this->equal(type))
 		return val;
-	if (!type->can_accept(this))
-		return nullptr;
+	assert(this->can_accept(type));
 	return this->cast_inst_no_check(g, val, type);
 }
 
@@ -37,10 +36,9 @@ llvm::Value *IType::cast_explicit(CodeGenerator &g,
                                   llvm::Value   *val,
                                   IType         *type)
 {
-	if (type->equal(this))
+	if (this->equal(type))
 		return val;
 	return this->cast_inst_no_check(g, val, type);
 }
-
 
 } // namespace protolang

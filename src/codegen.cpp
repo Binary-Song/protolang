@@ -8,6 +8,7 @@
 #include "exceptions.h"
 namespace protolang
 {
+
 static std::vector<IType *> get_arg_types(
     const std::vector<ast::Expr *> &args)
 {
@@ -19,39 +20,40 @@ static std::vector<IType *> get_arg_types(
 	}
 	return types;
 }
-
-llvm::Value *ast::Expr::gen_overload_call(
+static std::vector<llvm::Value *> cast_args(
     CodeGenerator                  &g,
-    const Ident                    &ident,
+    IOp                            *func,
     const std::vector<ast::Expr *> &arg_exprs)
 {
-	auto arg_types = get_arg_types(arg_exprs);
-	auto func =
-	    this->env()->overload_resolution(ident, arg_types);
-	auto   func_llvm = func->get_func(g);
-	size_t i         = 0;
-	std::vector<llvm::Value *>
-	    arg_vals; // 存放经过隐式转换的实参
+	std::vector<llvm::Value *> arg_vals;
+	size_t                     i = 0;
 	for (auto &&arg_expr : arg_exprs)
 	{
 		auto arg_type   = arg_expr->get_type();
 		auto param_type = func->get_param_type(i);
 
 		auto arg_val_raw = arg_expr->codegen_value(g);
+
 		auto arg_val_cast =
 		    param_type->cast_implicit(g, arg_val_raw, arg_type);
+		std::cout << "p:" << param_type->dump_json();
+		std::cout << "a:" << arg_type->dump_json();
 
 		arg_vals.push_back(arg_val_cast);
 		i++;
 	}
-
-	if (!func_llvm || func_llvm->arg_size() != arg_vals.size())
-	{
-		throw ExceptionPanic();
-	}
-
-	return g.builder().CreateCall(
-	    func_llvm, arg_vals, "calltmp");
+	return arg_vals;
+}
+static llvm::Value *gen_overload_call(
+    Env                            *env,
+    CodeGenerator                  &g,
+    const Ident                    &ident,
+    const std::vector<ast::Expr *> &arg_exprs)
+{
+	auto arg_types = get_arg_types(arg_exprs);
+	auto func      = env->overload_resolution(ident, arg_types);
+	auto args_cast = cast_args(g, func, arg_exprs);
+	return func->gen_call(args_cast, g);
 }
 
 static llvm::AllocaInst *alloca_for_local_var(
@@ -119,7 +121,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g,
 	return alloca_inst; // 代表栈空间的位置
 }
 
-llvm::Function *IOp::codegen_prototype(CodeGenerator &g)
+llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
 	auto func_type    = this->get_llvm_func_type(g);
@@ -134,45 +136,49 @@ llvm::Function *IOp::codegen_prototype(CodeGenerator &g)
 	    g.module());
 	return func;
 }
-llvm::Function *IOp::get_func(CodeGenerator &g)
-{
-	auto mangled_name = get_mangled_name();
-	auto func         = g.module().getFunction(mangled_name);
-	return func;
-}
 
-llvm::Function *IOp::codegen_func(CodeGenerator &g)
+llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
 
-	// 从已有的查找
+	// 从llvm里查找
 	auto func = g.module().getFunction(mangled_name);
 	if (!func)
+	{
+		// 没有，先登记到llvm 再说
 		func = this->codegen_prototype(g);
+		assert(func);
+	}
 
 	auto block =
 	    llvm::BasicBlock::Create(g.context(), "entry", func);
 	g.builder().SetInsertPoint(block);
-	this->codegen_param_and_body(g, func);
-	llvm::verifyFunction(*func);
-	return func;
-}
-void IFunc::codegen_param_and_body(CodeGenerator  &g,
-                                   llvm::Function *f)
-{
+
 	// 遍历参数
 	size_t i = 0;
 	// 设置实参的名字 = 形参
 	//  形参codegen，需要f
-	for (auto &&arg : f->args())
+	for (auto &&arg : func->args())
 	{
 		arg.setName(this->get_param_name(i));
 		this->get_param(i)->codegen_value(g, &arg);
 		i++;
 	}
 	get_body()->codegen(g);
+	llvm::verifyFunction(*func);
+	return func;
 }
-
+llvm::Value *ast::FuncDecl::gen_call(
+    std::vector<llvm::Value *> args, CodeGenerator &g)
+{
+	auto mangled_name = get_mangled_name();
+	auto func         = g.module().getFunction(mangled_name);
+	if (!func || func->arg_size() != args.size())
+	{
+		throw ExceptionPanic();
+	}
+	return g.builder().CreateCall(func, args, "calltmp");
+}
 void ast::CompoundStmt::codegen(CodeGenerator &g)
 {
 	for (auto &&content : this->m_content)
@@ -195,12 +201,13 @@ void ast::ReturnStmt::codegen(CodeGenerator &g)
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)
 {
 	return gen_overload_call(
-	    g, this->op, {left.get(), right.get()});
+	    env(), g, this->op, {left.get(), right.get()});
 }
 
 llvm::Value *ast::UnaryExpr::codegen_value(CodeGenerator &g)
 {
-	return gen_overload_call(g, this->op, {this->operand.get()});
+	return gen_overload_call(
+	    env(), g, this->op, {this->operand.get()});
 }
 
 llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
@@ -215,7 +222,8 @@ llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
 		{
 			arg_ptrs.push_back(arg.get());
 		}
-		return gen_overload_call(g, callee->ident(), arg_ptrs);
+		return gen_overload_call(
+		    env(), g, callee->ident(), arg_ptrs);
 	}
 	throw ExceptionPanic();
 }
