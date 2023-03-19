@@ -16,7 +16,8 @@ static SrcRange try_get_range(const IEntity *entity)
 
 bool Env::check_args(IFuncType                  *func,
                      const std::vector<IType *> &arg_types,
-                     bool                        throw_error)
+                     bool                        throw_error,
+                     bool                        strict)
 {
 	if (func->get_param_count() != arg_types.size())
 		return false;
@@ -25,7 +26,9 @@ bool Env::check_args(IFuncType                  *func,
 	{
 		auto p = func->get_param_type(i);
 		auto a = arg_types[i];
-		if (!p->can_accept(a))
+
+		bool good = strict ? p->equal(a) : p->can_accept(a);
+		if (!good)
 		{
 			if (throw_error)
 			{
@@ -46,26 +49,49 @@ IOp *Env::overload_resolution(
     const std::vector<IType *> &arg_types)
 {
 	auto overloads = get<OverloadSet>(func_ident);
+
 	std::vector<IOp *> fits;
+	std::vector<IOp *> strict_fits;
 	for (auto &&entity : *overloads)
 	{
+		std::cout << entity->dump_json() << std::endl;
 		IOp *func = entity;
-		if (check_args(func, arg_types))
+		if (check_args(func, arg_types, false, true))
+		{
+			fits.push_back(func);
+			strict_fits.push_back(func);
+		}
+		else if (check_args(func, arg_types, false, false))
 		{
 			fits.push_back(func);
 		}
 	}
-	if (fits.size() == 0)
+
+	// f=0, s=0 无
+	// f=1, s=0 OK, f[0]
+	// f=1, s=1 OK, f[0]
+	// f>1, s=0 二义
+	// f>1, s=1 OK, s[0]
+	// f>1, s>1 二义
+
+	if (fits.empty())
 	{
 		logger.log(ErrorNoMatchingOverload(func_ident));
 		throw ExceptionPanic();
 	}
-	if (fits.size() > 1)
+
+	if (fits.size() == 1)
 	{
-		logger.log(ErrorMultipleMatchingOverload(func_ident));
-		throw ExceptionPanic();
+		return fits[0];
 	}
-	return fits[0];
+
+	if (fits.size() > 1 && strict_fits.size() == 1)
+	{
+		return strict_fits[0];
+	}
+
+	logger.log(ErrorMultipleMatchingOverload(func_ident));
+	throw ExceptionPanic();
 }
 void Env::add_to_overload_set(OverloadSet       *overloads,
                               IOp               *func,
@@ -270,7 +296,7 @@ bool OverloadSetIterator::operator!=(
  * */
 OverloadSetConstIterator::OverloadSetConstIterator(
     std::vector<IOp *>::const_iterator iter,
-    const OverloadSet                   *curr)
+    const OverloadSet                 *curr)
     : m_iter(iter)
     , m_curr_set(curr)
 {}

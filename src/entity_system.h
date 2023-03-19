@@ -145,7 +145,7 @@ struct IFuncType : IType
 		return false;
 	}
 	std::string         get_type_name() override;
-	llvm::FunctionType *get_llvm_type_f(CodeGenerator &g);
+	llvm::FunctionType *get_llvm_func_type(CodeGenerator &g);
 	llvm::Type         *get_llvm_type(CodeGenerator &g) override;
 
 private:
@@ -158,14 +158,18 @@ private:
 	}
 };
 
-/// 内置运算符，没有堆栈的开销，因此无法获取IVar类型的
-/// 参数信息。
+/// 运算符或函数。在此抽象级别无法获取IVar类型的参数（IVar占用栈空间），
+/// 但可以获取参数类型。
+/// 内置运算符或函数可以实现本接口。
 struct IOp : virtual ITyped, IFuncType
 {
 	virtual std::string get_mangled_name() const           = 0;
 	virtual void        set_mangled_name(std::string name) = 0;
-	llvm::Function     *codegen_func(CodeGenerator &g);
 	IType              *get_type() override { return this; }
+
+	llvm::Function *get_func(CodeGenerator &g);
+	llvm::Function *codegen_func(CodeGenerator &g);
+	llvm::Function *codegen_prototype(CodeGenerator &g);
 
 private:
 	/// 为参数和函数体生成代码。
@@ -174,6 +178,7 @@ private:
 	                                    llvm::Function *f) = 0;
 };
 
+/// 用户定义的函数，有参数（占用栈空间）和函数体。
 struct IFunc : IOp
 /* 继承是能力的拓展，不是所谓的is-a */
 {

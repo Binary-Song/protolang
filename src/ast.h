@@ -23,7 +23,7 @@ struct CodeGenerator;
 namespace ast
 {
 
-struct Ast : virtual IJsonDumper, virtual ICodeGen
+struct Ast : virtual IJsonDumper, ICodeGen
 {
 	// 函数
 public:
@@ -31,8 +31,7 @@ public:
 
 	// 虚函数
 public:
-	~Ast() override = default;
-	void             codegen(CodeGenerator &) override {}
+	~Ast() override                   = default;
 	virtual SrcRange range() const    = 0;
 	virtual Env     *env() const      = 0;
 	virtual void     validate_types() = 0;
@@ -67,6 +66,7 @@ public:
 	IType   *get_type() override;
 	void     validate_types() override;
 	IType   *recompute_type() override;
+	void     codegen(CodeGenerator &) override {}
 };
 
 // 表达式，抽象类
@@ -325,7 +325,7 @@ public:
 	IType       *recompute_type() override;
 };
 
-struct Decl : Ast
+struct Decl : virtual Ast
 {};
 
 struct VarDecl : Decl, IVar
@@ -415,9 +415,13 @@ public:
 	{
 		m_value = value;
 	}
+	void codegen(CodeGenerator &g) override
+	{
+		this->codegen_value(g);
+	}
 };
 
-struct Stmt: Ast
+struct Stmt : virtual Ast
 {};
 
 struct ExprStmt : Stmt
@@ -443,7 +447,7 @@ public:
 	void codegen(CodeGenerator &g) override;
 };
 
-struct IBlock : Ast
+struct IBlock : virtual Ast
 {
 	~IBlock() override                              = default;
 	virtual void   set_outer_env(Env *env)          = 0;
@@ -665,6 +669,16 @@ public:
 
 	void codegen(CodeGenerator &g)
 	{
+		// 先 生成函数的prototype
+		for (auto &&d : m_decls)
+		{
+			if (auto func_decl =
+			        dynamic_cast<FuncDecl *>(d.get()))
+			{
+				func_decl->codegen_prototype(g);
+			}
+		}
+
 		for (auto &&d : m_decls)
 		{
 			d->codegen(g);

@@ -72,7 +72,7 @@ struct BuiltInIntType : IScalarType
 	}
 	ScalarKind get_scalar_kind() const override
 	{
-		return ScalarKind::Int;
+		return is_signed ? ScalarKind::Int : ScalarKind::UInt;
 	}
 	unsigned int get_bits() const override { return bits; }
 };

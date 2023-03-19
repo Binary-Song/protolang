@@ -51,6 +51,7 @@ int main()
 		try
 		{
 			prog->validate_types();
+			root_env->codegen_all_funcs(g);
 			prog->codegen(g);
 			g.module().print(llvm::errs(), nullptr);
 		}

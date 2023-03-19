@@ -28,9 +28,8 @@ llvm::Value *ast::Expr::gen_overload_call(
 	auto arg_types = get_arg_types(arg_exprs);
 	auto func =
 	    this->env()->overload_resolution(ident, arg_types);
-	auto func_llvm = func->codegen_func(g);
-
-	size_t i = 0;
+	auto   func_llvm = func->get_func(g);
+	size_t i         = 0;
 	std::vector<llvm::Value *>
 	    arg_vals; // 存放经过隐式转换的实参
 	for (auto &&arg_expr : arg_exprs)
@@ -46,7 +45,7 @@ llvm::Value *ast::Expr::gen_overload_call(
 		i++;
 	}
 
-	if (func_llvm->arg_size() != arg_vals.size())
+	if (!func_llvm || func_llvm->arg_size() != arg_vals.size())
 	{
 		throw ExceptionPanic();
 	}
@@ -101,7 +100,6 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g,
                                  llvm::Value   *init)
 {
 	// 这个默认是局部变量！！！！！！！！
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!
 	assert(this->get_stack_addr() == nullptr);
 
 	// 在当前函数的入口块申请栈空间
@@ -121,22 +119,43 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g,
 	return alloca_inst; // 代表栈空间的位置
 }
 
+llvm::Function *IOp::codegen_prototype(CodeGenerator &g)
+{
+	auto mangled_name = get_mangled_name();
+	auto func_type    = this->get_llvm_func_type(g);
+	if (g.module().getFunction(mangled_name))
+	{
+		throw ExceptionPanic();
+	}
+	auto func = llvm::Function::Create(
+	    func_type,
+	    llvm::Function::LinkageTypes::InternalLinkage,
+	    mangled_name,
+	    g.module());
+	return func;
+}
+llvm::Function *IOp::get_func(CodeGenerator &g)
+{
+	auto mangled_name = get_mangled_name();
+	auto func         = g.module().getFunction(mangled_name);
+	return func;
+}
+
 llvm::Function *IOp::codegen_func(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
-	// get到llvm函数和函数类型
-	auto f_type       = this->get_llvm_type_f(g);
-	auto f            = llvm::Function::Create(
-        f_type,
-        llvm::Function::LinkageTypes::InternalLinkage,
-        mangled_name,
-        g.module());
-	// 创建block
-	llvm::BasicBlock *bb =
-	    llvm::BasicBlock::Create(g.context(), "entry", f);
-	g.builder().SetInsertPoint(bb);
-	this->codegen_param_and_body(g, f);
-	return f;
+
+	// 从已有的查找
+	auto func = g.module().getFunction(mangled_name);
+	if (!func)
+		func = this->codegen_prototype(g);
+
+	auto block =
+	    llvm::BasicBlock::Create(g.context(), "entry", func);
+	g.builder().SetInsertPoint(block);
+	this->codegen_param_and_body(g, func);
+	llvm::verifyFunction(*func);
+	return func;
 }
 void IFunc::codegen_param_and_body(CodeGenerator  &g,
                                    llvm::Function *f)
@@ -152,7 +171,6 @@ void IFunc::codegen_param_and_body(CodeGenerator  &g,
 		i++;
 	}
 	get_body()->codegen(g);
-	llvm::verifyFunction(*f);
 }
 
 void ast::CompoundStmt::codegen(CodeGenerator &g)
@@ -202,22 +220,23 @@ llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
 	throw ExceptionPanic();
 }
 
-llvm::FunctionType *IFuncType::get_llvm_type_f(CodeGenerator &g)
+llvm::FunctionType *IFuncType::get_llvm_func_type(
+    CodeGenerator &g)
 {
-	std::vector<llvm::Type *> ll_types;
+	std::vector<llvm::Type *> param_types;
 	for (size_t i = 0; i < this->get_param_count(); i++)
 	{
 		auto param_type = this->get_param_type(i);
-		ll_types.push_back(param_type->get_llvm_type(g));
+		param_types.push_back(param_type->get_llvm_type(g));
 	}
 	llvm::FunctionType *func_type = llvm::FunctionType::get(
-	    get_return_type()->get_llvm_type(g), ll_types, false);
+	    get_return_type()->get_llvm_type(g), param_types, false);
 	return func_type;
 }
 
 llvm::Type *IFuncType::get_llvm_type(CodeGenerator &g)
 {
-	return get_llvm_type_f(g);
+	return get_llvm_func_type(g);
 }
 
 } // namespace protolang

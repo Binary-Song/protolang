@@ -41,8 +41,10 @@ uptr<ast::ReturnStmt> Parser::return_statement()
 {
 	auto return_kw = eat_keyword_or_panic(Keyword::KW_RETURN);
 	auto expr      = expression();
-	auto range     = return_kw.range() + expr->range();
+	auto semi_col =
+	    eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
+	auto range = return_kw.range() + semi_col.range();
 	return make_uptr(
 	    new ast::ReturnStmt(range, std::move(expr)));
 }

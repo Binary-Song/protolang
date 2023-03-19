@@ -88,7 +88,7 @@ IType *CallExpr::recompute_type()
 	             dynamic_cast<IOp *>(m_callee->get_type()))
 	{
 		// 检查参数类型
-		env()->check_args(func_type, get_arg_types(), true);
+		env()->check_args(func_type, get_arg_types(), true, false);
 		return func_type->get_return_type();
 	}
 	else

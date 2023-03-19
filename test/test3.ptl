@@ -1,5 +1,7 @@
 
-func a(p: int, q: int) -> int
+func f(p: long, q: int) -> int
 {
-    return a(q, p);
+    var a : int = 1;
+    var b : long = 2;
+    var c : long = a + b;
 }

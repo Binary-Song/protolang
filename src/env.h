@@ -21,7 +21,7 @@ class OverloadSet : public IEntity
 	friend class OverloadSetIterator;
 	friend class OverloadSetConstIterator;
 	std::vector<IOp *> m_funcs;
-	OverloadSet         *m_next = nullptr;
+	OverloadSet       *m_next = nullptr;
 
 public:
 	explicit OverloadSet(OverloadSet *next)
@@ -44,19 +44,19 @@ private:
 class OverloadSetIterator
 {
 private:
-	bool                           is_end = false;
+	bool                         is_end = false;
 	std::vector<IOp *>::iterator m_iter;
-	OverloadSet                   *m_curr_set;
+	OverloadSet                 *m_curr_set;
 
 public:
 	OverloadSetIterator()
 	    : is_end(true)
 	{}
 	OverloadSetIterator(std::vector<IOp *>::iterator iter,
-	                    OverloadSet                   *curr);
+	                    OverloadSet                 *curr);
 	OverloadSetIterator &operator++();
-	bool    operator==(const OverloadSetIterator &iter) const;
-	bool    operator!=(const OverloadSetIterator &iter) const;
+	bool  operator==(const OverloadSetIterator &iter) const;
+	bool  operator!=(const OverloadSetIterator &iter) const;
 	IOp *&operator*() const { return *m_iter; }
 
 private:
@@ -65,9 +65,9 @@ private:
 class OverloadSetConstIterator
 {
 private:
-	bool                                 is_end = false;
+	bool                               is_end = false;
 	std::vector<IOp *>::const_iterator m_iter;
-	const OverloadSet                   *m_curr_set;
+	const OverloadSet                 *m_curr_set;
 
 public:
 	OverloadSetConstIterator()
@@ -75,7 +75,7 @@ public:
 	{}
 	OverloadSetConstIterator(
 	    std::vector<IOp *>::const_iterator iter,
-	    const OverloadSet                   *curr);
+	    const OverloadSet                 *curr);
 	OverloadSetConstIterator &operator++();
 	bool operator==(const OverloadSetConstIterator &iter) const;
 	bool operator!=(const OverloadSetConstIterator &iter) const;
@@ -145,7 +145,8 @@ public:
 
 	bool check_args(IFuncType                  *func,
 	                const std::vector<IType *> &arg_types,
-	                bool throw_error = false);
+	                bool                        throw_error,
+	                bool                        strict);
 
 	void add(const std::string &name, IEntity *obj);
 	void add(const std::string &name, uptr<IEntity> obj)
@@ -204,6 +205,24 @@ public:
 			e = e->m_parent;
 		}
 		return e;
+	}
+
+	void codegen_all_funcs(CodeGenerator &g)
+	{
+		for (auto &&[_, sym] : this->m_symbol_table)
+		{
+			if (auto op = dynamic_cast<IOp *>(sym))
+			{
+				op->codegen_prototype(g);
+			}
+		}
+		for (auto &&[_, sym] : this->m_symbol_table)
+		{
+			if (auto op = dynamic_cast<IOp *>(sym))
+			{
+				op->codegen_func(g);
+			}
+		}
 	}
 
 private:
