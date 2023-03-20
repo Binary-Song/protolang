@@ -134,13 +134,14 @@ public:
 };
 
 // 一元运算
-struct UnaryExpr : public Expr
+struct UnaryExpr : public Expr, TypeCache
 {
 	// 数据
 public:
 	bool       prefix;
 	uptr<Expr> operand;
 	Ident      op;
+
 	// 函数
 public:
 	UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
@@ -166,6 +167,7 @@ public:
 	Env         *env() const override { return operand->env(); }
 	IType       *get_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
+	IType * recompute_type() override;
 };
 
 struct CallExpr : Expr, TypeCache

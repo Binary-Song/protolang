@@ -45,6 +45,10 @@ IType *BinaryExpr::recompute_type()
 // === UnaryExpr ===
 IType *UnaryExpr::get_type()
 {
+	return lazy_get_type();
+}
+IType *UnaryExpr::recompute_type()
+{
 	auto operand_type = operand->get_type();
 	IOp *func = env()->overload_resolution(op, {operand_type});
 	return func->get_return_type();
