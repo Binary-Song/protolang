@@ -2,6 +2,7 @@
 #include "env.h"
 #include "ast.h"
 #include "builtin.h"
+#include "log.h"
 #include "util.h"
 namespace protolang
 {
@@ -20,7 +21,17 @@ bool Env::check_args(IFuncType                  *func,
                      bool                        strict)
 {
 	if (func->get_param_count() != arg_types.size())
-		return false;
+	{
+		if (throw_error)
+		{
+			ErrorCallArgCountMismatch e;
+			e.provided = arg_types.size();
+			e.required = func->get_param_count();
+			throw std::move(e);
+		}
+		else
+			return false;
+	}
 	size_t argc = func->get_param_count();
 	for (size_t i = 0; i < argc; i++)
 	{
@@ -32,17 +43,28 @@ bool Env::check_args(IFuncType                  *func,
 		{
 			if (throw_error)
 			{
-				logger.log(ErrorTypeMismatch(a->get_type_name(),
-				                             {},
-				                             p->get_type_name(),
-				                             {}));
-				throw ExceptionPanic();
+				ErrorCallTypeMismatch e;
+				e.arg_index  = i;
+				e.arg_type   = a->get_type_name();
+				e.param_type = p->get_type_name();
+				throw std::move(e);
 			}
 			return false;
 		}
 	}
 	return true;
 }
+
+static std::vector<std::string> arg_type_names(
+    const std::vector<IType *> &arg_types)
+{
+	std::vector<std::string> names;
+	for (auto arg_type : arg_types)
+	{
+		names.push_back(arg_type->get_type_name());
+	}
+	return names;
+};
 
 IOp *Env::overload_resolution(
     const Ident                &func_ident,
@@ -76,8 +98,10 @@ IOp *Env::overload_resolution(
 
 	if (fits.empty())
 	{
-		logger.log(ErrorNoMatchingOverload(func_ident));
-		throw ExceptionPanic();
+		ErrorNoMatchingOverload e;
+		e.overloads = overloads;
+		e.arg_types = arg_type_names(arg_types);
+		throw std::move(e);
 	}
 
 	if (fits.size() == 1)

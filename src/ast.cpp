@@ -7,6 +7,7 @@
 
 namespace protolang::ast
 {
+
 // === IdentTypeExpr ===
 IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
     : m_ident(std::move(ident))
@@ -89,8 +90,21 @@ IType *CallExpr::recompute_type()
 	             dynamic_cast<IOp *>(m_callee->get_type()))
 	{
 		// 检查参数类型
-		env()->check_args(
-		    func_type, get_arg_types(), true, false);
+		try
+		{
+			env()->check_args(
+			    func_type, get_arg_types(), true, false);
+		}
+		catch (ErrorCallTypeMismatch &e)
+		{
+			e.call = this->range();
+			throw e;
+		}
+		catch (ErrorCallArgCountMismatch &e)
+		{
+			e.call = this->range();
+			throw e;
+		}
 		return func_type->get_return_type();
 	}
 	else
@@ -127,8 +141,8 @@ IType *MemberAccessExpr::recompute_type()
 		}
 	}
 	ErrorMemberNotFound e;
-	e.type   = m_left->get_type()->get_type_name();
-	e.member = m_member.name;
+	e.type      = m_left->get_type()->get_type_name();
+	e.member    = m_member.name;
 	e.used_here = m_member.range;
 	throw std::move(e);
 }
@@ -195,10 +209,9 @@ void VarDecl::validate_types()
 {
 	assert(m_init || m_type);
 
-	if(!m_type)
+	if (!m_type)
 	{
 		// 类型推断
-
 	}
 
 	auto init_type = m_init->get_type();

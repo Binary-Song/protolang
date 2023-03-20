@@ -62,7 +62,7 @@ public:
 	friend std::ostream &operator<<(Logger            &logger,
 	                                const std::string &text)
 	{
-		return logger.out << text;
+		return logger.out << text << "\n";
 	}
 };
 

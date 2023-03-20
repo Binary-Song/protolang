@@ -178,8 +178,9 @@ llvm::Value *ast::FuncDecl::gen_call(
 	auto func         = g.module().getFunction(mangled_name);
 	if (!func || func->arg_size() != args.size())
 	{
-
-		throw ExceptionPanic();
+		ErrorMissingFunc e;
+		e.name = mangled_name;
+		throw std::move(e);
 	}
 	return g.builder().CreateCall(func, args, "calltmp");
 }
@@ -256,7 +257,10 @@ llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
 		return gen_overload_call(
 		    env(), g, callee->ident(), arg_ptrs);
 	}
-	throw ExceptionPanic();
+	else
+	{
+		
+	}
 }
 
 llvm::FunctionType *IFuncType::get_llvm_func_type(
