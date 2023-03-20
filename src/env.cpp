@@ -6,14 +6,6 @@
 #include "util.h"
 namespace protolang
 {
-static SrcRange try_get_range(const IEntity *entity)
-{
-	if (auto ast = dynamic_cast<const ast::Ast *>(entity))
-	{
-		return ast->range();
-	}
-	return {};
-}
 
 bool Env::check_args(IFuncType                  *func,
                      const std::vector<IType *> &arg_types,
@@ -66,6 +58,17 @@ static std::vector<std::string> arg_type_names(
 	return names;
 };
 
+static std::vector<IOp *> get_ops_from_overload_set(
+    OverloadSet *overloads)
+{
+	std::vector<IOp *> ops;
+	for (auto &&overload : *overloads)
+	{
+		ops.push_back(overload);
+	}
+	return ops;
+}
+
 IOp *Env::overload_resolution(
     const Ident                &func_ident,
     const std::vector<IType *> &arg_types)
@@ -99,7 +102,7 @@ IOp *Env::overload_resolution(
 	if (fits.empty())
 	{
 		ErrorNoMatchingOverload e;
-		e.overloads = overloads;
+		e.overloads = get_ops_from_overload_set(overloads);
 		e.arg_types = arg_type_names(arg_types);
 		throw std::move(e);
 	}
@@ -114,8 +117,19 @@ IOp *Env::overload_resolution(
 		return strict_fits[0];
 	}
 
-	logger.log(ErrorMultipleMatchingOverload(func_ident));
-	throw ExceptionPanic();
+	// error
+	ErrorMultipleMatchingOverloads e;
+	if (strict_fits.size() > 1)
+	{
+		e.overloads = strict_fits;
+	}
+	else
+	{
+		e.overloads = fits;
+	}
+	e.call      = func_ident.range;
+	e.arg_types = arg_type_names(arg_types);
+	throw std::move(e);
 }
 void Env::add_to_overload_set(OverloadSet       *overloads,
                               IOp               *func,
@@ -127,9 +141,26 @@ void Env::add_to_overload_set(OverloadSet       *overloads,
 	overloads->add_func(func);
 }
 
-void Env::add(const std::string &name, IEntity *obj)
+static ErrorNameRedef create_name_redef_error(const Ident &ident,
+                                              IEntity *entity)
 {
-	bool name_clash = m_symbol_table.contains(name);
+	ErrorNameRedef e;
+	e.redefined_here = ident;
+	if (auto ent_ast = dynamic_cast<ast::Ast *>(entity))
+	{
+		e.defined_here = ent_ast->range();
+	}
+	else
+	{
+		e.defined_here = {};
+	}
+	return e;
+}
+
+void Env::add(const Ident &ident, IEntity *obj)
+{
+	auto &&name       = ident.name;
+	bool   name_clash = m_symbol_table.contains(name);
 	if (auto func = dynamic_cast<IOp *>(obj))
 	{
 		if (name_clash)
@@ -143,10 +174,8 @@ void Env::add(const std::string &name, IEntity *obj)
 			else
 			{
 				// 重定义了
-				auto i = m_symbol_table.at(name);
-				logger.log(ErrorSymbolRedefinition(
-				    name, try_get_range(i), try_get_range(obj)));
-				throw ExceptionPanic();
+				auto entity = m_symbol_table.at(name);
+				throw create_name_redef_error(ident, entity);
 			}
 		}
 		else
@@ -167,10 +196,8 @@ void Env::add(const std::string &name, IEntity *obj)
 		if (name_clash)
 		{
 			// 重定义了
-			auto i = m_symbol_table.at(name);
-			logger.log(ErrorSymbolRedefinition(
-			    name, try_get_range(i), try_get_range(obj)));
-			throw ExceptionPanic();
+			auto entity = m_symbol_table.at(name);
+			throw create_name_redef_error(ident, entity);
 		}
 		else
 		{

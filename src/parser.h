@@ -147,9 +147,10 @@ private:
 	{
 		if (!criteria(curr()))
 		{
-			logger.log(ErrorUnexpectedToken(
-			    curr(), expected + " expected here."));
-			throw ExceptionPanic();
+			ErrorUnexpectedToken e;
+			e.expected = expected;
+			e.range    = curr().range();
+			throw std::move(e);
 		}
 		else
 		{

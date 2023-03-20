@@ -14,6 +14,8 @@ class OverloadSet : public IEntity
 	OverloadSet       *m_next = nullptr;
 
 public:
+	static constexpr const char* TYPE_NAME = "function";
+
 	explicit OverloadSet(OverloadSet *next)
 	    : m_next(next)
 	{}

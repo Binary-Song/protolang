@@ -21,24 +21,21 @@
 
 int main()
 {
-	using a = int ();
+
+	std::string file_name = __FILE__ R"(\..\..\test\test3.ptl)";
+	std::string output_file_name =
+	    __FILE__ R"(\..\..\dump\dump.json)";
+
+	std::ifstream         f(file_name);
+	//bool                  file_good = f.good();
+	protolang::SourceCode src(f);
+	protolang::Logger     logger(src, std::cout);
+	protolang::Lexer      lexer(src, logger);
+
+//	if (!file_good)
+//		; // todo : add file error
 	try
 	{
-		std::string file_name =
-		    __FILE__ R"(\..\..\test\test3.ptl)";
-		std::string output_file_name =
-		    __FILE__ R"(\..\..\dump\dump.json)";
-
-		std::ifstream         f(file_name);
-		bool                  file_good = f.good();
-		protolang::SourceCode src(f);
-		protolang::Logger     logger(src, std::cout);
-		protolang::Lexer      lexer(src, logger);
-
-		if (!file_good)
-			logger.log(
-			    protolang::FatalFileError(file_name, 'r'));
-
 		std::vector<protolang::Token> tokens = lexer.scan();
 		if (tokens.empty())
 			return 1;
@@ -50,19 +47,14 @@ int main()
 		if (!prog)
 			return 1;
 		protolang::CodeGenerator g{"test"};
-		try
-		{
-			prog->validate_types();
-			prog->codegen(g);
-			g.module().print(llvm::errs(), nullptr);
-		}
-		catch (const protolang::ExceptionPanic &)
-		{
-			return 1;
-		}
+
+		prog->validate_types();
+		prog->codegen(g);
+		g.module().print(llvm::errs(), nullptr);
 	}
-	catch (protolang::ExceptionFatalError error)
+	catch (const protolang::Error &e)
 	{
+		e.print(logger);
 		return 1;
 	}
 }

@@ -16,25 +16,34 @@ uptr<ast::VarDecl> Parser::var_decl()
 	uptr<ast::TypeExpr> type;
 	uptr<ast::Expr>     init;
 	// 类型标注可选
-	if (eat_if_is_given_type({Token::Type::Column}))
+
+	bool has_type_anno =
+	    eat_if_is_given_type({Token::Type::Column});
+	if (has_type_anno)
 	{
-		// 有类型标注
 		type = type_expr();
+	}
+	if (!has_type_anno)
+	{
+		eat_op_or_panic("="); // 没有类型注释，就必须有初始化
+		init = expression();
 	}
 	else
 	{
-		// 没有类型标注，必须有初始化
-		eat_op_or_panic("=");
-		init = expression();
+		// 否则init可选
+		if (eat_if_is_given_op({"="}))
+		{
+			init = expression();
+		}
 	}
+
 	eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
 	// 产生符号表记录
-	auto decl = make_uptr(
-	    new ast::VarDecl(Ident(name, name_token.range()),
-	                     std::move(type),
-	                     std::move(init)));
-	curr_env->add(name, decl.get());
+	Ident var_ident = Ident(name, name_token.range());
+	auto  decl      = std::make_unique<ast::VarDecl>(
+        var_ident, std::move(type), std::move(init));
+	curr_env->add(var_ident, decl.get());
 	return decl;
 }
 
@@ -307,7 +316,6 @@ uptr<ast::Expr> Parser::primary()
 		e.curr = curr().range();
 		throw std::move(e);
 	}
-	throw ExceptionPanic();
 }
 uptr<ast::Decl> Parser::declaration()
 {
@@ -331,8 +339,9 @@ uptr<ast::Decl> Parser::declaration()
 			e.curr = curr().range();
 			throw std::move(e);
 		}
-		catch (const Error &)
+		catch (const Error &e)
 		{
+			e.print(logger);
 			sync();
 		}
 	}
@@ -344,6 +353,8 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	Token       func_kw_token   = eat_keyword_or_panic(KW_FUNC);
 	Token       func_name_token = eat_ident_or_panic();
 	std::string func_name       = func_name_token.str_data;
+	Ident       func_ident{func_name_token.str_data,
+                     func_name_token.range()};
 
 	eat_given_type_or_panic(Token::Type::LeftParen, "(");
 
@@ -382,7 +393,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	{
 		auto decl = make_uptr(new ast::ParamDecl(
 		    body->get_inner_env(), ident, std::move(type_expr)));
-		body->get_inner_env()->add(ident.name, decl.get());
+		body->get_inner_env()->add(ident, decl.get());
 		params.push_back(std::move(decl));
 	}
 
@@ -390,12 +401,12 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	    curr_env,
 	    // note: range 是函数声明的 range
 	    range_union(func_kw_token.range(), return_type->range()),
-	    Ident{func_name_token.str_data, func_name_token.range()},
+	    func_ident,
 	    std::move(params),
 	    std::move(return_type),
 	    std::move(body));
 
-	curr_env->add(func_name, decl.get());
+	curr_env->add(func_ident, decl.get());
 	return decl;
 }
 

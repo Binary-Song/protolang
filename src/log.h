@@ -1,8 +1,8 @@
 #pragma once
+#include <string>
+#include <vector>
 #include "ident.h"
 #include "logger.h"
-#include <vector>
-#include <string>
 namespace protolang
 {
 
@@ -188,14 +188,93 @@ struct ErrorCallArgCountMismatch : Error
 		    call);
 	}
 };
+struct IOp;
 class OverloadSet;
 struct ErrorNoMatchingOverload : Error
 {
 	SrcRange                 call;
-	OverloadSet             *overloads = nullptr;
+	std::vector<IOp *>       overloads;
+	std::vector<std::string> arg_types;
+
+	void print(Logger &logger) const override;
+};
+struct ErrorMultipleMatchingOverloads : Error
+{
+	SrcRange                 call;
+	std::vector<IOp *>       overloads;
 	std::vector<std::string> arg_types;
 
 	void print(Logger &logger) const override;
 };
 
+struct ErrorUnexpectedNameKind : Error
+{
+	std::string expected;
+	SrcRange    name_range;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(
+		    std::format("Name of `{}` expected here.", expected),
+		    name_range);
+	}
+};
+
+struct ErrorUndefinedName : Error
+{
+	Ident name;
+	void  print(Logger &logger) const override
+	{
+		logger.print(std::format("Use of undefined name `{}`.",
+		                         name.name),
+		             name.range);
+	}
+};
+
+struct ErrorNameRedef : Error
+{
+	Ident    redefined_here;
+	SrcRange defined_here;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(std::format("Redefinition of name `{}`.",
+		                         redefined_here.name),
+		             redefined_here.range);
+		logger.print("Previously defined here", defined_here);
+	}
+};
+
+struct ErrorZeroPrefixNotAllowed : Error
+{
+	SrcRange range;
+	void     print(Logger &logger) const override
+	{
+		logger.print("Numeric literals starting with `0`'s are "
+		             "not allowed. "
+		             "Use the `0x` prefix to represent octals.",
+		             range);
+	}
+};
+
+struct ErrorUnknownCharacter : Error
+{
+	SrcRange range;
+	void     print(Logger &logger) const override
+	{
+		logger.print("Unknown character.", range);
+	}
+};
+struct ErrorUnexpectedToken : Error
+{
+	SrcRange    range;
+	std::string expected;
+	void        print(Logger &logger) const override
+	{
+		logger.print(
+		    std::format("Unexpected token. {} expected here.",
+		                expected),
+		    range);
+	}
+};
 } // namespace protolang

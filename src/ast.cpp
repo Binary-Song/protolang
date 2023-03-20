@@ -12,11 +12,16 @@ namespace protolang::ast
 IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
     : m_ident(std::move(ident))
     , m_env(env)
+    , m_type_cache(
+          [this]()
+          {
+	          return this->recompute_type();
+          })
 {}
 
 IType *IdentTypeExpr::get_type()
 {
-	return lazy_get_type();
+	return m_type_cache.get();
 }
 IType *IdentTypeExpr::recompute_type()
 {
@@ -29,39 +34,86 @@ void IdentTypeExpr::validate_types()
 }
 
 // === BinaryExpr ===
+BinaryExpr::BinaryExpr(uptr<Expr> left,
+                       Ident      op,
+                       uptr<Expr> right)
+    : m_left(std::move(left))
+    , m_op(std::move(op))
+    , m_right(std::move(right))
+    , m_type_cache(
+          [this]()
+          {
+	          return m_ovlres_cache.get()->get_return_type();
+          })
+    , m_ovlres_cache(
+          [this]()
+          {
+	          auto lhs_type = this->m_left->get_type();
+	          auto rhs_type = this->m_right->get_type();
+	          return this->env()->overload_resolution(
+	              m_op, {lhs_type, rhs_type});
+          })
+{}
 IType *BinaryExpr::get_type()
 {
-	return lazy_get_type();
-}
-IType *BinaryExpr::recompute_type()
-{
-	auto lhs_type = this->left->get_type();
-	auto rhs_type = this->right->get_type();
-	IOp *func =
-	    env()->overload_resolution(op, {lhs_type, rhs_type});
-	return func->get_return_type();
+	return m_type_cache.get();
 }
 
 // === UnaryExpr ===
+UnaryExpr::UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
+    : m_prefix(prefix)
+    , m_operand(std::move(operand))
+    , m_op(std::move(op))
+    , m_type_cache(
+          [this]()
+          {
+	          return m_ovlres_cache.get()->get_return_type();
+          })
+    , m_ovlres_cache(
+          [this]()
+          {
+	          auto operand_type = m_operand->get_type();
+	          return env()->overload_resolution(m_op,
+	                                            {operand_type});
+          })
+{}
 IType *UnaryExpr::get_type()
 {
-	return lazy_get_type();
-}
-IType *UnaryExpr::recompute_type()
-{
-	auto operand_type = operand->get_type();
-	IOp *func = env()->overload_resolution(op, {operand_type});
-	return func->get_return_type();
+	return m_type_cache.get();
 }
 
 // === CallExpr ===
+CallExpr::CallExpr(const SrcRange         &src_rng,
+                   uptr<Expr>              callee,
+                   std::vector<uptr<Expr>> args)
+    : m_callee(std::move(callee))
+    , m_args(std::move(args))
+    , m_src_rng(src_rng)
+    , m_type_cache(
+          [this]()
+          {
+	          return this->recompute_type();
+          })
+    , m_ovlres_cache(
+          [this]() -> IOp *
+          {
+	          if (auto ident_expr =
+	                  dynamic_cast<IdentExpr *>(m_callee.get()))
+	          {
+		          IOp *func = env()->overload_resolution(
+		              ident_expr->ident(), get_arg_types());
+		          return func;
+	          }
+	          return nullptr;
+          })
+{}
 IType *CallExpr::get_arg_type(size_t index)
 {
 	return m_args[index]->get_type();
 }
 IType *CallExpr::get_type()
 {
-	return lazy_get_type();
+	return m_type_cache.get();
 }
 IType *CallExpr::recompute_type()
 {
@@ -82,8 +134,7 @@ IType *CallExpr::recompute_type()
 	if (auto ident_expr =
 	        dynamic_cast<IdentExpr *>(m_callee.get()))
 	{
-		IOp *func = env()->overload_resolution(
-		    ident_expr->ident(), get_arg_types());
+		IOp *func        = m_ovlres_cache.get();
 		auto return_type = func->get_return_type();
 		auto func_type   = func->get_type();
 		ident_expr->set_type(func_type);
@@ -102,12 +153,12 @@ IType *CallExpr::recompute_type()
 		catch (ErrorCallTypeMismatch &e)
 		{
 			e.call = this->range();
-			throw e;
+			throw std::move(e);
 		}
 		catch (ErrorCallArgCountMismatch &e)
 		{
 			e.call = this->range();
-			throw e;
+			throw std::move(e);
 		}
 		return func_type->get_return_type();
 	}
@@ -121,9 +172,18 @@ IType *CallExpr::recompute_type()
 }
 
 // === MemberAccessExpr ===
+MemberAccessExpr::MemberAccessExpr(uptr<Expr> left, Ident member)
+    : m_left(std::move(left))
+    , m_member(std::move(member))
+    , m_type_cache(
+          [this]()
+          {
+	          return recompute_type();
+          })
+{}
 IType *MemberAccessExpr::get_type()
 {
-	return lazy_get_type();
+	return m_type_cache.get();
 }
 IType *MemberAccessExpr::recompute_type()
 {
@@ -159,7 +219,7 @@ llvm::Value *MemberAccessExpr::codegen_value(
 // === LiteralExpr ===
 IType *LiteralExpr::get_type()
 {
-	return lazy_get_type();
+	return m_type_cache.get();
 }
 
 IType *LiteralExpr::recompute_type()
@@ -181,7 +241,7 @@ IType *LiteralExpr::recompute_type()
 // === IdentExpr ===
 IType *IdentExpr::get_type()
 {
-	return lazy_get_type();
+	return m_type_cache.get();
 }
 IType *IdentExpr::recompute_type()
 {
@@ -204,7 +264,7 @@ IType *IdentExpr::recompute_type()
 
 void IdentExpr::set_type(IType *t)
 {
-	set_type_cache(t);
+	m_type_cache.set(t);
 }
 
 // === Block ===
@@ -213,13 +273,8 @@ void VarDecl::validate_types()
 {
 	assert(m_init || m_type);
 
-	if (!m_type)
-	{
-		// 类型推断
-	}
-
 	auto init_type = m_init->get_type();
-	auto var_type  = m_type->get_type();
+	auto var_type  = this->get_type();
 	if (!var_type->can_accept(init_type))
 	{
 		ErrorVarDeclInitExprTypeMismatch e;

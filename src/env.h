@@ -6,14 +6,14 @@
 #include <utility>
 #include <vector>
 #include "entity_system.h"
+#include "log.h"
 #include "logger.h"
+#include "overloadset.h"
 #include "token.h"
 #include "typedef.h"
 #include "util.h"
-#include "overloadset.h"
 namespace protolang
 {
-
 
 class Env
 {
@@ -74,12 +74,12 @@ public:
 	}
 
 	static bool check_args(IFuncType                  *func,
-	                const std::vector<IType *> &arg_types,
-	                bool                        throw_error,
-	                bool                        strict);
+	                       const std::vector<IType *> &arg_types,
+	                       bool throw_error,
+	                       bool strict);
 
-	void add(const std::string &name, IEntity *obj);
-	void add(const std::string &name, uptr<IEntity> obj)
+	void add(const Ident &name, IEntity *obj);
+	void add(const Ident &name, uptr<IEntity> obj)
 	{
 		add(name, obj.get());
 		m_owned_entities.push_back(std::move(obj));
@@ -87,7 +87,6 @@ public:
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
-	/// fixme: 不但要找到，还要找全
 	template <std::derived_from<IEntity> T = IEntity>
 	T *get(const Ident &ident) const
 	{
@@ -104,18 +103,19 @@ public:
 			{
 				if (auto t = dynamic_cast<T *>(ent))
 					return t;
-				logger.log(ErrorUnexpectedToken(
-				    ident.range.head, ident.range.tail));
-				throw ExceptionPanic();
+				ErrorUnexpectedNameKind e;
+				e.name_range = ident.range;
+				e.expected   = T::TYPE_NAME;
+				throw std::move(e);
 			}
 		}
 		// 一个都没有，问爹要
 		if (m_parent)
 			return m_parent->get<T>(ident);
 		// 没有爹，哭
-		logger.log(
-		    ErrorUndefinedSymbol(ident.name, ident.range));
-		throw ExceptionPanic();
+		ErrorUndefinedName e;
+		e.name = ident;
+		throw std::move(e);
 	}
 
 	IOp *overload_resolution(

@@ -1,6 +1,17 @@
-func f2() -> int
+func f(a : int , b : long) -> int
 {
-    var b : int = c;
-    var c : int = 11;
 }
 
+func f(a : long , b : long) -> int
+{
+}
+
+func f(a : long , b : int) -> int
+{
+}
+
+func main() -> int
+{
+    var a = 10;
+    f(a, a);
+}

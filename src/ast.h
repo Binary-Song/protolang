@@ -4,11 +4,11 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include "cache.h"
 #include "entity_system.h"
 #include "ident.h"
 #include "token.h"
 #include "util.h"
-
 namespace llvm
 {
 class Value;
@@ -44,12 +44,14 @@ struct TypeExpr : Ast
 };
 
 // 类型标识符
-struct IdentTypeExpr : TypeExpr, TypeCache
+struct IdentTypeExpr : TypeExpr
 {
 	// 数据
 private:
-	Ident m_ident;
-	Env  *m_env;
+	Ident        m_ident;
+	Env         *m_env;
+	Cache<IType> m_type_cache;
+
 	// 函数
 public:
 	explicit IdentTypeExpr(Env *env, Ident ident);
@@ -65,8 +67,10 @@ public:
 	Env     *env() const override { return m_env; }
 	IType   *get_type() override;
 	void     validate_types() override;
-	IType   *recompute_type() override;
 	void     codegen(CodeGenerator &) override {}
+
+private:
+	IType *recompute_type();
 };
 
 // 表达式，抽象类
@@ -93,99 +97,90 @@ protected:
 };
 
 // 二元运算表达式
-struct BinaryExpr : Expr, TypeCache
+struct BinaryExpr : Expr
 {
 	// 数据
 private:
-	uptr<Expr> left;
-	uptr<Expr> right;
-	Ident      op;
-
+	uptr<Expr>   m_left;
+	uptr<Expr>   m_right;
+	Ident        m_op;
+	Cache<IType> m_type_cache;
+	Cache<IOp>   m_ovlres_cache;
 	// 函数
 public:
-	BinaryExpr(uptr<Expr> left, Ident op, uptr<Expr> right)
-	    : left(std::move(left))
-	    , op(std::move(op))
-	    , right(std::move(right))
-	{}
-	Expr    *get_left() { return left.get(); }
-	Expr    *get_right() { return right.get(); }
-	Ident    get_op() const { return op; }
+	BinaryExpr(uptr<Expr> left, Ident op, uptr<Expr> right);
+	Expr    *get_left() { return m_left.get(); }
+	Expr    *get_right() { return m_right.get(); }
+	Ident    get_op() const { return m_op; }
 	SrcRange range() const override
 	{
-		return left->range() + right->range();
+		return m_left->range() + m_right->range();
 	}
 	Env *env() const override
 	{
-		assert(left->env() == right->env());
-		return left->env();
+		assert(m_left->env() == m_right->env());
+		return m_left->env();
 	}
 	IType      *get_type() override;
 	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
-		    op.dump_json(),
-		    left->dump_json(),
-		    right->dump_json());
+		    m_op.dump_json(),
+		    m_left->dump_json(),
+		    m_right->dump_json());
 	}
 	llvm::Value *codegen_value(CodeGenerator &g) override;
-	IType       *recompute_type() override;
 };
 
 // 一元运算
-struct UnaryExpr : public Expr, TypeCache
+struct UnaryExpr : public Expr
 {
 	// 数据
-public:
-	bool       prefix;
-	uptr<Expr> operand;
-	Ident      op;
+private:
+	bool         m_prefix;
+	uptr<Expr>   m_operand;
+	Ident        m_op;
+	Cache<IType> m_type_cache;
+	Cache<IOp>   m_ovlres_cache;
 
 	// 函数
 public:
-	UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
-	    : prefix(prefix)
-	    , operand(std::move(operand))
-	    , op(std::move(op))
-	{}
+	UnaryExpr(bool prefix, uptr<Expr> operand, Ident op);
 
-	bool        is_prefix() const { return prefix; }
-	Expr       *get_operand() { return operand.get(); }
-	Ident       get_op() const { return op; }
+	bool        is_prefix() const { return m_prefix; }
+	Expr       *get_operand() { return m_operand.get(); }
+	Ident       get_op() const { return m_op; }
 	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"UnaryExpr","op":{},"oprd":{}}})",
-		    op.dump_json(),
-		    operand->dump_json());
+		    m_op.dump_json(),
+		    m_operand->dump_json());
 	}
 	SrcRange range() const override
 	{
-		return op.range + operand->range();
+		return m_op.range + m_operand->range();
 	}
-	Env         *env() const override { return operand->env(); }
-	IType       *get_type() override;
+	Env   *env() const override { return m_operand->env(); }
+	IType *get_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
-	IType * recompute_type() override;
 };
 
-struct CallExpr : Expr, TypeCache
+struct CallExpr : Expr
 {
 	// 数据
 protected:
 	uptr<Expr>              m_callee;
 	std::vector<uptr<Expr>> m_args;
 	SrcRange                m_src_rng;
+	Cache<IType>            m_type_cache;
+	Cache<IOp, true>        m_ovlres_cache;
 
 public:
 	CallExpr(const SrcRange         &src_rng,
 	         uptr<Expr>              callee,
-	         std::vector<uptr<Expr>> args)
-	    : m_callee(std::move(callee))
-	    , m_args(std::move(args))
-	    , m_src_rng(src_rng)
-	{}
+	         std::vector<uptr<Expr>> args);
 
 	Expr  *get_callee() const { return m_callee.get(); }
 	size_t get_arg_count() const { return m_args.size(); }
@@ -214,8 +209,10 @@ public:
 	SrcRange     range() const override { return m_src_rng; }
 	Env         *env() const override { return m_callee->env(); }
 	IType       *get_type() override;
-	IType       *recompute_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
+
+private:
+	IType *recompute_type();
 };
 
 struct BracketExpr : CallExpr
@@ -236,19 +233,16 @@ public:
 	}
 };
 struct IdentExpr;
-struct MemberAccessExpr : Expr, TypeCache
+struct MemberAccessExpr : Expr
 {
 	// 数据
-public:
-	uptr<Expr> m_left;
-	Ident      m_member;
-
+protected:
+	uptr<Expr>   m_left;
+	Ident        m_member;
+	Cache<IType> m_type_cache;
 	// 函数
 public:
-	MemberAccessExpr(uptr<Expr> left, Ident member)
-	    : m_left(std::move(left))
-	    , m_member(std::move(member))
-	{}
+	MemberAccessExpr(uptr<Expr> left, Ident member);
 
 	Expr       *get_left() { return m_left.get(); }
 	Ident       get_member() { return m_member; }
@@ -265,20 +259,28 @@ public:
 	}
 	Env         *env() const override { return m_left->env(); }
 	IType       *get_type() override;
-	IType       *recompute_type() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
+
+private:
+	IType *recompute_type();
 };
 
-struct LiteralExpr : Expr, TypeCache
+struct LiteralExpr : Expr
 {
 public:
-	Token m_token;
-	Env  *m_env;
+	Token        m_token;
+	Env         *m_env;
+	Cache<IType> m_type_cache;
 
 public:
 	explicit LiteralExpr(Env *env, Token token)
 	    : m_env(env)
 	    , m_token(std::move(token))
+	    , m_type_cache(
+	          [this]()
+	          {
+		          return recompute_type();
+	          })
 	{}
 
 	std::string dump_json() override
@@ -293,19 +295,27 @@ public:
 	IType   *get_type() override;
 	Token    get_token() const { return m_token; }
 	llvm::Value *codegen_value(CodeGenerator &g) override;
-	IType       *recompute_type() override;
+
+private:
+	IType *recompute_type();
 };
 
-struct IdentExpr : Expr, TypeCache
+struct IdentExpr : Expr
 {
 private:
-	Ident m_ident;
-	Env  *m_env;
+	Ident        m_ident;
+	Env         *m_env;
+	Cache<IType> m_type_cache;
 
 public:
 	explicit IdentExpr(Env *env, Ident ident)
 	    : m_env(env)
 	    , m_ident(std::move(ident))
+	    , m_type_cache(
+	          [this]()
+	          {
+		          return recompute_type();
+	          })
 	{}
 
 	Ident ident() const { return m_ident; }
@@ -320,7 +330,9 @@ public:
 	IType       *get_type() override;
 	void         set_type(IType *type);
 	llvm::Value *codegen_value(CodeGenerator &g) override;
-	IType       *recompute_type() override;
+
+private:
+	IType *recompute_type();
 };
 
 struct Decl : virtual Ast

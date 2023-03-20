@@ -19,18 +19,15 @@ struct CodeRef
 
 class Logger;
 
-struct Log : std::exception
+struct Error : std::exception
 {
-	virtual ~Log() = default;
-	virtual void print(Logger &logger) const;
-};
+	virtual ~Error() = default;
 
-struct Error : Log
-{
 	const char *what() const override
 	{
 		return "Error occurred.";
 	}
+	virtual void print(Logger &logger) const = 0;
 };
 
 class Logger

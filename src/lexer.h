@@ -102,12 +102,16 @@ protected:
 		case Rule::eof:
 			rule_eof();
 			return -1;
-		case Rule::err_amb_int:
-			logger.log(ErrorAmbiguousInt(get_pos1(), get_pos2()));
-			return 1;
-		case Rule::err_unknown_char:
-			logger.log(ErrorUnknownChar(get_pos1(), get_pos2()));
-			return 1;
+		case Rule::err_amb_int: {
+			ErrorZeroPrefixNotAllowed e;
+			e.range = SrcRange{get_pos1(), get_pos2()};
+			throw std::move(e);
+		}
+		case Rule::err_unknown_char: {
+			ErrorUnknownCharacter e;
+			e.range = SrcRange{get_pos1(), get_pos2()};
+			throw std::move(e);
+		}
 		default:
 			return 1;
 		}
@@ -124,7 +128,8 @@ protected:
 			val *= base;
 			if (ch <= '9')
 				val += text[i] - '0';
-			else if (ch <= 'F') // 'a' == 97  'A' == 65  '9' == 57
+			else if (ch <=
+			         'F') // 'a' == 97  'A' == 65  '9' == 57
 				val += text[i] - 'A' + 10;
 			else
 				val += text[i] - 'a' + 10;
@@ -158,54 +163,91 @@ protected:
 		token = Token::make_fp(val, get_pos1(), get_pos2());
 	}
 
-	void rule_id() { token = Token::make_id(text(), get_pos1(), get_pos2()); }
+	void rule_id()
+	{
+		token = Token::make_id(text(), get_pos1(), get_pos2());
+	}
 	void rule_keyword()
 	{
-		token          = Token::make_keyword(text(), get_pos1(), get_pos2());
+		token =
+		    Token::make_keyword(text(), get_pos1(), get_pos2());
 		token.int_data = kw_map.at(text());
 	}
-	void rule_op() { token = Token::make_op(text(), get_pos1(), get_pos2()); }
+	void rule_op()
+	{
+		token = Token::make_op(text(), get_pos1(), get_pos2());
+	}
 	void rule_eof() { token = Token::make_eof(get_pos1()); };
-	void rule_paren(bool left) { token = Token::make_paren(left, get_pos1()); }
+	void rule_paren(bool left)
+	{
+		token = Token::make_paren(left, get_pos1());
+	}
 	void rule_semicol()
 	{
-		token = Token::make_len1(Token::Type::SemiColumn, get_pos1(), ";");
+		token = Token::make_len1(
+		    Token::Type::SemiColumn, get_pos1(), ";");
 	}
 	void rule_comma()
 	{
-		token = Token::make_len1(Token::Type::Comma, get_pos1(), ",");
+		token = Token::make_len1(
+		    Token::Type::Comma, get_pos1(), ",");
 	}
 	void rule_col()
 	{
-		token = Token::make_len1(Token::Type::Column, get_pos1(), ":");
+		token = Token::make_len1(
+		    Token::Type::Column, get_pos1(), ":");
 	}
 	void rule_arrow()
 	{
-		token = Token(Token::Type::Arrow, get_pos1(), get_pos2(), 0, 0, "->");
+		token = Token(Token::Type::Arrow,
+		              get_pos1(),
+		              get_pos2(),
+		              0,
+		              0,
+		              "->");
 	}
 	void rule_left_brace()
 	{
-		token =
-		    Token(Token::Type::LeftBrace, get_pos1(), get_pos2(), 0, 0, "{");
+		token = Token(Token::Type::LeftBrace,
+		              get_pos1(),
+		              get_pos2(),
+		              0,
+		              0,
+		              "{");
 	}
 	void rule_right_brace()
 	{
-		token =
-		    Token(Token::Type::RightBrace, get_pos1(), get_pos2(), 0, 0, "}");
+		token = Token(Token::Type::RightBrace,
+		              get_pos1(),
+		              get_pos2(),
+		              0,
+		              0,
+		              "}");
 	}
 	void rule_left_bracket()
 	{
-		token =
-		    Token(Token::Type::LeftBracket, get_pos1(), get_pos2(), 0, 0, "[");
+		token = Token(Token::Type::LeftBracket,
+		              get_pos1(),
+		              get_pos2(),
+		              0,
+		              0,
+		              "[");
 	}
 	void rule_right_bracket()
 	{
-		token =
-		    Token(Token::Type::RightBracket, get_pos1(), get_pos2(), 0, 0, "]");
+		token = Token(Token::Type::RightBracket,
+		              get_pos1(),
+		              get_pos2(),
+		              0,
+		              0,
+		              "]");
 	}
 
 private:
-	SrcPos get_pos1() const { return {(u32)lineno() - 1, (u32)columno()}; }
+	SrcPos get_pos1() const
+	{
+		return {(u32)lineno() - 1, (u32)columno()};
+	}
 
 	SrcPos get_pos2() const
 	{

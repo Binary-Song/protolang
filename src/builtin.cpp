@@ -197,22 +197,22 @@ void add_scalar_and_op(Env *env, const char *type_name)
 {
 	auto ptr = make_uptr(new ScTy{});
 	env->add(
-	    "+",
+	    Ident("+", SrcRange()),
 	    make_uptr(new BuiltInArithmetic<ArithmaticType::Add>{
 	        ptr.get()}));
 	env->add(
-	    "-",
+	    Ident("-", SrcRange()),
 	    make_uptr(new BuiltInArithmetic<ArithmaticType::Sub>{
 	        ptr.get()}));
 	env->add(
-	    "*",
+	    Ident("*", SrcRange()),
 	    make_uptr(new BuiltInArithmetic<ArithmaticType::Mul>{
 	        ptr.get()}));
 	env->add(
-	    "/",
+	    Ident("/", SrcRange()),
 	    make_uptr(new BuiltInArithmetic<ArithmaticType::Div>{
 	        ptr.get()}));
-	env->add(type_name, std::move(ptr));
+	env->add(Ident(type_name, SrcRange()), std::move(ptr));
 }
 
 void add_builtins(Env *env)

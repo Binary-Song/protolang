@@ -58,8 +58,8 @@ void Logger::print(const CodeRef &ref)
 		    << std::string(underline_size, '^') << "\n";
 	}
 }
-void Logger::print(const SrcRange    &range,
-                   const std::string &comment)
+void Logger::print(const std::string &comment,
+                   const SrcRange    &range)
 {
 	print(CodeRef{range, comment});
 }

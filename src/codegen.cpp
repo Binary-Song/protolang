@@ -44,14 +44,12 @@ static std::vector<llvm::Value *> cast_args(
 	}
 	return arg_vals;
 }
-static llvm::Value *gen_overload_call(
-    Env                            *env,
+static llvm::Value *generate_call(
     CodeGenerator                  &g,
-    const Ident                    &ident,
+    IOp                            *func,
     const std::vector<ast::Expr *> &arg_exprs)
 {
 	auto arg_types = get_arg_types(arg_exprs);
-	auto func      = env->overload_resolution(ident, arg_types);
 	auto args_cast = cast_args(g, func, arg_exprs);
 	return func->gen_call(args_cast, g);
 }
@@ -232,20 +230,19 @@ void ast::ReturnStmt::validate_types(IType *return_type)
 
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)
 {
-	return gen_overload_call(
-	    env(), g, this->op, {left.get(), right.get()});
+	return generate_call(
+	    g, m_ovlres_cache.get(), {m_left.get(), m_right.get()});
 }
 
 llvm::Value *ast::UnaryExpr::codegen_value(CodeGenerator &g)
 {
-	return gen_overload_call(
-	    env(), g, this->op, {this->operand.get()});
+	return generate_call(
+	    g, m_ovlres_cache.get(), {this->m_operand.get()});
 }
 
 llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
-{
-	// todo:
-	// 如果callee不是一个单名，那就根据callee的类型找调用的函数
+{ // todo:
+  // 如果callee不是一个单名，那就根据callee的类型找调用的函数
 	if (auto callee =
 	        dynamic_cast<IdentExpr *>(this->m_callee.get()))
 	{
@@ -254,12 +251,11 @@ llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
 		{
 			arg_ptrs.push_back(arg.get());
 		}
-		return gen_overload_call(
-		    env(), g, callee->ident(), arg_ptrs);
+		return generate_call(g, m_ovlres_cache.get(), arg_ptrs);
 	}
 	else
 	{
-		
+		throw ExceptionNotImplemented();
 	}
 }
 

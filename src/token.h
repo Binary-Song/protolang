@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 #include "typedef.h"
+#include <cassert>
 namespace protolang
 {
 struct SrcPos
