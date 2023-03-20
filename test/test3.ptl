@@ -13,5 +13,6 @@ func f(a : long , b : int) -> int
 func main() -> int
 {
     var a = 10;
+    var b : long = 20;
     f(a, a);
 }

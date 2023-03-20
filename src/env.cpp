@@ -79,7 +79,6 @@ IOp *Env::overload_resolution(
 	std::vector<IOp *> strict_fits;
 	for (auto &&entity : *overloads)
 	{
-		std::cout << entity->dump_json() << std::endl;
 		IOp *func = entity;
 		if (check_args(func, arg_types, false, true))
 		{

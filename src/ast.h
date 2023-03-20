@@ -671,6 +671,7 @@ struct Program : Ast
 private:
 	std::vector<uptr<Decl>> m_decls;
 	uptr<Env>               m_root_env;
+	Logger                 &logger;
 
 public:
 	explicit Program(std::vector<uptr<Decl>> decls,
@@ -689,31 +690,9 @@ public:
 		return m_decls;
 	}
 
-	void codegen(CodeGenerator &g) override
-	{
-		// 先 生成函数的prototype
-		for (auto &&d : m_decls)
-		{
-			if (auto func_decl =
-			        dynamic_cast<FuncDecl *>(d.get()))
-			{
-				func_decl->codegen_prototype(g);
-			}
-		}
+	void codegen(CodeGenerator &g) override;
 
-		for (auto &&d : m_decls)
-		{
-			d->codegen(g);
-		}
-	}
-
-	void validate_types() override
-	{
-		for (auto &&decl : m_decls)
-		{
-			decl->validate_types();
-		}
-	}
+	void validate_types() override;
 };
 } // namespace ast
 } // namespace protolang

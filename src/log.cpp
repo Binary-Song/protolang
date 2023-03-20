@@ -6,9 +6,9 @@ namespace protolang
 static void print_overload_set(Logger                   &logger,
                                const std::vector<IOp *> &set)
 {
+	int ovl_index = 0;
 	for (auto &&overload : set)
 	{
-		int ovl_index = 0;
 		if (auto func = dynamic_cast<ast::FuncDecl *>(overload))
 		{
 			logger.print(
@@ -24,6 +24,7 @@ static void print_overload_set(Logger                   &logger,
 			                      ovl_index,
 			                      overload->get_type_name());
 		}
+		ovl_index++;
 	}
 }
 
@@ -35,6 +36,7 @@ static void print_arg_types(
 	{
 		logger << std::format(
 		    "Argument [{}] is of type `{}`", i, type);
+		i++;
 	}
 }
 

@@ -333,7 +333,48 @@ Env *Ast::root_env() const
 Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     : m_decls(std::move(decls))
     , m_root_env(Env::create_root(logger))
+    , logger(logger)
 {}
+void Program::validate_types()
+{
+	try
+	{
+		for (auto &&decl : m_decls)
+		{
+			decl->validate_types();
+		}
+	}
+	catch (Error &e)
+	{
+		e.print(logger);
+		return;
+	}
+}
+void Program::codegen(CodeGenerator &g)
+{
+	try
+	{
+		// 先 生成函数的prototype
+		for (auto &&d : m_decls)
+		{
+			if (auto func_decl =
+				dynamic_cast<FuncDecl *>(d.get()))
+			{
+				func_decl->codegen_prototype(g);
+			}
+		}
+
+		for (auto &&d : m_decls)
+		{
+			d->codegen(g);
+		}
+	}
+	catch (Error& e)
+	{
+		e.print(logger);
+		return;
+	}
+}
 
 // 表达式默认的语义检查方法是计算一次类型
 

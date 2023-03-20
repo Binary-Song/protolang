@@ -36,8 +36,6 @@ static std::vector<llvm::Value *> cast_args(
 
 		auto arg_val_cast =
 		    param_type->cast_implicit(g, arg_val_raw, arg_type);
-		std::cout << "p:" << param_type->dump_json();
-		std::cout << "a:" << arg_type->dump_json();
 
 		arg_vals.push_back(arg_val_cast);
 		i++;
