@@ -90,7 +90,6 @@ struct Expr : Ast, ITyped
 	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
 
 protected:
-
 };
 
 // 二元运算表达式
@@ -340,22 +339,28 @@ public:
 	    , m_init(std::move(init))
 	{}
 	Ident  get_ident() const override { return m_ident; }
-	IType *get_type() override { return m_type->get_type(); }
-	Expr  *get_init() override { return m_init.get(); }
+	IType *get_type() override
+	{
+		return m_type ? m_type->get_type() : m_init->get_type();
+	}
+	Expr       *get_init() override { return m_init.get(); }
 	std::string dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"VarDecl","ident":{},"type":{},"init":{}}})",
 		    m_ident.dump_json(),
-		    m_type->dump_json(),
+		    get_type()->dump_json(),
 		    m_init->dump_json());
 	}
 	SrcRange range() const override
 	{
 		return m_ident.range + m_init->range();
 	}
-	Env *env() const override { return m_type->env(); }
-	void validate_types() override;
+	Env *env() const override
+	{
+		return m_type ? m_type->env() : m_init->env();
+	}
+	void              validate_types() override;
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -515,6 +520,7 @@ public:
 			elem->validate_types();
 		}
 	}
+	void validate_types(IType *return_type);
 	void codegen(CodeGenerator &g) override;
 };
 
@@ -528,6 +534,10 @@ public:
 		return std::format(R"({{"obj":"ReturnStmt","expr":{}}})",
 		                   get_expr()->dump_json());
 	}
+	void validate_types(IType *return_type);
+
+private:
+	void validate_types() override {}
 };
 
 struct FuncDecl : Decl, IFunc
@@ -576,16 +586,15 @@ public:
 		return m_params[i]->get_type();
 	}
 	ICodeGen *get_body() override { return m_body.get(); }
-	// todo: params 如果有默认值，可能还得check一下
-	// todo: body 里的 return 必须 check
-	void      validate_types() override
-	{
+
+	void validate_types() override
+	{ // todo: params 如果有默认值，可能还得check一下
 		for (auto &&p : m_params)
 		{
 			p->validate_types();
 		}
 		m_return_type->validate_types();
-		m_body->validate_types();
+		m_body->validate_types(m_return_type->get_type());
 	}
 	std::string get_mangled_name() const override
 	{
@@ -666,7 +675,7 @@ public:
 		return m_decls;
 	}
 
-	void codegen(CodeGenerator &g)
+	void codegen(CodeGenerator &g) override
 	{
 		// 先 生成函数的prototype
 		for (auto &&d : m_decls)

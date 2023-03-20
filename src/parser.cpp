@@ -13,10 +13,20 @@ uptr<ast::VarDecl> Parser::var_decl()
 	auto var_token  = eat_keyword_or_panic(Keyword::KW_VAR);
 	auto name_token = eat_ident_or_panic();
 	auto name       = name_token.str_data;
-	eat_given_type_or_panic(Token::Type::Column, ":");
-	auto type = type_expr();
-	eat_op_or_panic("=");
-	auto init = expression();
+	uptr<ast::TypeExpr> type;
+	uptr<ast::Expr>     init;
+	// 类型标注可选
+	if (eat_if_is_given_type({Token::Type::Column}))
+	{
+		// 有类型标注
+		type = type_expr();
+	}
+	else
+	{
+		// 没有类型标注，必须有初始化
+		eat_op_or_panic("=");
+		init = expression();
+	}
 	eat_given_type_or_panic(Token::Type::SemiColumn, ";");
 
 	// 产生符号表记录
@@ -280,19 +290,22 @@ uptr<ast::Expr> Parser::primary()
 		}
 		else
 		{
-			// error : left parentheses mismatch
-			logger.log(ErrorParenMismatch(true, left_paren));
-			throw ExceptionPanic();
+			ErrorMissingRightParen e;
+			e.left = left_paren.range();
+			throw std::move(e);
 		}
 	}
 	if (curr().type == Token::Type::RightParen)
 	{
-		// error : left parentheses mismatch
-		logger.log(ErrorParenMismatch(false, curr()));
+		ErrorMissingLeftParen e;
+		e.right = curr().range();
+		throw std::move(e);
 	}
 	else
 	{
-		logger.log(ErrorExpressionExpected(curr()));
+		ErrorExpressionExpected e;
+		e.curr = curr().range();
+		throw std::move(e);
 	}
 	throw ExceptionPanic();
 }
@@ -314,11 +327,11 @@ uptr<ast::Decl> Parser::declaration()
 			{
 				return struct_decl();
 			}
-			logger.log(ErrorUnexpectedToken(
-			    curr(), "declaration expected"));
-			throw ExceptionPanic();
+			ErrorDeclExpected e;
+			e.curr = curr().range();
+			throw std::move(e);
 		}
-		catch (const ExceptionPanic &)
+		catch (const Error &)
 		{
 			sync();
 		}

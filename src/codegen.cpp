@@ -1,11 +1,11 @@
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/Verifier.h>
-
 #include "ast.h"
 #include "code_generator.h"
 #include "entity_system.h"
 #include "env.h"
 #include "exceptions.h"
+#include "log.h"
 namespace protolang
 {
 
@@ -86,7 +86,7 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 	// 这里只生成变量引用。
 	auto var =
 	    env()->get<IVar>(ident()); // 从环境中找到对应的var，读取
-	
+
 	auto load_inst = g.builder().CreateLoad(
 	    var->get_stack_addr()->getAllocatedType(),
 	    var->get_stack_addr(), // 读内存
@@ -128,7 +128,9 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 	auto func_type    = this->get_llvm_func_type(g);
 	if (g.module().getFunction(mangled_name))
 	{
-		throw ExceptionPanic();
+		ErrorFunctionAlreadyExists e;
+		e.name = mangled_name;
+		throw std::move(e);
 	}
 	auto func = llvm::Function::Create(
 	    func_type,
@@ -176,6 +178,7 @@ llvm::Value *ast::FuncDecl::gen_call(
 	auto func         = g.module().getFunction(mangled_name);
 	if (!func || func->arg_size() != args.size())
 	{
+
 		throw ExceptionPanic();
 	}
 	return g.builder().CreateCall(func, args, "calltmp");
@@ -185,6 +188,21 @@ void ast::CompoundStmt::codegen(CodeGenerator &g)
 	for (auto &&content : this->m_content)
 	{
 		content->codegen(g);
+	}
+}
+void ast::CompoundStmt::validate_types(IType *return_type)
+{
+	for (auto &&elem : m_content)
+	{
+		if (auto return_stmt =
+		        dynamic_cast<ReturnStmt *>(elem.get()))
+		{
+			return_stmt->validate_types(return_type);
+		}
+		else
+		{
+			elem->validate_types();
+		}
 	}
 }
 
@@ -197,6 +215,18 @@ void ast::ReturnStmt::codegen(CodeGenerator &g)
 {
 	auto expr_val = get_expr()->codegen_value(g);
 	g.builder().CreateRet(expr_val);
+}
+
+void ast::ReturnStmt::validate_types(IType *return_type)
+{
+	if (!return_type->can_accept(this->get_expr()->get_type()))
+	{
+		ErrorReturnTypeMismatch e;
+		e.expected = return_type->get_type_name();
+		e.actual = this->get_expr()->get_type()->get_type_name();
+		e.return_range = this->range();
+		throw std::move(e);
+	}
 }
 
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)

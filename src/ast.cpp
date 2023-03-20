@@ -129,7 +129,7 @@ IType *MemberAccessExpr::recompute_type()
 	ErrorMemberNotFound e;
 	e.type   = m_left->get_type()->get_type_name();
 	e.member = m_member.name;
-	e.here   = m_member.range;
+	e.used_here = m_member.range;
 	throw std::move(e);
 }
 llvm::Value *MemberAccessExpr::codegen_value(
@@ -193,6 +193,14 @@ void IdentExpr::set_type(IType *t)
 
 void VarDecl::validate_types()
 {
+	assert(m_init || m_type);
+
+	if(!m_type)
+	{
+		// 类型推断
+
+	}
+
 	auto init_type = m_init->get_type();
 	auto var_type  = m_type->get_type();
 	if (!var_type->can_accept(init_type))

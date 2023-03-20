@@ -20,13 +20,13 @@ struct ErrorMemberNotFound : Error
 {
 	std::string member;
 	std::string type;
-	SrcRange    here;
+	SrcRange    used_here;
 
 	void print(Logger &logger) const override
 	{
 		logger << std::format(
 		    "Member `{}` not found in type `{}`.", member, type);
-		logger.print("Here.", here);
+		logger.print("Used here.", used_here);
 	}
 };
 
@@ -38,7 +38,7 @@ struct ErrorNameInThisContextIsAmbiguous : Error
 	{
 		logger << std::format("Name `{}` is ambiguous.",
 		                      name.name);
-		logger.print("Here.", name.range);
+		logger.print("Used here.", name.range);
 	}
 };
 
@@ -59,6 +59,83 @@ struct ErrorVarDeclInitExprTypeMismatch : Error
 		logger.print("Variable type here.", var_ty_range);
 		logger.print("Init expression here.", init_range);
 	}
+};
+
+struct ErrorReturnTypeMismatch : Error
+{
+	std::string expected;
+	std::string actual;
+	SrcRange    return_range;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format(
+		    "Return type mismatch. Expected `{}`. Got `{}`.",
+		    expected,
+		    actual);
+		logger.print("Returned here.", return_range);
+	}
+};
+
+struct ErrorMissingRightParen : Error
+{
+	SrcRange left;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format("Parenthesis Mismatch. Right "
+		                      "parenthesis is missing.");
+		logger.print("Left parenthesis here.", left);
+	}
+};
+
+struct ErrorMissingLeftParen : Error
+{
+	SrcRange right;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format("Parenthesis Mismatch. Left "
+		                      "parenthesis is missing.");
+		logger.print("Right parenthesis here.", right);
+	}
+};
+
+struct ErrorExpressionExpected : Error
+{
+	SrcRange curr;
+	void     print(Logger &logger) const override
+	{
+		logger << std::format("Expression expected");
+		logger.print("Here.", curr);
+	}
+};
+
+struct ErrorDeclExpected : Error
+{
+	SrcRange curr;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format("Declaration expected");
+		logger.print("Here.", curr);
+	}
+};
+
+struct ErrorFunctionAlreadyExists : Error
+{
+	std::string name;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format("Function `{}` already exists.",
+		                      name);
+	}
+};
+
+struct Error : Error
+{
+
 };
 
 } // namespace protolang
