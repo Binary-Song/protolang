@@ -335,7 +335,7 @@ Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     , m_root_env(Env::create_root(logger))
     , logger(logger)
 {}
-void Program::validate_types()
+void Program::validate_types(bool &success)
 {
 	try
 	{
@@ -347,10 +347,15 @@ void Program::validate_types()
 	catch (Error &e)
 	{
 		e.print(logger);
-		return;
+		success = false;
 	}
+	success = true;
 }
-void Program::codegen(CodeGenerator &g)
+void Program::validate_types()
+{
+	assert(false);
+}
+void Program::codegen(CodeGenerator &g, bool &success)
 {
 	try
 	{
@@ -358,7 +363,7 @@ void Program::codegen(CodeGenerator &g)
 		for (auto &&d : m_decls)
 		{
 			if (auto func_decl =
-				dynamic_cast<FuncDecl *>(d.get()))
+			        dynamic_cast<FuncDecl *>(d.get()))
 			{
 				func_decl->codegen_prototype(g);
 			}
@@ -368,12 +373,18 @@ void Program::codegen(CodeGenerator &g)
 		{
 			d->codegen(g);
 		}
+
+		success = true;
 	}
-	catch (Error& e)
+	catch (Error &e)
 	{
 		e.print(logger);
-		return;
+		success = false;
 	}
+}
+void Program::codegen(CodeGenerator &)
+{
+	assert(false);
 }
 
 // 表达式默认的语义检查方法是计算一次类型

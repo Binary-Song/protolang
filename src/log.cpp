@@ -35,7 +35,7 @@ static void print_arg_types(
 	for (auto &&type : types)
 	{
 		logger << std::format(
-		    "Argument [{}] is of type `{}`", i, type);
+		    "Argument [{}] is typed `{}`", i, type);
 		i++;
 	}
 }

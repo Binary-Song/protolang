@@ -26,35 +26,35 @@ int main()
 	std::string output_file_name =
 	    __FILE__ R"(\..\..\dump\dump.json)";
 
-	std::ifstream         f(file_name);
-	//bool                  file_good = f.good();
-	protolang::SourceCode src(f);
-	protolang::Logger     logger(src, std::cout);
-	protolang::Lexer      lexer(src, logger);
-
-//	if (!file_good)
-//		; // todo : add file error
-	try
+	std::ifstream f(file_name);
+	if (!f.good())
 	{
-		std::vector<protolang::Token> tokens = lexer.scan();
-		if (tokens.empty())
-			return 1;
-
-		auto root_env = protolang::Env::create_root(logger);
-		protolang::Parser parser(
-		    logger, std::move(tokens), root_env.get());
-		auto prog = parser.parse();
-		if (!prog)
-			return 1;
-		protolang::CodeGenerator g{"test"};
-
-		prog->validate_types();
-		prog->codegen(g);
-		g.module().print(llvm::errs(), nullptr);
-	}
-	catch (const protolang::Error &e)
-	{
-		e.print(logger);
+		std::cerr << "Unable to read file: " << file_name
+		          << std::endl;
 		return 1;
 	}
+
+	protolang::SourceCode src(f);
+	protolang::Logger     logger(src, std::cerr);
+	protolang::Lexer      lexer(src, logger);
+
+	std::vector<protolang::Token> tokens = lexer.scan();
+	if (tokens.empty())
+		return 1;
+
+	auto root_env = protolang::Env::create_root(logger);
+	protolang::Parser parser(
+	    logger, std::move(tokens), root_env.get());
+	auto prog = parser.parse();
+	if (!prog)
+		return 1;
+	protolang::CodeGenerator g{"test"};
+	bool                     success = false;
+	prog->validate_types(success);
+	if (!success)
+		return 1;
+	prog->codegen(g, success);
+	if (!success)
+		return 1;
+	g.module().print(llvm::errs(), nullptr);
 }

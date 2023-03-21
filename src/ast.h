@@ -690,9 +690,11 @@ public:
 		return m_decls;
 	}
 
+	void codegen(CodeGenerator &g, bool &success);
 	void codegen(CodeGenerator &g) override;
 
 	void validate_types() override;
+	void validate_types(bool &success);
 };
 } // namespace ast
 } // namespace protolang

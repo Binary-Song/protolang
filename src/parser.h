@@ -53,11 +53,7 @@ public:
 	    , root_env(root_env)
 	{}
 
-	uptr<ast::Program> parse() { 
-			
-		return program();
-	
-	}
+	uptr<ast::Program> parse() { return program(); }
 
 private:
 	const Token &curr() const { return tokens[index]; }
