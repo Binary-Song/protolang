@@ -6,7 +6,7 @@
 #include <memory>
 namespace protolang
 {
-
+class Logger;
 struct CodeGenerator
 {
 private:
@@ -14,15 +14,20 @@ private:
 	std::unique_ptr<llvm::IRBuilder<>>   m_builder;
 	std::unique_ptr<llvm::Module>        m_module;
 	std::map<std::string, llvm::Value *> m_named_values;
+	Logger                              &m_logger;
 
 public:
-	explicit CodeGenerator(const std::string &module_name)
-	    : m_context(std::make_unique<llvm::LLVMContext>())
+	explicit CodeGenerator(Logger            &logger,
+	                       const std::string &module_name)
+	    : m_logger(logger)
+	    , m_context(std::make_unique<llvm::LLVMContext>())
 	    , m_builder(
 	          std::make_unique<llvm::IRBuilder<>>(*m_context))
 	    , m_module(std::make_unique<llvm::Module>(module_name,
 	                                              *m_context))
 	{}
+
+	void gen(const std::string &output_file);
 
 	llvm::LLVMContext &context() { return *m_context.get(); }
 	llvm::IRBuilder<> &builder() { return *m_builder.get(); }
@@ -31,6 +36,9 @@ public:
 	{
 		return m_named_values.at(key);
 	}
+
+private:
+	void emit_object(const std::string &output_file);
 };
 
 } // namespace protolang

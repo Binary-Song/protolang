@@ -1,60 +1,95 @@
+#include <filesystem>
 #include <fstream>
-#include <llvm/ADT/APFloat.h>
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
-#include <llvm/IR/Verifier.h>
 #include <type_traits>
 #include "code_generator.h"
 #include "env.h"
 #include "lexer.h"
+#include "log.h"
 #include "logger.h"
 #include "parser.h"
 #include "source_code.h"
 #include "token.h"
+namespace protolang
+{
+struct Compiler
+{
+private:
+	std::filesystem::path   m_input_file;
+	std::filesystem::path   m_output_file;
+	std::unique_ptr<Logger> m_logger;
+
+public:
+	Logger &logger() { return *m_logger; }
+
+	Compiler(const std::string &input_file,
+	         const std::string &output_file = "")
+	    : m_input_file(input_file)
+	    , m_output_file(output_file)
+	{
+		namespace fs = std::filesystem;
+		m_input_file = (m_input_file);
+		if (output_file == "")
+		{
+			m_output_file = m_input_file.filename();
+		}
+		m_output_file = (m_output_file);
+	}
+
+	void compile()
+	{
+		// 读取源代码
+		std::ifstream input_stream(m_input_file);
+		SourceCode    src;
+		bool          read_result = src.read(input_stream);
+		m_logger = std::make_unique<Logger>(src, std::cerr);
+		Logger &logger = *m_logger;
+		if (!read_result)
+		{
+			ErrorRead e;
+			e.path = m_input_file.string();
+			e.print(logger);
+			return;
+		}
+		// 词法分析
+		Lexer lexer(src, logger);
+		auto  tokens = lexer.scan();
+		if (tokens.empty())
+		{
+			ErrorEmptyInput e;
+			throw std::move(e);
+		}
+		// 语法分析
+		auto   root_env = protolang::Env::create_root(logger);
+		Parser parser(logger, std::move(tokens), root_env.get());
+		auto   program = parser.parse();
+		// 中间代码生成
+		CodeGenerator g(logger,
+		                m_input_file.filename().string());
+		bool          success = false;
+		program->validate_types(success);
+		if (!success)
+			return;
+		program->codegen(g, success);
+		if (!success)
+			return;
+		//	g.module().print(llvm::outs(), nullptr);
+		// 目标代码生成
+		g.gen(this->m_output_file.string());
+	}
+};
+} // namespace protolang
 
 int main()
 {
-
-	std::string file_name = __FILE__ R"(\..\..\test\test3.ptl)";
-	std::string output_file_name =
-	    __FILE__ R"(\..\..\dump\dump.json)";
-
-	std::ifstream f(file_name);
-	if (!f.good())
+	std::string input_file_name =
+	    __FILE__ R"(\..\..\test\test3.ptl)";
+	protolang::Compiler compiler(input_file_name);
+	try
 	{
-		std::cerr << "Unable to read file: " << file_name
-		          << std::endl;
-		return 1;
+		compiler.compile();
 	}
-
-	protolang::SourceCode src(f);
-	protolang::Logger     logger(src, std::cerr);
-	protolang::Lexer      lexer(src, logger);
-
-	std::vector<protolang::Token> tokens = lexer.scan();
-	if (tokens.empty())
-		return 1;
-
-	auto root_env = protolang::Env::create_root(logger);
-	protolang::Parser parser(
-	    logger, std::move(tokens), root_env.get());
-	auto prog = parser.parse();
-	if (!prog)
-		return 1;
-	protolang::CodeGenerator g{"test"};
-	bool                     success = false;
-	prog->validate_types(success);
-	if (!success)
-		return 1;
-	prog->codegen(g, success);
-	if (!success)
-		return 1;
-	g.module().print(llvm::outs(), nullptr);
+	catch (protolang::Error &e)
+	{
+		e.print(compiler.logger());
+	}
 }

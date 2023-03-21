@@ -15,3 +15,4 @@ func main() -> int
     var b = 100;
     var a = 1 + b * 2 - 3;
 }
+

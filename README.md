@@ -28,3 +28,7 @@ TODO:
 this是const是塞不进非const的返回类型的。此外还要考虑到比较复杂的
 返回类型，可能需要cache一下计算结果，下次直接返回cache。这时写入
 cache也是const做不到的。
+
+## Clion 坑人
+
+不要选择上面的config preset，选下面的build preset!

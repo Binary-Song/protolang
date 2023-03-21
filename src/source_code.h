@@ -1,13 +1,15 @@
 #pragma once
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
 namespace protolang
 {
 class SourceCode
 {
 public:
-	explicit SourceCode(std::istream &input)
+	explicit SourceCode() {}
+
+	[[nodiscard]] bool read(std::istream &input)
 	{
 		std::string line;
 		std::getline(input, line);
@@ -18,11 +20,14 @@ public:
 			str += line;
 			std::getline(input, line);
 		}
+		if (!input.eof())
+			return false;
 		lines.push_back(line);
 		str += line;
 		// 附送1行
 		lines.emplace_back("\n");
 		str += "\n";
+		return true;
 	}
 
 	std::string              str;

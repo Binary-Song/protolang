@@ -6,6 +6,34 @@
 namespace protolang
 {
 
+struct ErrorEmptyInput : Error
+{
+	void print(Logger &logger) const override
+	{
+		logger.print("Empty input.");
+	}
+};
+
+struct ErrorRead : Error
+{
+	std::string path;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(std::format("Read failure: {}", path));
+	}
+};
+
+struct ErrorWrite : Error
+{
+	std::string path;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(std::format("Write failure: {}", path));
+	}
+};
+
 struct ErrorNotCallable : Error
 {
 	SrcRange    callee;
@@ -292,4 +320,15 @@ struct ErrorUnexpectedToken : Error
 		    range);
 	}
 };
+
+struct ErrorInternal : Error
+{
+	std::string message;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(std::format("Internal error: {}", message));
+	}
+};
+
 } // namespace protolang
