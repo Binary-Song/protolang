@@ -12,7 +12,7 @@ func f(a : long , b : int) -> int
 
 func main() -> int
 {
-    var a = 10;
-    var b : long = 20;
-    f(a, a);
+    var a : long = 1;
+    var b = 2;
+    f(a, b);
 }

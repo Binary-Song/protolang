@@ -207,6 +207,21 @@ struct ErrorMultipleMatchingOverloads : Error
 	void print(Logger &logger) const override;
 };
 
+struct ErrorForwardReferencing : Error
+{
+	std::string name;
+	SrcRange    defined_here;
+	SrcRange    used_here;
+
+	void print(Logger &logger) const override
+	{
+		logger << std::format("Use before definition `{}`.",
+		                      name);
+		logger.print("Used here", used_here);
+		logger.print("Defined here", defined_here);
+	}
+};
+
 struct ErrorUnexpectedNameKind : Error
 {
 	std::string expected;

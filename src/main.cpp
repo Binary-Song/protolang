@@ -56,5 +56,5 @@ int main()
 	prog->codegen(g, success);
 	if (!success)
 		return 1;
-	g.module().print(llvm::errs(), nullptr);
+	g.module().print(llvm::outs(), nullptr);
 }

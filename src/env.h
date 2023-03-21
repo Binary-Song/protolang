@@ -87,35 +87,14 @@ public:
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
+	template <std::derived_from<IEntity> T           = IEntity,
+	          bool                       forward_ref = true>
+	T *get(const Ident &ident) const;
+
 	template <std::derived_from<IEntity> T = IEntity>
-	T *get(const Ident &ident) const
+	T *get_backwards(const Ident &ident) const
 	{
-		std::string name = ident.name;
-		if (m_symbol_table.contains(name))
-		{
-			// 检查它是不是T类型
-			IEntity *ent = m_symbol_table.at(name);
-			if constexpr (std::is_same_v<T, IEntity>)
-			{
-				return ent;
-			}
-			else
-			{
-				if (auto t = dynamic_cast<T *>(ent))
-					return t;
-				ErrorUnexpectedNameKind e;
-				e.name_range = ident.range;
-				e.expected   = T::TYPE_NAME;
-				throw std::move(e);
-			}
-		}
-		// 一个都没有，问爹要
-		if (m_parent)
-			return m_parent->get<T>(ident);
-		// 没有爹，哭
-		ErrorUndefinedName e;
-		e.name = ident;
-		throw std::move(e);
+		return get<T, false>(ident);
 	}
 
 	IOp *overload_resolution(

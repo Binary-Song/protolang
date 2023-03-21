@@ -231,6 +231,70 @@ void Env::add_built_in_facility()
 	//	add("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
 	//	add("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
 }
+template <std::derived_from<IEntity> T, bool forward_ref>
+T *Env::get(const Ident &ident) const
+{
+	std::string name = ident.name;
+	if (m_symbol_table.contains(name))
+	{
+		// 检查它是不是T类型
+		IEntity *ent = m_symbol_table.at(name);
+
+		// 检查forward_ref
+		if (!forward_ref)
+		{
+			// 另外，如果entity不是Ast，是内置类型，那就不检查了，
+			// 一律允许访问
+			if (auto ast = dynamic_cast<ast::Ast *>(ent))
+			{
+				// 不允许定义的尾巴在引用的头后面
+				if (ast->range().tail >= ident.range.head)
+				{
+					ErrorForwardReferencing e;
+					e.name         = ident.name;
+					e.defined_here = ast->range();
+					e.used_here    = ident.range;
+					throw std::move(e);
+				}
+			}
+		}
+
+		// 如果T==IEntity，意思是不检查类型
+		if constexpr (std::is_same_v<T, IEntity>)
+			return ent;
+		else
+		{
+			// 否则检查类型
+			if (auto t = dynamic_cast<T *>(ent))
+				return t;
+
+			ErrorUnexpectedNameKind e;
+			e.name_range = ident.range;
+			e.expected   = T::TYPE_NAME;
+			throw std::move(e);
+		}
+	}
+	// 一个都没有，问爹要
+	if (m_parent)
+		return m_parent->get<T>(ident);
+	// 没有爹，哭
+	ErrorUndefinedName e;
+	e.name = ident;
+	throw std::move(e);
+}
+template IEntity *Env::get<IEntity, false>(
+    const Ident &ident) const;
+template IType *Env::get<IType, false>(const Ident &ident) const;
+template IVar  *Env::get<IVar, false>(const Ident &ident) const;
+template OverloadSet *Env::get<OverloadSet, false>(
+    const Ident &ident) const;
+template IEntity *Env::get<IEntity, true>(
+    const Ident &ident) const;
+template IType *Env::get<IType, true>(const Ident &ident) const;
+template IVar  *Env::get<IVar, true>(const Ident &ident) const;
+template OverloadSet *Env::get<OverloadSet, true>(
+    const Ident &ident) const;
+// template I *Env::get<IEntity>(const Ident &ident) const;
 
 /*
  *

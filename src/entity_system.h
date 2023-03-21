@@ -34,6 +34,8 @@ struct Expr;
 struct IEntity : virtual IJsonDumper
 {
 	~IEntity() override = default;
+
+	static constexpr const char *TYPE_NAME = "entity";
 };
 
 // 有类型之物，函数、变量、表达式都是有类型的。
@@ -66,7 +68,7 @@ protected:
 // 类型
 struct IType : IEntity
 {
-	static constexpr const char* TYPE_NAME = "type";
+	static constexpr const char *TYPE_NAME = "type";
 
 	~IType() override                       = default;
 	virtual bool        can_accept(IType *) = 0;
@@ -103,7 +105,7 @@ struct ICodeGen
 
 struct IVar : ITyped, IEntity
 {
-	static constexpr const char* TYPE_NAME = "variable";
+	static constexpr const char *TYPE_NAME = "variable";
 
 	virtual Ident             get_ident() const      = 0;
 	virtual ast::Expr        *get_init()             = 0;

@@ -80,8 +80,8 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 	// 变量：引用变量的值，未定义就报错
 	// 函数：重载决策后直接得到IFunc了，不用我来生成，
 	// 这里只生成变量引用。
-	auto var =
-	    env()->get<IVar>(ident()); // 从环境中找到对应的var，读取
+	auto var = env()->get_backwards<IVar>(
+	    ident()); // 从环境中找到对应的var，读取
 
 	auto load_inst = g.builder().CreateLoad(
 	    var->get_stack_addr()->getAllocatedType(),
