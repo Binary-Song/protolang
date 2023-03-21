@@ -246,6 +246,11 @@ IType *IdentExpr::get_type()
 IType *IdentExpr::recompute_type()
 {
 	auto entity = env()->get(ident());
+	if(auto var = dynamic_cast<IVar*>(entity))
+	{
+		// 解决var a = 1 + a; 解析a类型时无限递归报错
+		check_forward_ref<true>(this->ident(), var);
+	}
 	if (dynamic_cast<OverloadSet *>(entity))
 	{
 		// 如果标识符是重载集合，则需要上层表达式来帮忙决定type

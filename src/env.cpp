@@ -231,6 +231,39 @@ void Env::add_built_in_facility()
 	//	add("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
 	//	add("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
 }
+template <bool do_throw>
+bool check_forward_ref(const Ident &ref, IEntity *ent)
+{
+	// 如果entity不是Ast，是内置类型，那就不检查了，
+	// 一律允许访问
+	if (auto ast = dynamic_cast<ast::Ast *>(ent))
+	{
+		// 不允许定义的尾巴在引用的头后面
+		if (ast->range().tail >= ref.range.head)
+		{
+			if constexpr (do_throw)
+			{
+				ErrorForwardReferencing e;
+				e.name         = ref.name;
+				e.defined_here = ast->range();
+				e.used_here    = ref.range;
+				throw std::move(e);
+			}
+			else
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+template bool check_forward_ref<true>(const Ident &ref,
+                                      IEntity     *ent);
+
+template bool check_forward_ref<false>(const Ident &ref,
+                                       IEntity     *ent);
+
 template <std::derived_from<IEntity> T, bool forward_ref>
 T *Env::get(const Ident &ident) const
 {
@@ -243,20 +276,7 @@ T *Env::get(const Ident &ident) const
 		// 检查forward_ref
 		if (!forward_ref)
 		{
-			// 另外，如果entity不是Ast，是内置类型，那就不检查了，
-			// 一律允许访问
-			if (auto ast = dynamic_cast<ast::Ast *>(ent))
-			{
-				// 不允许定义的尾巴在引用的头后面
-				if (ast->range().tail >= ident.range.head)
-				{
-					ErrorForwardReferencing e;
-					e.name         = ident.name;
-					e.defined_here = ast->range();
-					e.used_here    = ident.range;
-					throw std::move(e);
-				}
-			}
+			check_forward_ref<true>(ident, ent);
 		}
 
 		// 如果T==IEntity，意思是不检查类型

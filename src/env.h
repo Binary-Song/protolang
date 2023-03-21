@@ -15,6 +15,9 @@
 namespace protolang
 {
 
+template <bool do_throw = false>
+bool check_forward_ref(const Ident &ref, IEntity *ent);
+
 class Env
 {
 public:
@@ -96,6 +99,8 @@ public:
 	{
 		return get<T, false>(ident);
 	}
+
+
 
 	IOp *overload_resolution(
 	    const Ident                &func_ident,

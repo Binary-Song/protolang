@@ -12,7 +12,5 @@ func f(a : long , b : int) -> int
 
 func main() -> int
 {
-    var a : long = 1;
-    var b = 2;
-    f(a, b);
+    var a = 1 + a * 2 - 3;
 }
