@@ -100,7 +100,7 @@ protected:
 struct BinaryExpr : Expr
 {
 	// 数据
-private:
+protected:
 	uptr<Expr>   m_left;
 	uptr<Expr>   m_right;
 	Ident        m_op;

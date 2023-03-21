@@ -12,5 +12,6 @@ func f(a : long , b : int) -> int
 
 func main() -> int
 {
-    var a = 1 + a * 2 - 3;
+    var b = 100;
+    var a = 1 + b * 2 - 3;
 }

@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.23.1)
 project(Protolang LANGUAGES CXX)
 
-# 设置CMake变量 
+# 设置CMake变量
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 option(BUILD_TESTING "是否创建单元测试目标" OFF)
 
 if (MSVC)
@@ -13,6 +18,7 @@ endif ()
 
 # 包含CMake模块
 include(StandardFlags)
+set_runtime_flags()
 
 # 寻找依赖
 # reflex: https://github.com/Genivia/RE-flex
@@ -57,7 +63,7 @@ add_library(lexer STATIC "${REFLEX_OUT_CPP};${LEXER_SOURCE_FILES}")
 target_include_directories(lexer PUBLIC "${REFLEX_OUTPUT_DIR}" "${REFLEX_INCLUDE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 
 # link
-set_standard_flags(${CMAKE_PROJECT_NAME})
+set_standard_flags(Protolang)
 target_include_directories(Protolang PUBLIC ${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
