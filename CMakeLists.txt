@@ -4,21 +4,14 @@ project(Protolang LANGUAGES CXX)
 # 设置CMake变量
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
-
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(BUILD_TESTING "是否创建单元测试目标" OFF)
 
-if (MSVC)
-    set(CMAKE_CXX_FLAGS "/utf-8")
-endif ()
 
 # 包含CMake模块
 include(StandardFlags)
-set_runtime_flags()
 
 # 寻找依赖
 # reflex: https://github.com/Genivia/RE-flex
