@@ -1,6 +1,8 @@
-#include <string>
 #include <filesystem>
 #include <fstream>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/Linker/Linker.h>
+#include <string>
 #include <type_traits>
 #include "compiler.h"
 #include "code_generator.h"
@@ -67,5 +69,7 @@ void Compiler::compile()
 	// 目标代码生成
 	g.gen(this->m_output_file.string());
 	std::cout << this->m_output_file.string() << std::endl;
+	// Link like a mother fuckeing SON OF A BITCH
+
 }
 } // namespace protolang

@@ -1,4 +1,4 @@
-func f(a : int) -> int
+func __entry__(a : int) -> int
 {
     return 666;
 }

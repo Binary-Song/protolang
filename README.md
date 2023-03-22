@@ -19,8 +19,8 @@ TODO:
 - 处理test3的bug
 - 处理正负号的优先级
 
-
 ## 关于const的经验
+
 情况1：get_xxx 返回的是简单的数据结构，可以标记为const
 情况2：get_xxx 返回的是一个指针，指向一个较为复杂或抽象的 class,
 就不要返回const T*。因为const T*往往啥都干不了。
@@ -32,3 +32,17 @@ cache也是const做不到的。
 ## Clion 坑人
 
 不要选择上面的config preset，选下面的build preset!
+
+## Requirements
+
+- LLVM: 设置好你的
+
+## 编译lld
+
+不要投机取巧，省略部件，不然会后悔的捏
+
+$ mkdir build
+$ cd build
+$ cmake -G "Visual Studio 17 2022" -A x64 -Thost=x64 -DLLVM_ENABLE_PROJECTS="lld" ..
+$ cmake --build . --config Release
+

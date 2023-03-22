@@ -131,7 +131,7 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 	}
 	auto func = llvm::Function::Create(
 	    func_type,
-	    llvm::Function::LinkageTypes::InternalLinkage,
+	    llvm::Function::LinkageTypes::ExternalLinkage,
 	    mangled_name,
 	    g.module());
 	return func;

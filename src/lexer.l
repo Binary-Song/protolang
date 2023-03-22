@@ -52,7 +52,7 @@ int_bin     0b([01]+)
 fp          {int_dec}"."[0-9]+
 blank       [ \n\t]+
 keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"false"|"return"
-id          \p{PythonIdentifierStart}\p{PythonIdentifierPart}*
+id          [A-Za-z_][0-9A-Za-z_]*
 op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"|"."
 op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"
 dq          \"
