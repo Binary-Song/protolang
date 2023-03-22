@@ -58,14 +58,18 @@ uptr<ast::ExprStmt> Parser::expression_statement()
 }
 uptr<ast::ReturnStmt> Parser::return_statement()
 {
-	auto return_kw = eat_keyword_or_panic(Keyword::KW_RETURN);
-	auto expr      = expression();
+	auto return_kw   = eat_keyword_or_panic(Keyword::KW_RETURN);
+	bool return_void = is_curr_of_type(Token::Type::SemiColumn);
+	auto expr        = !return_void ? expression() : nullptr;
 	auto semi_col =
 	    eat_given_type_or_panic(Token::Type::SemiColumn, ";");
-
 	auto range = return_kw.range() + semi_col.range();
-	return make_uptr(
-	    new ast::ReturnStmt(range, std::move(expr)));
+
+	if (expr)
+		return make_uptr(
+		    new ast::ReturnStmt(range, std::move(expr)));
+	return uptr<ast::ReturnStmt>(
+	    new ast::ReturnVoidStmt(range, curr_env));
 }
 
 void Parser::parse_block(

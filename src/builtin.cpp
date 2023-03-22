@@ -10,13 +10,44 @@ static llvm::Value *scalar_cast(CodeGenerator &g,
                                 llvm::Value   *input,
                                 llvm::Type    *out_type);
 
+llvm::Value *BuiltInVoidType::cast_inst_no_check(
+    [[maybe_unused]] CodeGenerator &g,
+    [[maybe_unused]] llvm::Value   *val,
+    [[maybe_unused]] IType         *type)
+{
+	return nullptr;
+}
+std::string BuiltInVoidType::get_type_name()
+{
+	return "void";
+}
+std::string BuiltInVoidType::dump_json()
+{
+	return std::format(
+	    R"({{"obj":"BuiltVoidType", "type":"{}"}})",
+	    get_type_name());
+}
+llvm::Type *BuiltInVoidType::get_llvm_type(CodeGenerator &g)
+{
+	return llvm::Type::getVoidTy(g.context());
+}
+bool BuiltInVoidType::can_accept(IType *t)
+{
+	return t == static_cast<IType *>(this);
+}
+bool BuiltInVoidType::equal(IType *t)
+{
+	return t == static_cast<IType *>(this);
+}
+
 struct IScalarType : IType
 {
 	enum class ScalarKind
 	{
 		UInt,
 		Int,
-		Float
+		Float,
+		Double
 	};
 
 	virtual ScalarKind get_scalar_kind() const = 0;
@@ -58,8 +89,28 @@ struct BuiltInIntType : IScalarType
 
 	std::string get_type_name() override
 	{
-		return (is_signed ? "@" : "@u") + std::string("int") +
-		       std::to_string(bits);
+		if constexpr (is_signed)
+		{
+			if constexpr (bits == 64)
+				return "long";
+			if constexpr (bits == 32)
+				return "int";
+			if constexpr (bits == 16)
+				return "short";
+			if constexpr (bits == 8)
+				return "sbyte";
+		}
+		else
+		{
+			if constexpr (bits == 64)
+				return "ulong";
+			if constexpr (bits == 32)
+				return "uint";
+			if constexpr (bits == 16)
+				return "ushort";
+			if constexpr (bits == 8)
+				return "byte";
+		}
 	}
 	std::string dump_json() override
 	{
@@ -76,6 +127,68 @@ struct BuiltInIntType : IScalarType
 		return is_signed ? ScalarKind::Int : ScalarKind::UInt;
 	}
 	unsigned int get_bits() const override { return bits; }
+};
+
+struct BuiltInFloatType : IScalarType
+{
+	llvm::Value *cast_inst_no_check(
+	    CodeGenerator          &g,
+	    llvm::Value            *val,
+	    [[maybe_unused]] IType *type) override
+	{
+		return scalar_cast(g, val, this->get_llvm_type(g));
+	}
+
+	std::string get_type_name() override
+	{
+		return std::string("float");
+	}
+	std::string dump_json() override
+	{
+		return std::format(
+		    R"({{"obj":"BuiltInFloatType", "type":"{}"}})",
+		    get_type_name());
+	}
+	llvm::Type *get_llvm_type(CodeGenerator &g) override
+	{
+		return llvm::Type::getFloatTy(g.context());
+	}
+	ScalarKind get_scalar_kind() const override
+	{
+		return ScalarKind::Float;
+	}
+	unsigned int get_bits() const override { return 32; }
+};
+
+struct BuiltInDoubleType : IScalarType
+{
+	llvm::Value *cast_inst_no_check(
+	    CodeGenerator          &g,
+	    llvm::Value            *val,
+	    [[maybe_unused]] IType *type) override
+	{
+		return scalar_cast(g, val, this->get_llvm_type(g));
+	}
+
+	std::string get_type_name() override
+	{
+		return std::string("double");
+	}
+	std::string dump_json() override
+	{
+		return std::format(
+		    R"({{"obj":"BuiltInDoubleType", "type":"{}"}})",
+		    get_type_name());
+	}
+	llvm::Type *get_llvm_type(CodeGenerator &g) override
+	{
+		return llvm::Type::getDoubleTy(g.context());
+	}
+	ScalarKind get_scalar_kind() const override
+	{
+		return ScalarKind::Double;
+	}
+	unsigned int get_bits() const override { return 64; }
 };
 
 enum class ArithmaticType
@@ -175,6 +288,7 @@ public:
 			}
 			break;
 		case IScalarType::ScalarKind::Float:
+		case IScalarType::ScalarKind::Double:
 			switch (Ar)
 			{
 			case ArithmaticType::Add:
@@ -192,35 +306,47 @@ public:
 	}
 };
 
-template <std::derived_from<IScalarType> ScTy>
-void add_scalar_and_op(Env *env, const char *type_name)
+template <std::derived_from<IType> Ty>
+auto add_type(Env *env)
 {
-	auto ptr = make_uptr(new ScTy{});
+	auto        ptr     = make_uptr(new Ty{});
+	auto        ptr_raw = ptr.get();
+	std::string name    = ptr->get_type_name();
+	env->add_keyword(name, std::move(ptr));
+	return ptr_raw;
+};
+
+template <std::derived_from<IScalarType> ScTy>
+void add_scalar_and_op(Env *env)
+{
+	auto ty_ptr = add_type<ScTy>(env);
 	env->add(
 	    Ident("+", SrcRange()),
-	    make_uptr(new BuiltInArithmetic<ArithmaticType::Add>{
-	        ptr.get()}));
+	    make_uptr(
+	        new BuiltInArithmetic<ArithmaticType::Add>{ty_ptr}));
 	env->add(
 	    Ident("-", SrcRange()),
-	    make_uptr(new BuiltInArithmetic<ArithmaticType::Sub>{
-	        ptr.get()}));
+	    make_uptr(
+	        new BuiltInArithmetic<ArithmaticType::Sub>{ty_ptr}));
 	env->add(
 	    Ident("*", SrcRange()),
-	    make_uptr(new BuiltInArithmetic<ArithmaticType::Mul>{
-	        ptr.get()}));
+	    make_uptr(
+	        new BuiltInArithmetic<ArithmaticType::Mul>{ty_ptr}));
 	env->add(
 	    Ident("/", SrcRange()),
-	    make_uptr(new BuiltInArithmetic<ArithmaticType::Div>{
-	        ptr.get()}));
-	env->add(Ident(type_name, SrcRange()), std::move(ptr));
+	    make_uptr(
+	        new BuiltInArithmetic<ArithmaticType::Div>{ty_ptr}));
 }
 
 void add_builtins(Env *env)
 {
-	add_scalar_and_op<BuiltInIntType<32, true>>(env, "int");
-	add_scalar_and_op<BuiltInIntType<64, true>>(env, "long");
-	add_scalar_and_op<BuiltInIntType<32, false>>(env, "uint");
-	add_scalar_and_op<BuiltInIntType<64, false>>(env, "ulong");
+	add_type<BuiltInVoidType>(env);
+	add_scalar_and_op<BuiltInIntType<32, true>>(env);
+	add_scalar_and_op<BuiltInIntType<64, true>>(env);
+	add_scalar_and_op<BuiltInIntType<32, false>>(env);
+	add_scalar_and_op<BuiltInIntType<64, false>>(env);
+	add_scalar_and_op<BuiltInFloatType>(env);
+	add_scalar_and_op<BuiltInDoubleType>(env);
 }
 
 // 这个函数可以生成任何scalar之间的cast。

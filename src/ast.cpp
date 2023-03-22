@@ -399,5 +399,4 @@ void Expr::validate_types()
 	[[maybe_unused]] auto _ = get_type();
 }
 
-
 } // namespace protolang::ast

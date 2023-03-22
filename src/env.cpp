@@ -156,16 +156,18 @@ static ErrorNameRedef create_name_redef_error(const Ident &ident,
 	return e;
 }
 
-void Env::add(const Ident &ident, IEntity *obj)
+void Env::add_to(const Ident                      &ident,
+                 IEntity                          *obj,
+                 std::map<std::string, IEntity *> &to)
 {
 	auto &&name       = ident.name;
-	bool   name_clash = m_symbol_table.contains(name);
+	bool   name_clash = to.contains(name);
 	if (auto func = dynamic_cast<IOp *>(obj))
 	{
 		if (name_clash)
 		{ // 同名的玩意必须是函数重载集
-			if (auto overloads = dynamic_cast<OverloadSet *>(
-			        m_symbol_table.at(name)))
+			if (auto overloads =
+			        dynamic_cast<OverloadSet *>(to.at(name)))
 			{
 				// ok: 有重名，但是函数
 				add_to_overload_set(overloads, func, name);
@@ -173,7 +175,7 @@ void Env::add(const Ident &ident, IEntity *obj)
 			else
 			{
 				// 重定义了
-				auto entity = m_symbol_table.at(name);
+				auto entity = to.at(name);
 				throw create_name_redef_error(ident, entity);
 			}
 		}
@@ -186,7 +188,7 @@ void Env::add(const Ident &ident, IEntity *obj)
 			add_to_overload_set(overloads.get(), func, name);
 			// 设置函数名
 			func->set_mangled_name(name);
-			m_symbol_table.insert({name, overloads.get()});
+			to.insert({name, overloads.get()});
 			m_owned_entities.push_back(std::move(overloads));
 		}
 	}
@@ -195,12 +197,12 @@ void Env::add(const Ident &ident, IEntity *obj)
 		if (name_clash)
 		{
 			// 重定义了
-			auto entity = m_symbol_table.at(name);
+			auto entity = to.at(name);
 			throw create_name_redef_error(ident, entity);
 		}
 		else
 		{
-			m_symbol_table.insert({name, obj});
+			to.insert({name, obj});
 		}
 	}
 }
@@ -264,15 +266,25 @@ template bool check_forward_ref<true>(const Ident &ref,
 template bool check_forward_ref<false>(const Ident &ref,
                                        IEntity     *ent);
 
-template <std::derived_from<IEntity> T, bool forward_ref>
+template <std::derived_from<IEntity> T,
+          bool                       forward_ref,
+          bool                       look_at_kw_table>
 T *Env::get(const Ident &ident) const
 {
 	std::string name = ident.name;
-	if (m_symbol_table.contains(name))
-	{
-		// 检查它是不是T类型
-		IEntity *ent = m_symbol_table.at(name);
+	IEntity    *ent  = nullptr;
 
+	if constexpr (look_at_kw_table)
+	{
+		ent = this->get_keyword_entity(name);
+	}
+	if (!ent && m_symbol_table.contains(name))
+	{
+		ent = m_symbol_table.at(name);
+	}
+
+	if (ent)
+	{
 		// 检查forward_ref
 		if (!forward_ref)
 		{
@@ -296,7 +308,7 @@ T *Env::get(const Ident &ident) const
 	}
 	// 一个都没有，问爹要
 	if (m_parent)
-		return m_parent->get<T>(ident);
+		return m_parent->get<T, forward_ref, false>(ident);
 	// 没有爹，哭
 	ErrorUndefinedName e;
 	e.name = ident;

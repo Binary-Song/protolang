@@ -457,7 +457,7 @@ public:
 		return std::format(R"({{"obj":"ExprStmt","expr":{}}})",
 		                   m_expr->dump_json());
 	}
-	SrcRange range() const override { return m_expr->range(); }
+	SrcRange range() const override { return m_range; }
 	Env     *env() const override { return m_expr->env(); }
 	void validate_types() override { m_expr->validate_types(); }
 	void codegen(CodeGenerator &g) override;
@@ -548,7 +548,32 @@ public:
 		return std::format(R"({{"obj":"ReturnStmt","expr":{}}})",
 		                   get_expr()->dump_json());
 	}
-	void validate_types(IType *return_type);
+	virtual void validate_types(IType *return_type);
+
+private:
+	void validate_types() override
+	{
+		throw ExceptionNotImplemented();
+	}
+};
+
+struct ReturnVoidStmt : ReturnStmt
+{
+private:
+	Env *m_env;
+
+public:
+	explicit ReturnVoidStmt(const SrcRange &r, Env *env)
+	    : ReturnStmt(r, nullptr)
+	    , m_env(env)
+	{}
+	Env        *env() const override { return m_env; }
+	void        validate_types(IType *return_type) override;
+	void        codegen(CodeGenerator &g) override;
+	std::string dump_json() override
+	{
+		return R"({{"obj":"ReturnVoidStmt"}})";
+	}
 
 private:
 	void validate_types() override {}

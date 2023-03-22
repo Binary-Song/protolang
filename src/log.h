@@ -331,4 +331,20 @@ struct ErrorInternal : Error
 	}
 };
 
+struct ErrorIncompleteBlockInFunc : Error
+{
+	std::string name;
+	SrcRange    defined_here;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(
+		    std::format(
+		        "Incomplete block in function `{}`. "
+		        "Possible cause: not all code paths return.",
+		        name),
+		    defined_here);
+	}
+};
+
 } // namespace protolang

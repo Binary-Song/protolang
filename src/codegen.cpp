@@ -1,6 +1,7 @@
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/Verifier.h>
 #include "ast.h"
+#include "builtin.h"
 #include "code_generator.h"
 #include "entity_system.h"
 #include "env.h"
@@ -164,7 +165,20 @@ llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 		i++;
 	}
 	get_body()->codegen(g);
-	llvm::verifyFunction(*func);
+
+	// 检查函数ok不ok
+	bool error = llvm::verifyFunction(*func);
+	if (error)
+	{
+		ErrorIncompleteBlockInFunc e;
+		if (auto function = dynamic_cast<ast::FuncDecl *>(this))
+		{
+			e.name         = function->get_ident().name;
+			e.defined_here = function->range();
+			throw std::move(e);
+		}
+		throw std::move(e);
+	}
 	return func;
 }
 llvm::Value *ast::FuncDecl::gen_call(
@@ -196,6 +210,9 @@ void ast::CompoundStmt::validate_types(IType *return_type)
 		{
 			return_stmt->validate_types(return_type);
 		}
+		else if (auto return_void_stmt =
+		             dynamic_cast<ReturnVoidStmt *>(elem.get()))
+		{}
 		else
 		{
 			elem->validate_types();
@@ -224,6 +241,24 @@ void ast::ReturnStmt::validate_types(IType *return_type)
 		e.return_range = this->range();
 		throw std::move(e);
 	}
+}
+void ast::ReturnVoidStmt::validate_types(IType *return_type)
+{
+	auto void_type = env()->get_keyword_entity("void");
+	if (!return_type->can_accept(
+	        dyn_cast_force<IType *>(void_type)))
+	{
+		ErrorReturnTypeMismatch e;
+		e.expected = return_type->get_type_name();
+		e.actual =
+		    dyn_cast_force<IType *>(void_type)->get_type_name();
+		e.return_range = this->range();
+		throw std::move(e);
+	}
+}
+void ast::ReturnVoidStmt::codegen(CodeGenerator &g)
+{
+	g.builder().CreateRetVoid();
 }
 
 llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)

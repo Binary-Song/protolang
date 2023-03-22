@@ -28,6 +28,7 @@ private:
 	std::vector<uptr<Env>>           m_subenvs;
 	std::vector<uptr<IEntity>>       m_owned_entities;
 	std::map<std::string, IEntity *> m_symbol_table;
+	std::map<std::string, IEntity *> m_keyword_symbol_table;
 	std::string                      m_scope_name;
 
 private:
@@ -81,17 +82,30 @@ public:
 	                       bool throw_error,
 	                       bool strict);
 
-	void add(const Ident &name, IEntity *obj);
+	void add(const Ident &name, IEntity *obj)
+	{
+		add_to(name, obj, this->m_symbol_table);
+	}
 	void add(const Ident &name, uptr<IEntity> obj)
 	{
 		add(name, obj.get());
+		m_owned_entities.push_back(std::move(obj));
+	}
+	void add_keyword(const std::string &kw, IEntity *obj)
+	{
+		add_to(Ident(kw, {}), obj, this->m_keyword_symbol_table);
+	}
+	void add_keyword(const std::string &kw, uptr<IEntity> obj)
+	{
+		add_keyword(kw, obj.get());
 		m_owned_entities.push_back(std::move(obj));
 	}
 
 	/// 返回标识符对应的实体，存在子级隐藏父级名称的现象
 	/// T必须是NamedEntity的子类，在找到名为ident的实体后会检查是不是T指定的类型。
 	template <std::derived_from<IEntity> T           = IEntity,
-	          bool                       forward_ref = true>
+	          bool                       forward_ref = true,
+	          bool                       look_at_kw_table = true>
 	T *get(const Ident &ident) const;
 
 	template <std::derived_from<IEntity> T = IEntity>
@@ -100,7 +114,18 @@ public:
 		return get<T, false>(ident);
 	}
 
-
+	IEntity *get_keyword_entity(const std::string &keyword) const
+	{
+		if (m_keyword_symbol_table.contains(keyword))
+		{
+			return m_keyword_symbol_table.at(keyword);
+		}
+		if (this->m_parent)
+		{
+			return m_parent->get_keyword_entity(keyword);
+		}
+		return nullptr;
+	}
 
 	IOp *overload_resolution(
 	    const Ident                &func_ident,
@@ -142,6 +167,10 @@ private:
 	void add_to_overload_set(OverloadSet       *overloads,
 	                         IOp               *func,
 	                         const std::string &name);
+
+	void add_to(const Ident                      &name,
+	            IEntity                          *entity,
+	            std::map<std::string, IEntity *> &to);
 };
 
 struct EnvGuard

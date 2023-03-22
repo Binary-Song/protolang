@@ -62,7 +62,7 @@ set_standard_flags(Protolang)
 target_include_directories(Protolang PUBLIC ${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
-llvm_map_components_to_libnames(llvm_libs support core irreader)
+llvm_map_components_to_libnames(llvm_libs support core irreader x86codegen x86asmparser)
 target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
 
 option(BUILD_DOC "Generate documentation" FALSE)

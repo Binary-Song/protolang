@@ -12,8 +12,8 @@ TODO:
 - 函数的顺序问题
 - 参数不能和函数名字一样
 - 非组合类型到底需不需要全局标识符？怎么判断类型相等？
-- return 得check一下吧，先支持return 再说
-- 没有return也得检查
+- (√)return 得check一下吧，先支持return 再说
+- (√)没有return也得检查
 - 重名问题，现在签名完全一样的函数要调用到才会发现。。
 - 处理省略type和init的bug.
 - 处理test3的bug

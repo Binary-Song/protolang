@@ -1,18 +1,4 @@
-func f(a : int , b : long) -> int
+func f(a : int) -> int
 {
+    return 666;
 }
-
-func f(a : long , b : long) -> int
-{
-}
-
-func f(a : long , b : int) -> int
-{
-}
-
-func main() -> int
-{
-    var b = 100;
-    var a = 1 + b * 2 - 3;
-}
-
