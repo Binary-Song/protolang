@@ -1,33 +1,30 @@
-#include <filesystem>
 #include <fstream>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/Linker/Linker.h>
 #include <string>
 #include <type_traits>
 #include "compiler.h"
 #include "code_generator.h"
 #include "env.h"
 #include "lexer.h"
+#include "linker.h"
 #include "log.h"
 #include "logger.h"
 #include "parser.h"
 #include "source_code.h"
-#include "token.h"
-
 namespace protolang
 {
 Compiler::Compiler(const std::string &input_file,
-                   const std::string &output_file)
+                   const std::string &output_file_no_ext)
     : m_input_file(input_file)
-    , m_output_file(output_file)
+    , m_output_file_no_ext(output_file_no_ext)
 {
 	namespace fs = std::filesystem;
 	m_input_file = (m_input_file);
-	if (output_file == "")
+	if (output_file_no_ext == "")
 	{
-		m_output_file = m_input_file.stem();
+		m_output_file_no_ext = m_input_file.stem().string();
 	}
-	m_output_file = (m_output_file);
+	m_output_file_no_ext = (m_output_file_no_ext).string();
 }
 void Compiler::compile()
 {
@@ -67,9 +64,19 @@ void Compiler::compile()
 		return;
 	g.module().print(llvm::outs(), nullptr);
 	// 目标代码生成
-	g.gen(this->m_output_file.string());
-	std::cout << this->m_output_file.string() << std::endl;
-	// Link like a mother fuckeing SON OF A BITCH
+	std::string output_obj_file =
+	    m_output_file_no_ext.string() + ".o";
+	g.gen(output_obj_file);
+	std::cout << output_obj_file << std::endl;
 
+	// 狠狠地链接
+	auto linker = create_linker(LinkerType::COFF);
+	linker->link({output_obj_file},
+	             m_output_file_no_ext.stem().string());
+
+	std::string              output;
+	llvm::raw_string_ostream out{output};
+	llvm::raw_string_ostream err{output};
+	std::cerr << output;
 }
 } // namespace protolang

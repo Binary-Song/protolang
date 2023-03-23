@@ -2,6 +2,14 @@
 #include <exception>
 namespace protolang
 {
+class ExceptionLinkerNotFound : public std::exception
+{
+public:
+	const char *what() const override
+	{
+		return "Linker cannot be found.";
+	}
+};
 class ExceptionFatalError : public std::exception
 {
 public:

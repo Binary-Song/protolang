@@ -1,4 +1,4 @@
-func __entry__(a : int) -> int
+func main(a : int) -> int
 {
     return 666;
 }

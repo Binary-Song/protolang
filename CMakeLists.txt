@@ -29,17 +29,10 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 find_package(LLVM REQUIRED)
 message("Found LLVM @ ${LLVM_CONFIG}")
 
-# 找一找lld
-find_program(LLD_PATH "lld-link" PATHS "${LLVM_CONFIG}/../../../../bin/" REQUIRED)
-message("Found LLD @ ${LLD_PATH}")
-# 设置lld命令
-set(LLD_OUTPUT_DIR "${PROJECT_BINARY_DIR}/yc_out")
-#add_custom_command(
-#        OUTPUT "test.exe" # 在别人依赖这两个文件时，会自动调用该命令生成它们
-#        COMMAND
-#        MAIN_DEPENDENCY "${PROJECT_BINARY_DIR}/Debug/test3"
-#        WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/Debug/"
-#        VERBATIM)
+# lld:
+find_package(LLD REQUIRED)
+message("Found LLD @ ${LLD_CONFIG}")
+
 add_custom_target("TryOutYC" "${LLD_PATH}"
         "/OUT:test.exe"    "${PROJECT_BINARY_DIR}/Debug/test3"
         "${CMAKE_CURRENT_LIST_DIR}/test/__entry__.obj")
@@ -78,7 +71,7 @@ set_standard_flags(Protolang)
 target_include_directories(Protolang PUBLIC ${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
-llvm_map_components_to_libnames(llvm_libs support core irreader x86codegen x86asmparser)
+llvm_map_components_to_libnames(llvm_libs core irreader x86codegen x86asmparser)
 target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
 
 option(BUILD_DOC "Generate documentation" FALSE)

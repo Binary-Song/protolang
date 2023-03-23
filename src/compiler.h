@@ -10,14 +10,15 @@ struct Compiler
 {
 private:
 	std::filesystem::path   m_input_file;
-	std::filesystem::path   m_output_file;
+	std::filesystem::path   m_output_file_no_ext;
 	std::unique_ptr<Logger> m_logger;
+	std::string             m_linker_path;
 
 public:
 	Logger &logger() { return *m_logger; }
 
 	Compiler(const std::string &input_file,
-	         const std::string &output_file = "");
+	         const std::string &output_file_no_ext = "");
 
 	void compile();
 };
