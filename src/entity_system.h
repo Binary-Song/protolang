@@ -73,7 +73,7 @@ struct IType : IEntity
 	~IType() override                       = default;
 	virtual bool        can_accept(IType *) = 0;
 	virtual bool        equal(IType *)      = 0;
-	virtual std::string get_type_name()     = 0;
+	virtual u8str get_type_name()     = 0;
 	virtual IEntity    *get_member(const Ident &)
 	{
 		return nullptr;
@@ -150,7 +150,7 @@ struct IFuncType : IType
 		}
 		return false;
 	}
-	std::string         get_type_name() override;
+	u8str         get_type_name() override;
 	llvm::FunctionType *get_llvm_func_type(CodeGenerator &g);
 	llvm::Type         *get_llvm_type(CodeGenerator &g) override;
 
@@ -169,8 +169,8 @@ private:
 /// 内置运算符或函数可以实现本接口。
 struct IOp : virtual ITyped, IFuncType
 {
-	virtual std::string get_mangled_name() const           = 0;
-	virtual void        set_mangled_name(std::string name) = 0;
+	virtual u8str get_mangled_name() const           = 0;
+	virtual void        set_mangled_name(u8str name) = 0;
 	IType              *get_type() override { return this; }
 
 	// 生成对运算符的调用
@@ -184,7 +184,7 @@ struct IFunc : IOp
 {
 public:
 	virtual ICodeGen   *get_body()                   = 0;
-	virtual std::string get_param_name(size_t) const = 0;
+	virtual u8str get_param_name(size_t) const = 0;
 	virtual IVar       *get_param(size_t)            = 0;
 
 	llvm::Function *codegen_func(CodeGenerator &g);

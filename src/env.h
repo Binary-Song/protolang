@@ -27,9 +27,9 @@ private:
 	Env                             *m_parent;
 	std::vector<uptr<Env>>           m_subenvs;
 	std::vector<uptr<IEntity>>       m_owned_entities;
-	std::map<std::string, IEntity *> m_symbol_table;
-	std::map<std::string, IEntity *> m_keyword_symbol_table;
-	std::string                      m_scope_name;
+	std::map<u8str, IEntity *> m_symbol_table;
+	std::map<u8str, IEntity *> m_keyword_symbol_table;
+	u8str                      m_scope_name;
 
 private:
 	explicit Env(Env *parent, Logger &logger)
@@ -54,7 +54,7 @@ public:
 		return env_ptr;
 	}
 
-	std::string get_qualifier() const
+	u8str get_qualifier() const
 	{
 		if (m_parent)
 		{
@@ -68,8 +68,8 @@ public:
 			return m_scope_name;
 	}
 
-	std::string get_full_qualified_name(
-	    const std::string &unqualified) const
+	u8str get_full_qualified_name(
+	    const u8str &unqualified) const
 	{
 		auto q = get_qualifier();
 		if (!q.empty())
@@ -91,11 +91,11 @@ public:
 		add(name, obj.get());
 		m_owned_entities.push_back(std::move(obj));
 	}
-	void add_keyword(const std::string &kw, IEntity *obj)
+	void add_keyword(const u8str &kw, IEntity *obj)
 	{
 		add_to(Ident(kw, {}), obj, this->m_keyword_symbol_table);
 	}
-	void add_keyword(const std::string &kw, uptr<IEntity> obj)
+	void add_keyword(const u8str &kw, uptr<IEntity> obj)
 	{
 		add_keyword(kw, obj.get());
 		m_owned_entities.push_back(std::move(obj));
@@ -114,7 +114,7 @@ public:
 		return get<T, false>(ident);
 	}
 
-	IEntity *get_keyword_entity(const std::string &keyword) const
+	IEntity *get_keyword_entity(const u8str &keyword) const
 	{
 		if (m_keyword_symbol_table.contains(keyword))
 		{
@@ -133,7 +133,7 @@ public:
 
 	void add_built_in_facility();
 
-	std::string dump_json();
+	u8str dump_json();
 
 	Env *get_parent() { return m_parent; }
 	Env *get_root()
@@ -147,7 +147,7 @@ public:
 	}
 
 private:
-	OverloadSet *get_overload_set(const std::string &name)
+	OverloadSet *get_overload_set(const u8str &name)
 	{
 		if (m_symbol_table.contains(name))
 		{
@@ -166,11 +166,11 @@ private:
 	}
 	void add_to_overload_set(OverloadSet       *overloads,
 	                         IOp               *func,
-	                         const std::string &name);
+	                         const u8str &name);
 
 	void add_to(const Ident                      &name,
 	            IEntity                          *entity,
-	            std::map<std::string, IEntity *> &to);
+	            std::map<u8str, IEntity *> &to);
 };
 
 struct EnvGuard

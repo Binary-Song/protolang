@@ -33,14 +33,14 @@ std::unique_ptr<Derived> dyn_cast_uptr_force(
 struct IJsonDumper
 {
 	virtual ~IJsonDumper()          = default;
-	virtual std::string dump_json() = 0;
+	virtual u8str dump_json() = 0;
 };
 
 template <typename T>
-std::string dump_json_for_vector_of_ptr(
+u8str dump_json_for_vector_of_ptr(
     const std::vector<T> &data)
 {
-	std::string json = "[";
+	u8str json = "[";
 	for (auto &&item : data)
 	{
 		json += item->dump_json();
@@ -54,9 +54,9 @@ std::string dump_json_for_vector_of_ptr(
 	return json;
 }
 template <typename T>
-std::string dump_json_for_vector(const std::vector<T> &data)
+u8str dump_json_for_vector(const std::vector<T> &data)
 {
-	std::string json = "[";
+	u8str json = "[";
 	for (auto &&item : data)
 	{
 		json += item.dump_json();

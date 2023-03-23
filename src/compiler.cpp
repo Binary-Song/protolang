@@ -13,8 +13,8 @@
 #include "source_code.h"
 namespace protolang
 {
-Compiler::Compiler(const std::string &input_file,
-                   const std::string &output_file_no_ext)
+Compiler::Compiler(const u8str &input_file,
+                   const u8str &output_file_no_ext)
     : m_input_file(input_file)
     , m_output_file_no_ext(output_file_no_ext)
 {
@@ -64,7 +64,7 @@ void Compiler::compile()
 		return;
 	g.module().print(llvm::outs(), nullptr);
 	// 目标代码生成
-	std::string output_obj_file =
+	u8str output_obj_file =
 	    m_output_file_no_ext.string() + ".o";
 	g.gen(output_obj_file);
 	std::cout << output_obj_file << std::endl;
@@ -74,7 +74,7 @@ void Compiler::compile()
 	linker->link({output_obj_file},
 	             m_output_file_no_ext.stem().string());
 
-	std::string              output;
+	u8str              output;
 	llvm::raw_string_ostream out{output};
 	llvm::raw_string_ostream err{output};
 	std::cerr << output;

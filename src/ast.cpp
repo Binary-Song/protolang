@@ -325,7 +325,7 @@ bool StructDecl::equal(IType *other)
 	return this == dynamic_cast<const StructDecl *>(other);
 }
 
-std::string StructDecl::get_type_name()
+u8str StructDecl::get_type_name()
 {
 	return m_ident.name;
 }

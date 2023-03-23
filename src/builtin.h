@@ -12,8 +12,8 @@ struct BuiltInVoidType : IType
 	    CodeGenerator          &g,
 	    llvm::Value            *val,
 	    [[maybe_unused]] IType *type) override;
-	std::string get_type_name() override;
-	std::string dump_json() override;
+	u8str get_type_name() override;
+	u8str dump_json() override;
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
 	bool        can_accept(IType *t) override;
 	bool        equal(IType *t) override;

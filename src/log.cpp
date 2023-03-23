@@ -29,7 +29,7 @@ static void print_overload_set(Logger                   &logger,
 }
 
 static void print_arg_types(
-    Logger &logger, const std::vector<std::string> &types)
+    Logger &logger, const std::vector<u8str> &types)
 {
 	int i = 0;
 	for (auto &&type : types)

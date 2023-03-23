@@ -11,7 +11,7 @@ public:
 
 	[[nodiscard]] bool read(std::istream &input)
 	{
-		std::string line;
+		u8str line;
 		std::getline(input, line);
 		while (input.good())
 		{
@@ -30,7 +30,7 @@ public:
 		return true;
 	}
 
-	std::string              str;
-	std::vector<std::string> lines;
+	u8str              str;
+	std::vector<u8str> lines;
 };
 } // namespace protolang

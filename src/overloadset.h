@@ -31,7 +31,7 @@ public:
 
 
 private:
-	std::string dump_json() override;
+	u8str dump_json() override;
 };
 
 class OverloadSetIterator

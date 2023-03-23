@@ -13,12 +13,12 @@ private:
 	std::unique_ptr<llvm::LLVMContext>   m_context;
 	std::unique_ptr<llvm::IRBuilder<>>   m_builder;
 	std::unique_ptr<llvm::Module>        m_module;
-	std::map<std::string, llvm::Value *> m_named_values;
+	std::map<u8str, llvm::Value *> m_named_values;
 	Logger                              &m_logger;
 
 public:
 	explicit CodeGenerator(Logger            &logger,
-	                       const std::string &module_name)
+	                       const u8str &module_name)
 	    : m_logger(logger)
 	    , m_context(std::make_unique<llvm::LLVMContext>())
 	    , m_builder(
@@ -27,18 +27,18 @@ public:
 	                                              *m_context))
 	{}
 
-	void gen(const std::string &output_file);
+	void gen(const u8str &output_file);
 
 	llvm::LLVMContext &context() { return *m_context.get(); }
 	llvm::IRBuilder<> &builder() { return *m_builder.get(); }
 	llvm::Module      &module() { return *m_module.get(); }
-	llvm::Value *get_named_value(const std::string &key) const
+	llvm::Value *get_named_value(const u8str &key) const
 	{
 		return m_named_values.at(key);
 	}
 
 private:
-	void emit_object(const std::string &output_file);
+	void emit_object(const u8str &output_file);
 };
 
 } // namespace protolang

@@ -16,7 +16,7 @@ struct ErrorEmptyInput : Error
 
 struct ErrorRead : Error
 {
-	std::string path;
+	u8str path;
 
 	void print(Logger &logger) const override
 	{
@@ -26,7 +26,7 @@ struct ErrorRead : Error
 
 struct ErrorWrite : Error
 {
-	std::string path;
+	u8str path;
 
 	void print(Logger &logger) const override
 	{
@@ -37,7 +37,7 @@ struct ErrorWrite : Error
 struct ErrorNotCallable : Error
 {
 	SrcRange    callee;
-	std::string type;
+	u8str type;
 
 	void print(Logger &logger) const override
 	{
@@ -49,8 +49,8 @@ struct ErrorNotCallable : Error
 
 struct ErrorMemberNotFound : Error
 {
-	std::string member;
-	std::string type;
+	u8str member;
+	u8str type;
 	SrcRange    used_here;
 
 	void print(Logger &logger) const override
@@ -75,8 +75,8 @@ struct ErrorNameInThisContextIsAmbiguous : Error
 
 struct ErrorVarDeclInitExprTypeMismatch : Error
 {
-	std::string init_type;
-	std::string var_type;
+	u8str init_type;
+	u8str var_type;
 	SrcRange    init_range;
 	SrcRange    var_ty_range;
 
@@ -94,8 +94,8 @@ struct ErrorVarDeclInitExprTypeMismatch : Error
 
 struct ErrorReturnTypeMismatch : Error
 {
-	std::string expected;
-	std::string actual;
+	u8str expected;
+	u8str actual;
 	SrcRange    return_range;
 
 	void print(Logger &logger) const override
@@ -155,7 +155,7 @@ struct ErrorDeclExpected : Error
 
 struct ErrorFunctionAlreadyExists : Error
 {
-	std::string name;
+	u8str name;
 
 	void print(Logger &logger) const override
 	{
@@ -168,7 +168,7 @@ struct ErrorFunctionAlreadyExists : Error
 
 struct ErrorMissingFunc : Error
 {
-	std::string name;
+	u8str name;
 
 	void print(Logger &logger) const override
 	{
@@ -182,8 +182,8 @@ struct ErrorCallTypeMismatch : Error
 {
 	SrcRange    call;
 	size_t      arg_index;
-	std::string param_type;
-	std::string arg_type;
+	u8str param_type;
+	u8str arg_type;
 
 	void print(Logger &logger) const override
 	{
@@ -222,7 +222,7 @@ struct ErrorNoMatchingOverload : Error
 {
 	SrcRange                 call;
 	std::vector<IOp *>       overloads;
-	std::vector<std::string> arg_types;
+	std::vector<u8str> arg_types;
 
 	void print(Logger &logger) const override;
 };
@@ -230,14 +230,14 @@ struct ErrorMultipleMatchingOverloads : Error
 {
 	SrcRange                 call;
 	std::vector<IOp *>       overloads;
-	std::vector<std::string> arg_types;
+	std::vector<u8str> arg_types;
 
 	void print(Logger &logger) const override;
 };
 
 struct ErrorForwardReferencing : Error
 {
-	std::string name;
+	u8str name;
 	SrcRange    defined_here;
 	SrcRange    used_here;
 
@@ -252,7 +252,7 @@ struct ErrorForwardReferencing : Error
 
 struct ErrorUnexpectedNameKind : Error
 {
-	std::string expected;
+	u8str expected;
 	SrcRange    name_range;
 
 	void print(Logger &logger) const override
@@ -311,7 +311,7 @@ struct ErrorUnknownCharacter : Error
 struct ErrorUnexpectedToken : Error
 {
 	SrcRange    range;
-	std::string expected;
+	u8str expected;
 	void        print(Logger &logger) const override
 	{
 		logger.print(
@@ -323,7 +323,7 @@ struct ErrorUnexpectedToken : Error
 
 struct ErrorInternal : Error
 {
-	std::string message;
+	u8str message;
 
 	void print(Logger &logger) const override
 	{
@@ -333,7 +333,7 @@ struct ErrorInternal : Error
 
 struct ErrorIncompleteBlockInFunc : Error
 {
-	std::string name;
+	u8str name;
 	SrcRange    defined_here;
 
 	void print(Logger &logger) const override

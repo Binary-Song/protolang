@@ -11,7 +11,7 @@
 
 namespace protolang
 {
-void CodeGenerator::emit_object(const std::string &output_file)
+void CodeGenerator::emit_object(const u8str &output_file)
 {
 	llvm::InitializeAllTargetInfos();
 	llvm::InitializeAllTargets();
@@ -22,7 +22,7 @@ void CodeGenerator::emit_object(const std::string &output_file)
 	auto target_triple = llvm::sys::getDefaultTargetTriple();
 	this->module().setTargetTriple(
 	    llvm::sys::getDefaultTargetTriple());
-	std::string err;
+	u8str err;
 	auto        target =
 	    llvm::TargetRegistry::lookupTarget(target_triple, err);
 	if (!target)
@@ -66,7 +66,7 @@ void CodeGenerator::emit_object(const std::string &output_file)
 	pass.run(this->module());
 	dest.flush();
 }
-void CodeGenerator::gen(const std::string &output_file)
+void CodeGenerator::gen(const u8str &output_file)
 {
 	try
 	{

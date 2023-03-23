@@ -1,7 +1,4 @@
-//
-// Created by wps on 2023/3/23.
-//
-
+#ifdef _WIN32
 #include "COFFLinker.h"
 
 #include <cstdlib>
@@ -12,23 +9,14 @@
 #include <Windows.h>
 #include <codecvt>
 #include <string>
-int StringToWString(std::wstring &ws, const std::string &s)
-{
-	std::wstring wsTmp(s.begin(), s.end());
-
-	ws = wsTmp;
-
-	return 0;
-}
-
 
 namespace protolang
 {
-void COFFLinker::link(const std::vector<std::string> &inputs,
-                      const std::string &output) const
+void COFFLinker::link(const std::vector<u8str> &inputs,
+                      const u8str              &output) const
 {
-	std::string             output_exe = output + ".exe";
-	std::deque<std::string> args       = {
+	u8str             output_exe = output + u8".exe";
+	std::deque<u8str> args       = {
         "/OUT:" + output_exe,
         "/ENTRY:main",
     };
@@ -36,7 +24,6 @@ void COFFLinker::link(const std::vector<std::string> &inputs,
 	{
 		args.push_front(input);
 	}
-
 
 	auto linker  = guess_linker_path();
 	auto command = '\"' + linker + "\" ";
@@ -49,8 +36,8 @@ void COFFLinker::link(const std::vector<std::string> &inputs,
 
 	STARTUPINFO         si;
 	PROCESS_INFORMATION pi;
-	std::wstring wcommand;
-	StringToWString(wcommand,command);
+	std::wstring        wcommand;
+	StringToWString(wcommand, command);
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
@@ -76,3 +63,4 @@ void COFFLinker::link(const std::vector<std::string> &inputs,
 
 COFFLinker::COFFLinker() = default;
 } // namespace protolang
+#endif

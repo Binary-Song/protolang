@@ -47,10 +47,10 @@ bool Env::check_args(IFuncType                  *func,
 	return true;
 }
 
-static std::vector<std::string> arg_type_names(
+static std::vector<u8str> arg_type_names(
     const std::vector<IType *> &arg_types)
 {
-	std::vector<std::string> names;
+	std::vector<u8str> names;
 	for (auto arg_type : arg_types)
 	{
 		names.push_back(arg_type->get_type_name());
@@ -132,7 +132,7 @@ IOp *Env::overload_resolution(
 }
 void Env::add_to_overload_set(OverloadSet       *overloads,
                               IOp               *func,
-                              const std::string &name)
+                              const u8str &name)
 {
 	// 设置函数名
 	func->set_mangled_name(get_full_qualified_name(name) + "#" +
@@ -158,7 +158,7 @@ static ErrorNameRedef create_name_redef_error(const Ident &ident,
 
 void Env::add_to(const Ident                      &ident,
                  IEntity                          *obj,
-                 std::map<std::string, IEntity *> &to)
+                 std::map<u8str, IEntity *> &to)
 {
 	auto &&name       = ident.name;
 	bool   name_clash = to.contains(name);
@@ -207,7 +207,7 @@ void Env::add_to(const Ident                      &ident,
 	}
 }
 
-std::string Env::dump_json()
+u8str Env::dump_json()
 {
 	std::vector<IEntity *> vals;
 	for (auto &&[_, value] : m_symbol_table)
@@ -271,7 +271,7 @@ template <std::derived_from<IEntity> T,
           bool                       look_at_kw_table>
 T *Env::get(const Ident &ident) const
 {
-	std::string name = ident.name;
+	u8str name = ident.name;
 	IEntity    *ent  = nullptr;
 
 	if constexpr (look_at_kw_table)
@@ -360,7 +360,7 @@ OverloadSetConstIterator OverloadSet::cend() const
 	return {};
 }
 
-std::string OverloadSet::dump_json()
+u8str OverloadSet::dump_json()
 {
 	std::vector<IOp *> all;
 	for (auto iter = begin(); iter != end(); ++iter)

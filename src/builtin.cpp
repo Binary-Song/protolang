@@ -17,11 +17,11 @@ llvm::Value *BuiltInVoidType::cast_inst_no_check(
 {
 	return nullptr;
 }
-std::string BuiltInVoidType::get_type_name()
+u8str BuiltInVoidType::get_type_name()
 {
 	return "void";
 }
-std::string BuiltInVoidType::dump_json()
+u8str BuiltInVoidType::dump_json()
 {
 	return std::format(
 	    R"({{"obj":"BuiltVoidType", "type":"{}"}})",
@@ -87,7 +87,7 @@ struct BuiltInIntType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	std::string get_type_name() override
+	u8str get_type_name() override
 	{
 		if constexpr (is_signed)
 		{
@@ -112,7 +112,7 @@ struct BuiltInIntType : IScalarType
 				return "byte";
 		}
 	}
-	std::string dump_json() override
+	u8str dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BuiltInIntType", "type":"{}"}})",
@@ -139,11 +139,11 @@ struct BuiltInFloatType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	std::string get_type_name() override
+	u8str get_type_name() override
 	{
-		return std::string("float");
+		return u8str("float");
 	}
-	std::string dump_json() override
+	u8str dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BuiltInFloatType", "type":"{}"}})",
@@ -170,11 +170,11 @@ struct BuiltInDoubleType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	std::string get_type_name() override
+	u8str get_type_name() override
 	{
-		return std::string("double");
+		return u8str("double");
 	}
-	std::string dump_json() override
+	u8str dump_json() override
 	{
 		return std::format(
 		    R"({{"obj":"BuiltInDoubleType", "type":"{}"}})",
@@ -221,7 +221,7 @@ struct BuiltInArithmetic : IOp
 
 private:
 	IScalarType *m_scalar_type;
-	std::string  m_mangled_name;
+	u8str  m_mangled_name;
 
 public:
 	explicit BuiltInArithmetic(IScalarType *st)
@@ -234,15 +234,15 @@ public:
 	{
 		return m_scalar_type;
 	}
-	std::string get_mangled_name() const override
+	u8str get_mangled_name() const override
 	{
 		return m_mangled_name;
 	}
-	void set_mangled_name(std::string name) override
+	void set_mangled_name(u8str name) override
 	{
 		m_mangled_name = std::move(name);
 	}
-	std::string dump_json() override
+	u8str dump_json() override
 	{
 		return std::format("{}{}",
 		                   to_cstring(Ar),
@@ -311,7 +311,7 @@ auto add_type(Env *env)
 {
 	auto        ptr     = make_uptr(new Ty{});
 	auto        ptr_raw = ptr.get();
-	std::string name    = ptr->get_type_name();
+	u8str name    = ptr->get_type_name();
 	env->add_keyword(name, std::move(ptr));
 	return ptr_raw;
 };

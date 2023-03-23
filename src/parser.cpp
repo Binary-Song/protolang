@@ -356,7 +356,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	// func foo(arg1: int, arg2: int) -> int { ... }
 	Token       func_kw_token   = eat_keyword_or_panic(KW_FUNC);
 	Token       func_name_token = eat_ident_or_panic();
-	std::string func_name       = func_name_token.str_data;
+	u8str func_name       = func_name_token.str_data;
 	Ident       func_ident{func_name_token.str_data,
                      func_name_token.range()};
 

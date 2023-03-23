@@ -3,6 +3,6 @@
 namespace protolang
 {
 
-std::string guess_linker_path();
+u8str guess_linker_path();
 
 }
