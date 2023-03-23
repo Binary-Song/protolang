@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <deque>
 #include <iostream>
-#include <lld/Common/Driver.h>
 #include "guessing.h"
 
 #include <Windows.h>
@@ -38,10 +37,6 @@ void COFFLinker::link(const std::vector<std::string> &inputs,
 		args.push_front(input);
 	}
 
-	std::string              str_out;
-	std::string              str_err;
-	llvm::raw_string_ostream out(str_out);
-	llvm::raw_string_ostream err(str_err);
 
 	auto linker  = guess_linker_path();
 	auto command = '\"' + linker + "\" ";
@@ -72,6 +67,10 @@ void COFFLinker::link(const std::vector<std::string> &inputs,
 	{
 		return;
 	}
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	// Close process and thread handles
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 	std::cout << output_exe << std::endl;
 }
 

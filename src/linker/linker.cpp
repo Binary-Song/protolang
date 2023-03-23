@@ -1,10 +1,5 @@
-#include <cstdlib>
-#include <deque>
-#include <iostream>
-#include <lld/Common/Driver.h>
-#include <utility>
+
 #include "linker.h"
-#include "guessing.h"
 #include "platforms/win/COFFLinker.h"
 namespace protolang
 {

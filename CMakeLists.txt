@@ -29,14 +29,6 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 find_package(LLVM REQUIRED)
 message("Found LLVM @ ${LLVM_CONFIG}")
 
-# lld:
-find_package(LLD REQUIRED)
-message("Found LLD @ ${LLD_CONFIG}")
-
-add_custom_target("TryOutYC" "${LLD_PATH}"
-        "/OUT:test.exe"    "${PROJECT_BINARY_DIR}/Debug/test3"
-        "${CMAKE_CURRENT_LIST_DIR}/test/__entry__.obj")
-
 # 创建target：Protolang
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/src/*.h")

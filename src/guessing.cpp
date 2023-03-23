@@ -6,7 +6,7 @@ namespace protolang
 
 std::string guess_linker_path()
 {
-	auto result = glob::glob("C:\\Program Files\\Microsoft Visual "
+	auto result = glob::glob("C:\\Program Files*\\Microsoft Visual "
 	                         "Studio\\*\\Community\\VC\\Tools\\MSVC\\"
 	                         "*\\bin\\Hostx64\\x64\\link.exe");
 	if (!result.empty())
