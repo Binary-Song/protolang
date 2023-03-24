@@ -1,9 +1,12 @@
 #include <concepts>
+#include <fmt/format.h>
+#include <fmt/xchar.h>
+#include <llvm/IR/Type.h>
 #include "builtin.h"
 #include "code_generator.h"
+#include "encoding.h"
 #include "entity_system.h"
 #include "env.h"
-#include "llvm/IR/Type.h"
 namespace protolang
 {
 static llvm::Value *scalar_cast(CodeGenerator &g,
@@ -17,14 +20,14 @@ llvm::Value *BuiltInVoidType::cast_inst_no_check(
 {
 	return nullptr;
 }
-u8str BuiltInVoidType::get_type_name()
+StringU8 BuiltInVoidType::get_type_name()
 {
-	return "void";
+	return u8"void";
 }
-u8str BuiltInVoidType::dump_json()
+StringU8 BuiltInVoidType::dump_json()
 {
-	return std::format(
-	    R"({{"obj":"BuiltVoidType", "type":"{}"}})",
+	return fmt::format(
+	    u8R"({{"obj":"BuiltVoidType", "type":"{}"}})",
 	    get_type_name());
 }
 llvm::Type *BuiltInVoidType::get_llvm_type(CodeGenerator &g)
@@ -87,7 +90,7 @@ struct BuiltInIntType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	u8str get_type_name() override
+	StringU8 get_type_name() override
 	{
 		if constexpr (is_signed)
 		{
@@ -112,10 +115,10 @@ struct BuiltInIntType : IScalarType
 				return "byte";
 		}
 	}
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
-		return std::format(
-		    R"({{"obj":"BuiltInIntType", "type":"{}"}})",
+		return fmt::format(
+		    u8R"({{"obj":"BuiltInIntType", "type":"{}"}})",
 		    get_type_name());
 	}
 	llvm::Type *get_llvm_type(CodeGenerator &g) override
@@ -139,14 +142,14 @@ struct BuiltInFloatType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	u8str get_type_name() override
+	StringU8 get_type_name() override
 	{
-		return u8str("float");
+		return StringU8("float");
 	}
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
-		return std::format(
-		    R"({{"obj":"BuiltInFloatType", "type":"{}"}})",
+		return fmt::format(
+		    u8R"({{"obj":"BuiltInFloatType", "type":"{}"}})",
 		    get_type_name());
 	}
 	llvm::Type *get_llvm_type(CodeGenerator &g) override
@@ -170,14 +173,14 @@ struct BuiltInDoubleType : IScalarType
 		return scalar_cast(g, val, this->get_llvm_type(g));
 	}
 
-	u8str get_type_name() override
+	StringU8 get_type_name() override
 	{
-		return u8str("double");
+		return StringU8("double");
 	}
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
-		return std::format(
-		    R"({{"obj":"BuiltInDoubleType", "type":"{}"}})",
+		return fmt::format(
+		    u8R"({{"obj":"BuiltInDoubleType", "type":"{}"}})",
 		    get_type_name());
 	}
 	llvm::Type *get_llvm_type(CodeGenerator &g) override
@@ -221,7 +224,7 @@ struct BuiltInArithmetic : IOp
 
 private:
 	IScalarType *m_scalar_type;
-	u8str  m_mangled_name;
+	StringU8     m_mangled_name;
 
 public:
 	explicit BuiltInArithmetic(IScalarType *st)
@@ -234,17 +237,17 @@ public:
 	{
 		return m_scalar_type;
 	}
-	u8str get_mangled_name() const override
+	StringU8 get_mangled_name() const override
 	{
 		return m_mangled_name;
 	}
-	void set_mangled_name(u8str name) override
+	void set_mangled_name(StringU8 name) override
 	{
 		m_mangled_name = std::move(name);
 	}
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
-		return std::format("{}{}",
+		return fmt::format(u8"{}{}",
 		                   to_cstring(Ar),
 		                   m_scalar_type->get_type_name());
 	}
@@ -309,9 +312,9 @@ public:
 template <std::derived_from<IType> Ty>
 auto add_type(Env *env)
 {
-	auto        ptr     = make_uptr(new Ty{});
-	auto        ptr_raw = ptr.get();
-	u8str name    = ptr->get_type_name();
+	auto     ptr     = make_uptr(new Ty{});
+	auto     ptr_raw = ptr.get();
+	StringU8 name    = ptr->get_type_name();
 	env->add_keyword(name, std::move(ptr));
 	return ptr_raw;
 };
@@ -321,19 +324,19 @@ void add_scalar_and_op(Env *env)
 {
 	auto ty_ptr = add_type<ScTy>(env);
 	env->add(
-	    Ident("+", SrcRange()),
+	    Ident(u8"+", SrcRange()),
 	    make_uptr(
 	        new BuiltInArithmetic<ArithmaticType::Add>{ty_ptr}));
 	env->add(
-	    Ident("-", SrcRange()),
+	    Ident(u8"-", SrcRange()),
 	    make_uptr(
 	        new BuiltInArithmetic<ArithmaticType::Sub>{ty_ptr}));
 	env->add(
-	    Ident("*", SrcRange()),
+	    Ident(u8"*", SrcRange()),
 	    make_uptr(
 	        new BuiltInArithmetic<ArithmaticType::Mul>{ty_ptr}));
 	env->add(
-	    Ident("/", SrcRange()),
+	    Ident(u8"/", SrcRange()),
 	    make_uptr(
 	        new BuiltInArithmetic<ArithmaticType::Div>{ty_ptr}));
 }

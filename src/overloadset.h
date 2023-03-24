@@ -31,7 +31,7 @@ public:
 
 
 private:
-	u8str dump_json() override;
+	StringU8 dump_json() override;
 };
 
 class OverloadSetIterator

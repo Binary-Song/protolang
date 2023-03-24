@@ -11,11 +11,11 @@
 
 namespace protolang
 {
-void COFFLinker::link(const std::vector<u8str> &inputs,
-                      const u8str              &output) const
+void COFFLinker::link(const std::vector<StringU8> &inputs,
+                      const StringU8              &output) const
 {
-	u8str             output_exe = output + u8".exe";
-	std::deque<u8str> args       = {
+	StringU8             output_exe = output + u8".exe";
+	std::deque<StringU8> args       = {
         "/OUT:" + output_exe,
         "/ENTRY:main",
     };

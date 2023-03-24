@@ -6,16 +6,16 @@ namespace protolang
 
 struct Ident
 {
-	u8str name;
-	SrcRange    range;
+	StringU8 name;
+	SrcRange range;
 
 public:
 	Ident() {}
 
-	Ident(u8str name, const SrcRange &location)
+	Ident(StringU8 name, const SrcRange &location)
 	    : name(std::move(name))
 	    , range(location)
 	{}
-	u8str dump_json() { return '"' + name + '"'; }
+	StringU8 dump_json() { return u8'"' + name + u8'"'; }
 };
 } // namespace protolang

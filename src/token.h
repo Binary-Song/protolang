@@ -73,7 +73,7 @@ enum Keyword
 	KW_FALSE,
 };
 
-static const std::map<u8str, Keyword> kw_map = {
+static const std::map<StringU8, Keyword> kw_map = {
     {   "var",    KW_VAR},
     {  "func",   KW_FUNC},
     {"struct", KW_STRUCT},
@@ -86,7 +86,7 @@ static const std::map<u8str, Keyword> kw_map = {
     { "false",  KW_FALSE},
 };
 
-inline u8str kw_map_rev(Keyword kw)
+inline StringU8 kw_map_rev(Keyword kw)
 {
 	for (auto &&kv : kw_map)
 	{
@@ -127,7 +127,7 @@ public:
 	Type        type = Type::None;
 	u64         int_data;
 	double      fp_data;
-	u8str str_data;
+	StringU8 str_data;
 
 	/// 第一个字符的位置
 	SrcPos first_pos;
@@ -141,7 +141,7 @@ public:
 	      const SrcPos &lastPos,
 	      u64           intData,
 	      double        fpData,
-	      u8str   strData = "")
+	      StringU8   strData = "")
 	    : type(type)
 	    , first_pos(firstPos)
 	    , last_pos(lastPos)
@@ -165,14 +165,14 @@ public:
 		return Token(Type::Fp, firstPos, lastPos, 0, val);
 	}
 
-	static Token make_id(const u8str &str,
+	static Token make_id(const StringU8 &str,
 	                     const SrcPos      &firstPos,
 	                     const SrcPos      &lastPos)
 	{
 		return Token(Type::Id, firstPos, lastPos, 0, 0, str);
 	}
 
-	static Token make_keyword(const u8str &str,
+	static Token make_keyword(const StringU8 &str,
 	                          const SrcPos      &firstPos,
 	                          const SrcPos      &lastPos)
 	{
@@ -184,7 +184,7 @@ public:
 		             str);
 	}
 
-	static Token make_op(const u8str &str,
+	static Token make_op(const StringU8 &str,
 	                     const SrcPos      &firstPos,
 	                     const SrcPos      &lastPos)
 	{
@@ -208,7 +208,7 @@ public:
 		return Token(type, pos, pos, 0, 0, literal);
 	}
 
-	static Token make_str(const u8str &str,
+	static Token make_str(const StringU8 &str,
 	                      const SrcPos      &firstPos,
 	                      const SrcPos      &lastPos)
 	{

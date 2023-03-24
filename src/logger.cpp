@@ -21,12 +21,12 @@ void Logger::print(const CodeRef &ref)
 	auto start = ref.range.head;
 	auto end   = ref.range.tail;
 
-	u8str first_line   = src.lines[start.row];
+	StringU8 first_line   = src.lines[start.row];
 	int         lineno_width = digits(end.row + 1);
 	for (std::size_t i = start.row; i <= end.row; i++)
 	{
-		u8str _this_line = src.lines[i];
-		u8str this_line(_this_line.begin(),
+		StringU8 _this_line = src.lines[i];
+		StringU8 this_line(_this_line.begin(),
 		                      _this_line.end() - 1);
 
 		out << std::setw(lineno_width) << i + 1 << " | "
@@ -54,11 +54,11 @@ void Logger::print(const CodeRef &ref)
 			underline_size = this_line.size();
 		}
 
-		out << u8str(underline_begin, ' ')
-		    << u8str(underline_size, '^') << "\n";
+		out << StringU8(underline_begin, ' ')
+		    << StringU8(underline_size, '^') << "\n";
 	}
 }
-void Logger::print(const u8str &comment,
+void Logger::print(const StringU8 &comment,
                    const SrcRange    &range)
 {
 	print(CodeRef{range, comment});

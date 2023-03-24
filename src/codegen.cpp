@@ -7,6 +7,7 @@
 #include "env.h"
 #include "exceptions.h"
 #include "log.h"
+#include <fmt/xchar.h>
 namespace protolang
 {
 
@@ -86,8 +87,8 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 
 	auto load_inst = g.builder().CreateLoad(
 	    var->get_stack_addr()->getAllocatedType(),
-	    var->get_stack_addr(), // 读内存
-	    ident().name);         // 给写入的内存取个名称
+	    var->get_stack_addr(),  // 读内存
+	    ident().name.as_str()); // 给写入的内存取个名称
 	return load_inst;
 }
 
@@ -107,7 +108,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g,
 	auto alloca_inst =
 	    alloca_for_local_var(func,
 	                         this->get_type()->get_llvm_type(g),
-	                         this->get_ident().name);
+	                         this->get_ident().name.as_str());
 
 	// 生成初始化表达式的代码
 	if (get_init())
@@ -123,7 +124,7 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
 	auto func_type    = this->get_llvm_func_type(g);
-	if (g.module().getFunction(mangled_name))
+	if (g.module().getFunction(mangled_name.as_str()))
 	{
 		ErrorFunctionAlreadyExists e;
 		e.name = mangled_name;
@@ -132,7 +133,7 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 	auto func = llvm::Function::Create(
 	    func_type,
 	    llvm::Function::LinkageTypes::ExternalLinkage,
-	    mangled_name,
+	    mangled_name.as_str(),
 	    g.module());
 	return func;
 }
@@ -142,7 +143,7 @@ llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 	auto mangled_name = get_mangled_name();
 
 	// 从llvm里查找
-	auto func = g.module().getFunction(mangled_name);
+	auto func = g.module().getFunction(mangled_name.as_str());
 	if (!func)
 	{
 		// 没有，先登记到llvm 再说
@@ -160,7 +161,7 @@ llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 	//  形参codegen，需要f
 	for (auto &&arg : func->args())
 	{
-		arg.setName(this->get_param_name(i));
+		arg.setName(this->get_param_name(i).as_str());
 		this->get_param(i)->codegen_value(g, &arg);
 		i++;
 	}
@@ -185,7 +186,7 @@ llvm::Value *ast::FuncDecl::gen_call(
     std::vector<llvm::Value *> args, CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
-	auto func         = g.module().getFunction(mangled_name);
+	auto func         = g.module().getFunction(mangled_name.as_str());
 	if (!func || func->arg_size() != args.size())
 	{
 		ErrorMissingFunc e;
@@ -193,6 +194,14 @@ llvm::Value *ast::FuncDecl::gen_call(
 		throw std::move(e);
 	}
 	return g.builder().CreateCall(func, args, "calltmp");
+}
+StringU8 ast::FuncDecl::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
+	    m_ident.dump_json(),
+	    m_return_type->dump_json(),
+	    m_body->dump_json());
 }
 void ast::CompoundStmt::codegen(CodeGenerator &g)
 {
@@ -223,6 +232,11 @@ void ast::CompoundStmt::validate_types(IType *return_type)
 void ast::ExprStmt::codegen(CodeGenerator &g)
 {
 	m_expr->codegen(g);
+}
+StringU8 ast::ExprStmt::dump_json()
+{
+	return fmt::format(u8R"({{"obj":"ExprStmt","expr":{}}})",
+	                   m_expr->dump_json());
 }
 
 void ast::ReturnStmt::codegen(CodeGenerator &g)

@@ -40,33 +40,33 @@ template <typename T>
 StringU8 dump_json_for_vector_of_ptr(
     const std::vector<T> &data)
 {
-	u8str json = "[";
+	StringU8 json = "[";
 	for (auto &&item : data)
 	{
 		json += item->dump_json();
-		json += ",";
+		json += u8",";
 	}
 	if (json.ends_with(','))
 	{
 		json.pop_back();
 	}
-	json += "]";
+	json += u8"]";
 	return json;
 }
 template <typename T>
-u8str dump_json_for_vector(const std::vector<T> &data)
+StringU8 dump_json_for_vector(const std::vector<T> &data)
 {
-	u8str json = "[";
+	StringU8 json = "[";
 	for (auto &&item : data)
 	{
 		json += item.dump_json();
-		json += ",";
+		json += u8",";
 	}
 	if (json.ends_with(','))
 	{
 		json.pop_back();
 	}
-	json += "]";
+	json += u8"]";
 	return json;
 }
 

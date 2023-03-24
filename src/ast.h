@@ -57,7 +57,7 @@ private:
 	// 函数
 public:
 	explicit IdentTypeExpr(Env *env, Ident ident);
-	Ident ident() const { return m_ident; }
+	Ident    ident() const { return m_ident; }
 	// 实现基类成员
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_ident.range; }
@@ -89,8 +89,6 @@ struct Expr : Ast, ITyped
 	void validate_types() override;
 	void codegen(CodeGenerator &g) override { codegen_value(g); }
 	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
-
-protected:
 };
 
 // 二元运算表达式
@@ -118,10 +116,10 @@ public:
 		assert(m_left->env() == m_right->env());
 		return m_left->env();
 	}
-	IType *get_type() override;
-	u8str  dump_json() override
+	IType   *get_type() override;
+	StringU8 dump_json() override
 	{
-		return std::format(
+		return fmt::format(
 		    u8R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
 		    m_op.dump_json(),
 		    m_left->dump_json(),
@@ -145,16 +143,10 @@ private:
 public:
 	UnaryExpr(bool prefix, uptr<Expr> operand, Ident op);
 
-	bool  is_prefix() const { return m_prefix; }
-	Expr *get_operand() { return m_operand.get(); }
-	Ident get_op() const { return m_op; }
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"UnaryExpr","op":{},"oprd":{}}})",
-		    m_op.dump_json(),
-		    m_operand->dump_json());
-	}
+	bool     is_prefix() const { return m_prefix; }
+	Expr    *get_operand() { return m_operand.get(); }
+	Ident    get_op() const { return m_op; }
+	StringU8 dump_json() override;
 	SrcRange range() const override
 	{
 		return m_op.range + m_operand->range();
@@ -196,13 +188,7 @@ public:
 		}
 		return types;
 	}
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"CallExpr","callee":{},"args":{}}})",
-		    m_callee->dump_json(),
-		    dump_json_for_vector_of_ptr(m_args));
-	}
+	StringU8     dump_json() override;
 	SrcRange     range() const override { return m_src_rng; }
 	Env         *env() const override { return m_callee->env(); }
 	IType       *get_type() override;
@@ -220,14 +206,7 @@ public:
 	            std::vector<uptr<Expr>> args)
 	    : CallExpr(src_rng, std::move(callee), std::move(args))
 	{}
-
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"BracketExpr","callee":{},"args":{}}})",
-		    get_callee()->dump_json(),
-		    dump_json_for_vector_of_ptr(m_args));
-	}
+	StringU8 dump_json() override;
 };
 struct IdentExpr;
 struct MemberAccessExpr : Expr
@@ -241,15 +220,9 @@ protected:
 public:
 	MemberAccessExpr(uptr<Expr> left, Ident member);
 
-	Expr *get_left() { return m_left.get(); }
-	Ident get_member() { return m_member; }
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"MemberAccessExpr","left":{},"member":{}}})",
-		    m_left->dump_json(),
-		    m_member.dump_json());
-	}
+	Expr    *get_left() { return m_left.get(); }
+	Ident    get_member() { return m_member; }
+	StringU8 dump_json() override;
 	SrcRange range() const override
 	{
 		return m_left->range() + m_member.range;
@@ -280,13 +253,7 @@ public:
 	          })
 	{}
 
-	u8str dump_json() override
-	{
-		return std::format("\"{}/{}/{}\"",
-		                   m_token.str_data,
-		                   m_token.int_data,
-		                   m_token.fp_data);
-	}
+	StringU8 dump_json() override;
 	SrcRange range() const override { return m_token.range(); }
 	Env     *env() const override { return m_env; }
 	IType   *get_type() override;
@@ -315,13 +282,8 @@ public:
 	          })
 	{}
 
-	Ident ident() const { return m_ident; }
-
-	u8str dump_json() override
-	{
-		return std::format("\"{}\"", m_ident.name);
-	}
-
+	Ident        ident() const { return m_ident; }
+	StringU8     dump_json() override;
 	SrcRange     range() const override { return m_ident.range; }
 	Env         *env() const override { return m_env; }
 	IType       *get_type() override;
@@ -354,15 +316,8 @@ public:
 	{
 		return m_type ? m_type->get_type() : m_init->get_type();
 	}
-	Expr *get_init() override { return m_init.get(); }
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"VarDecl","ident":{},"type":{},"init":{}}})",
-		    m_ident.dump_json(),
-		    get_type()->dump_json(),
-		    m_init->dump_json());
-	}
+	Expr    *get_init() override { return m_init.get(); }
+	StringU8 dump_json() override;
 	SrcRange range() const override
 	{
 		return m_ident.range + m_init->range();
@@ -401,16 +356,10 @@ public:
 	    , m_type(std::move(type))
 	{}
 
-	Ident  get_ident() const override { return m_ident; }
-	Expr  *get_init() override { return nullptr; }
-	IType *get_type() override { return m_type->get_type(); }
-	u8str  dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"ParamDecl","ident":{},"type":{} }})",
-		    m_ident.dump_json(),
-		    m_type->dump_json());
-	}
+	Ident    get_ident() const override { return m_ident; }
+	Expr    *get_init() override { return nullptr; }
+	IType   *get_type() override { return m_type->get_type(); }
+	StringU8 dump_json() override;
 	SrcRange range() const override
 	{
 		return m_ident.range + m_type->range();
@@ -448,12 +397,8 @@ public:
 	    : m_expr(std::move(expr))
 	    , m_range(range)
 	{}
-	Expr *get_expr() { return m_expr.get(); }
-	u8str dump_json() override
-	{
-		return std::format(R"({{"obj":"ExprStmt","expr":{}}})",
-		                   m_expr->dump_json());
-	}
+	Expr    *get_expr() { return m_expr.get(); }
+	StringU8 dump_json() override;
 	SrcRange range() const override { return m_range; }
 	Env     *env() const override { return m_expr->env(); }
 	void validate_types() override { m_expr->validate_types(); }
@@ -520,7 +465,7 @@ public:
 		return m_content.size();
 	}
 
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
 		return dump_json_for_vector_of_ptr(m_content);
 	}
@@ -539,11 +484,12 @@ struct ReturnStmt : ExprStmt
 {
 public:
 	using ExprStmt::ExprStmt;
-	void  codegen(CodeGenerator &g) override;
-	u8str dump_json() override
+	void     codegen(CodeGenerator &g) override;
+	StringU8 dump_json() override
 	{
-		return std::format(R"({{"obj":"ReturnStmt","expr":{}}})",
-		                   get_expr()->dump_json());
+		return fmt::format(
+		    u8R"({{"obj":"ReturnStmt","expr":{}}})",
+		    get_expr()->dump_json());
 	}
 	virtual void validate_types(IType *return_type);
 
@@ -564,12 +510,12 @@ public:
 	    : ReturnStmt(r, nullptr)
 	    , m_env(env)
 	{}
-	Env  *env() const override { return m_env; }
-	void  validate_types(IType *return_type) override;
-	void  codegen(CodeGenerator &g) override;
-	u8str dump_json() override
+	Env     *env() const override { return m_env; }
+	void     validate_types(IType *return_type) override;
+	void     codegen(CodeGenerator &g) override;
+	StringU8 dump_json() override
 	{
-		return R"({{"obj":"ReturnVoidStmt"}})";
+		return u8R"({{"obj":"ReturnVoidStmt"}})";
 	}
 
 private:
@@ -585,7 +531,7 @@ private:
 	std::vector<uptr<ParamDecl>> m_params;
 	uptr<TypeExpr>               m_return_type;
 	uptr<CompoundStmt>           m_body;
-	u8str                        m_mangled_name;
+	StringU8                     m_mangled_name;
 
 public:
 	FuncDecl() = default;
@@ -596,14 +542,7 @@ public:
 	         uptr<TypeExpr>               return_type,
 	         uptr<CompoundStmt>           body);
 
-	u8str dump_json() override
-	{
-		return std::format(
-		    R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
-		    m_ident.dump_json(),
-		    m_return_type->dump_json(),
-		    m_body->dump_json());
-	}
+	StringU8 dump_json() override;
 	Ident    get_ident() const { return m_ident; }
 	IType   *get_type() override { return this; }
 	SrcRange range() const override { return m_range; }
@@ -632,15 +571,15 @@ public:
 		m_return_type->validate_types();
 		m_body->validate_types(m_return_type->get_type());
 	}
-	u8str get_mangled_name() const override
+	StringU8 get_mangled_name() const override
 	{
 		return m_mangled_name;
 	}
-	void set_mangled_name(u8str name) override
+	void set_mangled_name(StringU8 name) override
 	{
 		m_mangled_name = std::move(name);
 	}
-	u8str get_param_name(size_t i) const override
+	StringU8 get_param_name(size_t i) const override
 	{
 		return this->m_params[i]->get_ident().name;
 	}
@@ -673,10 +612,10 @@ public:
 	           Ident            ident,
 	           uptr<StructBody> body);
 
-	u8str dump_json() override
+	StringU8 dump_json() override
 	{
-		return std::format(
-		    R"({{"obj":"StructDecl","ident":{},"body":{}}})",
+		return fmt::format(
+		    u8R"({{"obj":"StructDecl","ident":{},"body":{}}})",
 		    m_ident.dump_json(),
 		    m_body->dump_json());
 	}
@@ -684,7 +623,7 @@ public:
 	Env     *env() const override { return m_env; }
 	bool     can_accept(IType *iType) override;
 	bool     equal(IType *iType) override;
-	u8str    get_type_name() override;
+	StringU8 get_type_name() override;
 	void validate_types() override { m_body->validate_types(); }
 };
 
@@ -699,11 +638,7 @@ public:
 	explicit Program(std::vector<uptr<Decl>> decls,
 	                 Logger                 &logger);
 
-	u8str dump_json() override
-	{
-		return std::format(R"({{"obj":"Program","decls":[{}]}})",
-		                   dump_json_for_vector_of_ptr(m_decls));
-	}
+	StringU8 dump_json() override;
 	SrcRange range() const override { return {}; }
 	Env     *env() const override { return m_root_env.get(); }
 

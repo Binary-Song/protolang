@@ -143,7 +143,7 @@ private:
 
 	const Token &eat_or_panic(
 	    std::function<bool(const Token &)> criteria,
-	    const u8str                 &expected)
+	    const StringU8                 &expected)
 	{
 		if (!criteria(curr()))
 		{
@@ -161,7 +161,7 @@ private:
 
 	const Token &eat_given_type_or_panic(
 	    Token::Type        type,
-	    const u8str &expected,
+	    const StringU8 &expected,
 	    bool               add_quotes = true)
 	{
 		if (add_quotes)
@@ -180,7 +180,7 @@ private:
 			    expected);
 	}
 
-	const Token &eat_op_or_panic(const u8str &op)
+	const Token &eat_op_or_panic(const StringU8 &op)
 	{
 		return eat_or_panic(
 		    [op](const Token &token)
@@ -203,7 +203,7 @@ private:
 	}
 
 	const Token &eat_ident_or_panic(
-	    const u8str &expected = "identifier")
+	    const StringU8 &expected = "identifier")
 	{
 		return eat_given_type_or_panic(
 		    Token::Type::Id, expected, false);

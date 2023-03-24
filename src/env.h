@@ -24,12 +24,12 @@ public:
 	Logger &logger;
 
 private:
-	Env                             *m_parent;
-	std::vector<uptr<Env>>           m_subenvs;
-	std::vector<uptr<IEntity>>       m_owned_entities;
-	std::map<u8str, IEntity *> m_symbol_table;
-	std::map<u8str, IEntity *> m_keyword_symbol_table;
-	u8str                      m_scope_name;
+	Env                          *m_parent;
+	std::vector<uptr<Env>>        m_subenvs;
+	std::vector<uptr<IEntity>>    m_owned_entities;
+	std::map<StringU8, IEntity *> m_symbol_table;
+	std::map<StringU8, IEntity *> m_keyword_symbol_table;
+	StringU8                      m_scope_name;
 
 private:
 	explicit Env(Env *parent, Logger &logger)
@@ -42,7 +42,7 @@ public:
 
 	{
 		auto env          = make_uptr(new Env(nullptr, logger));
-		env->m_scope_name = "";
+		env->m_scope_name = u8"";
 		return env;
 	}
 
@@ -54,13 +54,13 @@ public:
 		return env_ptr;
 	}
 
-	u8str get_qualifier() const
+	StringU8 get_qualifier() const
 	{
 		if (m_parent)
 		{
 			auto parent_qualifier = m_parent->get_qualifier();
 			if (parent_qualifier.empty() == false)
-				return parent_qualifier + "::" + m_scope_name;
+				return parent_qualifier + u8"::" + m_scope_name;
 			else
 				return m_scope_name;
 		}
@@ -68,12 +68,12 @@ public:
 			return m_scope_name;
 	}
 
-	u8str get_full_qualified_name(
-	    const u8str &unqualified) const
+	StringU8 get_full_qualified_name(
+	    const StringU8 &unqualified) const
 	{
 		auto q = get_qualifier();
 		if (!q.empty())
-			return q + "::" + unqualified;
+			return q + u8"::" + unqualified;
 		return unqualified;
 	}
 
@@ -91,11 +91,13 @@ public:
 		add(name, obj.get());
 		m_owned_entities.push_back(std::move(obj));
 	}
-	void add_keyword(const u8str &kw, IEntity *obj)
+	void add_keyword(const StringU8 &kw, IEntity *obj)
 	{
-		add_to(Ident(kw, {}), obj, this->m_keyword_symbol_table);
+		add_to(Ident{kw, SrcRange{}},
+		       obj,
+		       this->m_keyword_symbol_table);
 	}
-	void add_keyword(const u8str &kw, uptr<IEntity> obj)
+	void add_keyword(const StringU8 &kw, uptr<IEntity> obj)
 	{
 		add_keyword(kw, obj.get());
 		m_owned_entities.push_back(std::move(obj));
@@ -114,7 +116,7 @@ public:
 		return get<T, false>(ident);
 	}
 
-	IEntity *get_keyword_entity(const u8str &keyword) const
+	IEntity *get_keyword_entity(const StringU8 &keyword) const
 	{
 		if (m_keyword_symbol_table.contains(keyword))
 		{
@@ -133,7 +135,7 @@ public:
 
 	void add_built_in_facility();
 
-	u8str dump_json();
+	StringU8 dump_json();
 
 	Env *get_parent() { return m_parent; }
 	Env *get_root()
@@ -147,7 +149,7 @@ public:
 	}
 
 private:
-	OverloadSet *get_overload_set(const u8str &name)
+	OverloadSet *get_overload_set(const StringU8 &name)
 	{
 		if (m_symbol_table.contains(name))
 		{
@@ -164,13 +166,13 @@ private:
 		}
 		return nullptr;
 	}
-	void add_to_overload_set(OverloadSet       *overloads,
-	                         IOp               *func,
-	                         const u8str &name);
+	void add_to_overload_set(OverloadSet    *overloads,
+	                         IOp            *func,
+	                         const StringU8 &name);
 
-	void add_to(const Ident                      &name,
-	            IEntity                          *entity,
-	            std::map<u8str, IEntity *> &to);
+	void add_to(const Ident                   &name,
+	            IEntity                       *entity,
+	            std::map<StringU8, IEntity *> &to);
 };
 
 struct EnvGuard

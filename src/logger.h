@@ -8,10 +8,10 @@ namespace protolang
 struct CodeRef
 {
 	SrcRange    range;
-	u8str comment;
+	StringU8 comment;
 
 	CodeRef() = default;
-	CodeRef(const SrcRange &range, u8str comment = "")
+	CodeRef(const SrcRange &range, StringU8 comment = "")
 	    : range(range)
 	    , comment(std::move(comment))
 	{}
@@ -41,11 +41,11 @@ public:
 	    , src(src)
 	{}
 
-	void print(const u8str &line) const
+	void print(const StringU8 &line) const
 	{
 		out << line << "\n";
 	}
-	void print(const u8str &comment,
+	void print(const StringU8 &comment,
 	           const SrcRange    &range);
 	void print(const CodeRef &ref);
 
@@ -57,7 +57,7 @@ public:
 	}
 
 	friend std::ostream &operator<<(Logger            &logger,
-	                                const u8str &text)
+	                                const StringU8 &text)
 	{
 		return logger.out << text << "\n";
 	}

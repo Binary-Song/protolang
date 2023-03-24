@@ -17,8 +17,8 @@ class Linker
 public:
 	explicit Linker();
 	virtual ~Linker()                                  = default;
-	virtual void link(const std::vector<u8str> &inputs,
-	                  const u8str &output) const = 0;
+	virtual void link(const std::vector<StringU8> &inputs,
+	                  const StringU8 &output) const = 0;
 };
 
 std::unique_ptr<Linker> create_linker(LinkerType type);

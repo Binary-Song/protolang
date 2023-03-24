@@ -85,10 +85,9 @@ set(DEFS "")
 if (MSVC)
     list(APPEND DEFS "PROTOLANG_HOST_MSVC")
 endif ()
-if(PROTOLANG_USE_WCHAR)
+if (PROTOLANG_USE_WCHAR)
     list(APPEND DEFS "PROTOLANG_USE_WCHAR")
-
-    endif()
+endif ()
 # set defs
 target_compile_definitions(Protolang PUBLIC "${DEFS}")
 
@@ -100,8 +99,11 @@ if (BUILD_DOC)
 endif ()
 
 # play
-add_executable(Playground "./test/playground.cpp" ${FMT_SRC})
-target_include_directories(Playground PUBLIC ${FMT_INCLUDE} src)
+add_executable(Playground "./test/playground.cpp"
+        "./src/encoding/win/encoding_win.cpp" ${FMT_SRC})
+target_include_directories(Playground PUBLIC ${FMT_INCLUDE} ./src/)
+target_compile_definitions(Playground PUBLIC "${DEFS}")
+
 # Google test
 #set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 #add_subdirectory("3rdparty/googletest-release-1.12.1")

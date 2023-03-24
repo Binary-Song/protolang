@@ -3,6 +3,7 @@
 #include <vector>
 #include "ident.h"
 #include "logger.h"
+#include "encoding.h"
 namespace protolang
 {
 
@@ -16,32 +17,32 @@ struct ErrorEmptyInput : Error
 
 struct ErrorRead : Error
 {
-	u8str path;
+	StringU8 path;
 
 	void print(Logger &logger) const override
 	{
-		logger.print(std::format("Read failure: {}", path));
+		logger.print(fmt::format("Read failure: {}", path));
 	}
 };
 
 struct ErrorWrite : Error
 {
-	u8str path;
+	StringU8 path;
 
 	void print(Logger &logger) const override
 	{
-		logger.print(std::format("Write failure: {}", path));
+		logger.print(fmt::format("Write failure: {}", path));
 	}
 };
 
 struct ErrorNotCallable : Error
 {
 	SrcRange    callee;
-	u8str type;
+	StringU8 type;
 
 	void print(Logger &logger) const override
 	{
-		logger.print(std::format(
+		logger.print(fmt::format(
 		    "Cannot invoke expression of type `{}`.", type));
 		logger.print("The following is not callable", callee);
 	}
@@ -49,13 +50,13 @@ struct ErrorNotCallable : Error
 
 struct ErrorMemberNotFound : Error
 {
-	u8str member;
-	u8str type;
+	StringU8 member;
+	StringU8 type;
 	SrcRange    used_here;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format(
+		logger << fmt::format(
 		    "Member `{}` not found in type `{}`.", member, type);
 		logger.print("Used here", used_here);
 	}
@@ -67,7 +68,7 @@ struct ErrorNameInThisContextIsAmbiguous : Error
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Name `{}` is ambiguous.",
+		logger << fmt::format("Name `{}` is ambiguous.",
 		                      name.name);
 		logger.print("Used here", name.range);
 	}
@@ -75,14 +76,14 @@ struct ErrorNameInThisContextIsAmbiguous : Error
 
 struct ErrorVarDeclInitExprTypeMismatch : Error
 {
-	u8str init_type;
-	u8str var_type;
+	StringU8 init_type;
+	StringU8 var_type;
 	SrcRange    init_range;
 	SrcRange    var_ty_range;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Cannot initialize variable of "
+		logger << fmt::format("Cannot initialize variable of "
 		                      "type `{}` with expression "
 		                      "of type `{}`.",
 		                      var_type,
@@ -94,13 +95,13 @@ struct ErrorVarDeclInitExprTypeMismatch : Error
 
 struct ErrorReturnTypeMismatch : Error
 {
-	u8str expected;
-	u8str actual;
+	StringU8 expected;
+	StringU8 actual;
 	SrcRange    return_range;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format(
+		logger << fmt::format(
 		    "Return type mismatch. Expected `{}`. Got `{}`.",
 		    expected,
 		    actual);
@@ -114,7 +115,7 @@ struct ErrorMissingRightParen : Error
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Parenthesis Mismatch. Right "
+		logger << fmt::format("Parenthesis Mismatch. Right "
 		                      "parenthesis is missing.");
 		logger.print("Left parenthesis here", left);
 	}
@@ -126,7 +127,7 @@ struct ErrorMissingLeftParen : Error
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Parenthesis Mismatch. Left "
+		logger << fmt::format("Parenthesis Mismatch. Left "
 		                      "parenthesis is missing.");
 		logger.print("Right parenthesis here", right);
 	}
@@ -137,7 +138,7 @@ struct ErrorExpressionExpected : Error
 	SrcRange curr;
 	void     print(Logger &logger) const override
 	{
-		logger << std::format("Expression expected.");
+		logger << fmt::format("Expression expected.");
 		logger.print("Here", curr);
 	}
 };
@@ -148,18 +149,18 @@ struct ErrorDeclExpected : Error
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Declaration expected");
+		logger << fmt::format("Declaration expected");
 		logger.print("Here", curr);
 	}
 };
 
 struct ErrorFunctionAlreadyExists : Error
 {
-	u8str name;
+	StringU8 name;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("During codegen, `{}`, the "
+		logger << fmt::format("During codegen, `{}`, the "
 		                      "function being generated, "
 		                      "already has a definition",
 		                      name);
@@ -168,11 +169,11 @@ struct ErrorFunctionAlreadyExists : Error
 
 struct ErrorMissingFunc : Error
 {
-	u8str name;
+	StringU8 name;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("During codegen, `{}`, the called "
+		logger << fmt::format("During codegen, `{}`, the called "
 		                      "function does not exist.",
 		                      name);
 	}
@@ -182,14 +183,14 @@ struct ErrorCallTypeMismatch : Error
 {
 	SrcRange    call;
 	size_t      arg_index;
-	u8str param_type;
-	u8str arg_type;
+	StringU8 param_type;
+	StringU8 arg_type;
 
 	void print(Logger &logger) const override
 	{
 		logger << "Type mismatch.";
 		logger.print(
-		    std::format(
+		    fmt::format(
 		        "In the call below, argument [{}] has type "
 		        "`{}`, which "
 		        "is incompatible with parameter type `{}`.",
@@ -209,7 +210,7 @@ struct ErrorCallArgCountMismatch : Error
 	void print(Logger &logger) const override
 	{
 		logger.print(
-		    std::format("Incorrect number of arguments. "
+		    fmt::format("Incorrect number of arguments. "
 		                "Required {}, {} provided.",
 		                required,
 		                provided),
@@ -222,7 +223,7 @@ struct ErrorNoMatchingOverload : Error
 {
 	SrcRange                 call;
 	std::vector<IOp *>       overloads;
-	std::vector<u8str> arg_types;
+	std::vector<StringU8> arg_types;
 
 	void print(Logger &logger) const override;
 };
@@ -230,20 +231,20 @@ struct ErrorMultipleMatchingOverloads : Error
 {
 	SrcRange                 call;
 	std::vector<IOp *>       overloads;
-	std::vector<u8str> arg_types;
+	std::vector<StringU8> arg_types;
 
 	void print(Logger &logger) const override;
 };
 
 struct ErrorForwardReferencing : Error
 {
-	u8str name;
+	StringU8 name;
 	SrcRange    defined_here;
 	SrcRange    used_here;
 
 	void print(Logger &logger) const override
 	{
-		logger << std::format("Use before definition `{}`.",
+		logger << fmt::format("Use before definition `{}`.",
 		                      name);
 		logger.print("Used here", used_here);
 		logger.print("Defined here", defined_here);
@@ -252,13 +253,13 @@ struct ErrorForwardReferencing : Error
 
 struct ErrorUnexpectedNameKind : Error
 {
-	u8str expected;
+	StringU8 expected;
 	SrcRange    name_range;
 
 	void print(Logger &logger) const override
 	{
 		logger.print(
-		    std::format("Name of `{}` expected here.", expected),
+		    fmt::format("Name of `{}` expected here.", expected),
 		    name_range);
 	}
 };
@@ -268,7 +269,7 @@ struct ErrorUndefinedName : Error
 	Ident name;
 	void  print(Logger &logger) const override
 	{
-		logger.print(std::format("Use of undefined name `{}`.",
+		logger.print(fmt::format("Use of undefined name `{}`.",
 		                         name.name),
 		             name.range);
 	}
@@ -281,7 +282,7 @@ struct ErrorNameRedef : Error
 
 	void print(Logger &logger) const override
 	{
-		logger.print(std::format("Redefinition of name `{}`.",
+		logger.print(fmt::format("Redefinition of name `{}`.",
 		                         redefined_here.name),
 		             redefined_here.range);
 		logger.print("Previously defined here", defined_here);
@@ -311,11 +312,11 @@ struct ErrorUnknownCharacter : Error
 struct ErrorUnexpectedToken : Error
 {
 	SrcRange    range;
-	u8str expected;
+	StringU8 expected;
 	void        print(Logger &logger) const override
 	{
 		logger.print(
-		    std::format("Unexpected token. {} expected here.",
+		    fmt::format("Unexpected token. {} expected here.",
 		                expected),
 		    range);
 	}
@@ -323,23 +324,23 @@ struct ErrorUnexpectedToken : Error
 
 struct ErrorInternal : Error
 {
-	u8str message;
+	StringU8 message;
 
 	void print(Logger &logger) const override
 	{
-		logger.print(std::format("Internal error: {}", message));
+		logger.print(fmt::format("Internal error: {}", message));
 	}
 };
 
 struct ErrorIncompleteBlockInFunc : Error
 {
-	u8str name;
+	StringU8 name;
 	SrcRange    defined_here;
 
 	void print(Logger &logger) const override
 	{
 		logger.print(
-		    std::format(
+		    fmt::format(
 		        "Incomplete block in function `{}`. "
 		        "Possible cause: not all code paths return.",
 		        name),

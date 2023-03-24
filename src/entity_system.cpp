@@ -7,9 +7,9 @@
 #include "llvm/IR/Type.h"
 namespace protolang
 {
-u8str IFuncType::get_type_name()
+StringU8 IFuncType::get_type_name()
 {
-	u8str param_list;
+	StringU8 param_list;
 	size_t      param_count = this->get_param_count();
 	for (size_t i = 0; i < param_count; i++)
 	{
@@ -17,7 +17,7 @@ u8str IFuncType::get_type_name()
 		param_list += ",";
 	}
 	param_list.pop_back();
-	return std::format("func({})->{}",
+	return fmt::format("func({})->{}",
 	                   param_list,
 	                   get_return_type()->get_type_name());
 }

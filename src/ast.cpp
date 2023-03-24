@@ -1,6 +1,7 @@
 #include <fmt/xchar.h>
 #include <utility>
 #include "ast.h"
+#include "encoding.h"
 #include "entity_system.h"
 #include "env.h"
 #include "log.h"
@@ -36,7 +37,7 @@ void IdentTypeExpr::validate_types()
 StringU8 IdentTypeExpr::dump_json()
 {
 	return fmt::format(
-	    R"({{"obj":"IdentTypeExpr","ident":{}}})"_u8v,
+	    u8R"({{"obj":"IdentTypeExpr","ident":{}}})",
 	    m_ident.dump_json());
 }
 
@@ -87,6 +88,13 @@ UnaryExpr::UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
 IType *UnaryExpr::get_type()
 {
 	return m_type_cache.get();
+}
+StringU8 UnaryExpr::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"UnaryExpr","op":{},"oprd":{}}})",
+	    m_op.dump_json(),
+	    m_operand->dump_json());
 }
 
 // === CallExpr ===
@@ -177,7 +185,21 @@ IType *CallExpr::recompute_type()
 		throw std::move(e);
 	}
 }
-
+StringU8 CallExpr::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"CallExpr","callee":{},"args":{}}})",
+	    m_callee->dump_json(),
+	    dump_json_for_vector_of_ptr(m_args));
+}
+// === BracketExpr ===
+StringU8 BracketExpr::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"BracketExpr","callee":{},"args":{}}})",
+	    get_callee()->dump_json(),
+	    dump_json_for_vector_of_ptr(m_args));
+}
 // === MemberAccessExpr ===
 MemberAccessExpr::MemberAccessExpr(uptr<Expr> left, Ident member)
     : m_left(std::move(left))
@@ -222,6 +244,13 @@ llvm::Value *MemberAccessExpr::codegen_value(
 {
 	throw ExceptionNotImplemented{};
 }
+StringU8 MemberAccessExpr::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"MemberAccessExpr","left":{},"member":{}}})",
+	    m_left->dump_json(),
+	    m_member.dump_json());
+}
 
 // === LiteralExpr ===
 IType *LiteralExpr::get_type()
@@ -234,15 +263,22 @@ IType *LiteralExpr::recompute_type()
 	if (m_token.type == Token::Type::Int)
 	{
 		return root_env()->get<IType>(
-		    Ident("int", m_token.range()));
+		    Ident(u8"int", m_token.range()));
 	}
 	else if (m_token.type == Token::Type::Fp)
 	{
 		return root_env()->get<IType>(
-		    Ident("double", m_token.range()));
+		    Ident(u8"double", m_token.range()));
 	}
 	assert(false); // 没有这种literal
 	return nullptr;
+}
+StringU8 LiteralExpr::dump_json()
+{
+	return fmt::format(u8"\"{}/{}/{}\"",
+	                   m_token.str_data,
+	                   m_token.int_data,
+	                   m_token.fp_data);
 }
 
 // === IdentExpr ===
@@ -278,6 +314,10 @@ void IdentExpr::set_type(IType *t)
 {
 	m_type_cache.set(t);
 }
+StringU8 IdentExpr::dump_json()
+{
+	return fmt::format(u8"\"{}\"", m_ident.name);
+}
 
 // === Block ===
 
@@ -297,7 +337,21 @@ void VarDecl::validate_types()
 		throw std::move(e);
 	}
 }
-
+StringU8 VarDecl::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"VarDecl","ident":{},"type":{},"init":{}}})",
+	    m_ident.dump_json(),
+	    get_type()->dump_json(),
+	    m_init->dump_json());
+}
+StringU8 ParamDecl::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"ParamDecl","ident":{},"type":{} }})",
+	    m_ident.dump_json(),
+	    m_type->dump_json());
+}
 FuncDecl::FuncDecl(Env                         *env,
                    SrcRange                     range,
                    Ident                        ident,
@@ -332,7 +386,7 @@ bool StructDecl::equal(IType *other)
 	return this == dynamic_cast<const StructDecl *>(other);
 }
 
-u8str StructDecl::get_type_name()
+StringU8 StructDecl::get_type_name()
 {
 	return m_ident.name;
 }
@@ -397,6 +451,12 @@ void Program::codegen(CodeGenerator &g, bool &success)
 void Program::codegen(CodeGenerator &)
 {
 	assert(false);
+}
+StringU8 Program::dump_json()
+{
+	return fmt::format(
+		u8R"({{"obj":"Program","decls":[{}]}})",
+		dump_json_for_vector_of_ptr(m_decls));
 }
 
 // 表达式默认的语义检查方法是计算一次类型

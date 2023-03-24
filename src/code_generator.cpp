@@ -8,10 +8,10 @@
 #include <llvm/TargetParser/Host.h>
 #include "code_generator.h"
 #include "log.h"
-
+#include "encoding.h"
 namespace protolang
 {
-void CodeGenerator::emit_object(const u8str &output_file)
+void CodeGenerator::emit_object(const StringU8 &output_file)
 {
 	llvm::InitializeAllTargetInfos();
 	llvm::InitializeAllTargets();
@@ -22,13 +22,14 @@ void CodeGenerator::emit_object(const u8str &output_file)
 	auto target_triple = llvm::sys::getDefaultTargetTriple();
 	this->module().setTargetTriple(
 	    llvm::sys::getDefaultTargetTriple());
-	u8str err;
+
+	std::string err;
 	auto        target =
 	    llvm::TargetRegistry::lookupTarget(target_triple, err);
 	if (!target)
 	{
 		ErrorInternal e;
-		e.message = err;
+		e.message = to_u8(err);
 		throw std::move(e);
 	}
 
@@ -44,7 +45,7 @@ void CodeGenerator::emit_object(const u8str &output_file)
 
 	std::error_code      ec;
 	llvm::raw_fd_ostream dest(
-	    output_file, ec, llvm::sys::fs::OF_None);
+	    to_native(output_file), ec, llvm::sys::fs::OF_None);
 
 	if (ec)
 	{
@@ -66,7 +67,7 @@ void CodeGenerator::emit_object(const u8str &output_file)
 	pass.run(this->module());
 	dest.flush();
 }
-void CodeGenerator::gen(const u8str &output_file)
+void CodeGenerator::gen(const StringU8 &output_file)
 {
 	try
 	{

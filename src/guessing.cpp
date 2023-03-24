@@ -4,7 +4,7 @@
 namespace protolang
 {
 
-u8str guess_linker_path()
+StringU8 guess_linker_path()
 {
 	auto result = glob::glob("C:\\Program Files*\\Microsoft Visual "
 	                         "Studio\\*\\Community\\VC\\Tools\\MSVC\\"
