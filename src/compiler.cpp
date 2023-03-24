@@ -15,21 +15,18 @@ namespace protolang
 {
 Compiler::Compiler(const StringU8 &input_file,
                    const StringU8 &output_file_no_ext)
-    : m_input_file(input_file.as_str())
-    , m_output_file_no_ext(output_file_no_ext.as_str())
+    : m_input_path(input_file.to_path())
+    , m_output_path_no_ext(output_file_no_ext.to_path())
 {
 	namespace fs = std::filesystem;
-	m_input_file = (m_input_file);
-	if (output_file_no_ext == u8"")
-	{
-		m_output_file_no_ext = m_input_file.stem().string();
-	}
-	m_output_file_no_ext = (m_output_file_no_ext).string();
+	m_input_path = (m_input_path);
+	if (output_file_no_ext.empty())
+		m_output_path_no_ext = m_input_path.stem();
 }
 void Compiler::compile()
 {
 	// 读取源代码
-	std::ifstream input_stream(m_input_file);
+	std::ifstream input_stream(m_input_path);
 	SourceCode    src;
 	bool          read_result = src.read(input_stream);
 	m_logger       = std::make_unique<Logger>(src, std::cerr);
@@ -37,7 +34,7 @@ void Compiler::compile()
 	if (!read_result)
 	{
 		ErrorRead e;
-		e.path = m_input_file.u8string();
+		e.path = m_input_path.u8string();
 		e.print(logger);
 		return;
 	}
@@ -54,7 +51,7 @@ void Compiler::compile()
 	Parser parser(logger, std::move(tokens), root_env.get());
 	auto   program = parser.parse();
 	// 中间代码生成
-	CodeGenerator g(logger, m_input_file.filename().string());
+	CodeGenerator g(logger, StringU8{m_input_path.filename()});
 	bool          success = false;
 	program->validate_types(success);
 	if (!success)
@@ -64,19 +61,13 @@ void Compiler::compile()
 		return;
 	g.module().print(llvm::outs(), nullptr);
 	// 目标代码生成
-	StringU8 output_obj_file =
-	    m_output_file_no_ext.string() + ".o";
-	g.gen(output_obj_file);
-	std::cout << output_obj_file << std::endl;
-
-	// 狠狠地链接
+	auto obj_path = m_output_path_no_ext;
+	obj_path += ".o";
+	g.gen(obj_path);
+	std::cout << StringU8(obj_path).to_native() << std::endl;
+	// 链接
 	auto linker = create_linker(LinkerType::COFF);
-	linker->link({output_obj_file},
-	             m_output_file_no_ext.stem().string());
-
-	StringU8                 output;
-	llvm::raw_string_ostream out{output};
-	llvm::raw_string_ostream err{output};
-	std::cerr << output;
+	linker->link({obj_path}, m_output_path_no_ext.stem());
+	std::cout << StringU8(obj_path).to_native() << std::endl;
 }
 } // namespace protolang

@@ -1,13 +1,15 @@
 #pragma once
 #include <exception>
 #include <format>
+#include "encoding.h"
 #include "source_code.h"
 #include "token.h"
+
 namespace protolang
 {
 struct CodeRef
 {
-	SrcRange    range;
+	SrcRange range;
 	StringU8 comment;
 
 	CodeRef() = default;
@@ -43,10 +45,9 @@ public:
 
 	void print(const StringU8 &line) const
 	{
-		out << line << "\n";
+		out << line.to_native() << "\n";
 	}
-	void print(const StringU8 &comment,
-	           const SrcRange    &range);
+	void print(const StringU8 &comment, const SrcRange &range);
 	void print(const CodeRef &ref);
 
 	static int digits(int n)
@@ -56,10 +57,10 @@ public:
 		return 1 + digits(n / 10);
 	}
 
-	friend std::ostream &operator<<(Logger            &logger,
+	friend std::ostream &operator<<(Logger         &logger,
 	                                const StringU8 &text)
 	{
-		return logger.out << text << "\n";
+		return logger.out << text.to_native() << "\n";
 	}
 };
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,9 +17,10 @@ class Linker
 
 public:
 	explicit Linker();
-	virtual ~Linker()                                  = default;
-	virtual void link(const std::vector<StringU8> &inputs,
-	                  const StringU8 &output) const = 0;
+	virtual ~Linker() = default;
+	virtual std::filesystem::path link(
+	    const std::vector<std::filesystem::path> &inputs,
+	    const std::filesystem::path &output_no_ext) const = 0;
 };
 
 std::unique_ptr<Linker> create_linker(LinkerType type);

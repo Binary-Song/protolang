@@ -1,6 +1,6 @@
 #pragma once
 #include <cassert>
-#include <format>
+#include <fmt/xchar.h>
 #include <functional>
 #include <utility>
 #include <vector>

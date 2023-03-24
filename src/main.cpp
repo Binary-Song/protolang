@@ -1,10 +1,10 @@
 #include "compiler.h"
+#include "encoding.h"
 #include "log.h"
-namespace protolang
-{} // namespace protolang
 
 int main()
 {
+	using namespace protolang;
 	StringU8 input_file_name =
 	    __FILE__ R"(\..\..\test\test3.ptl)";
 	protolang::Compiler compiler(input_file_name);

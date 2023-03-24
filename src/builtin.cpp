@@ -248,7 +248,7 @@ public:
 	StringU8 dump_json() override
 	{
 		return fmt::format(u8"{}{}",
-		                   to_cstring(Ar),
+		                   as_u8(to_cstring(Ar)),
 		                   m_scalar_type->get_type_name());
 	}
 

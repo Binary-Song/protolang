@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
+#include <filesystem>
 namespace protolang
 {
 
-StringU8 guess_linker_path();
+std::filesystem::path guess_linker_path();
 
 }

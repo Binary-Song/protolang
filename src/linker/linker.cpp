@@ -1,5 +1,5 @@
 #include "linker.h"
-#include "linker/win/COFFLinker.h"
+#include "linker/COFFLinker.h"
 namespace protolang
 {
 std::unique_ptr<Linker> create_linker(LinkerType)

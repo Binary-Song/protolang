@@ -46,3 +46,8 @@ $ cd build
 $ cmake -G "Visual Studio 17 2022" -A x64 -Thost=x64 -DLLVM_ENABLE_PROJECTS="lld" ..
 $ cmake --build . --config Release
 
+## 关于编码的一些结论
+
+- llvm::raw_fd_ostream 的构造函数需要 utf-8 编码的参数。
+- std::filesystem::path 的构造函数需要 ANSI 编码的参数。
+- glob::glob 里需要ANSI编码的参数

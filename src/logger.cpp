@@ -15,22 +15,22 @@ void Logger::print(const CodeRef &ref)
 
 	// 输出第一行
 	if (!ref.comment.empty())
-		out << ref.comment << "\n";
+		out << ref.comment.to_native() << "\n";
 	// 输出后续
 
 	auto start = ref.range.head;
 	auto end   = ref.range.tail;
 
 	StringU8 first_line   = src.lines[start.row];
-	int         lineno_width = digits(end.row + 1);
+	int      lineno_width = digits(end.row + 1);
 	for (std::size_t i = start.row; i <= end.row; i++)
 	{
 		StringU8 _this_line = src.lines[i];
 		StringU8 this_line(_this_line.begin(),
-		                      _this_line.end() - 1);
+		                   _this_line.end() - 1);
 
 		out << std::setw(lineno_width) << i + 1 << " | "
-		    << this_line << "\n";
+		    << this_line.to_native() << "\n";
 
 		// 决定当前行下划线的位置和长度
 		std::size_t underline_begin = lineno_width + 3;
@@ -54,12 +54,12 @@ void Logger::print(const CodeRef &ref)
 			underline_size = this_line.size();
 		}
 
-		out << StringU8(underline_begin, ' ')
-		    << StringU8(underline_size, '^') << "\n";
+		out << StringU8(underline_begin, ' ').to_native()
+		    << StringU8(underline_size, '^').to_native() << "\n";
 	}
 }
 void Logger::print(const StringU8 &comment,
-                   const SrcRange    &range)
+                   const SrcRange &range)
 {
 	print(CodeRef{range, comment});
 }

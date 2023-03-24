@@ -5,7 +5,7 @@
 #include <map>
 #include <memory>
 #include "encoding.h"
-
+#include <filesystem>
 namespace protolang
 {
 class Logger;
@@ -29,7 +29,7 @@ public:
 	          as_str(module_name), *m_context))
 	{}
 
-	void gen(const StringU8 &output_file);
+	void gen(const std::filesystem::path &output_path);
 
 	llvm::LLVMContext &context() { return *m_context; }
 	llvm::IRBuilder<> &builder() { return *m_builder; }
@@ -40,7 +40,7 @@ public:
 	}
 
 private:
-	void emit_object(const StringU8 &output_file);
+	void emit_object(const std::filesystem::path & path);
 };
 
 } // namespace protolang

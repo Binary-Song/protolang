@@ -13,7 +13,7 @@ public:
 	    : logger(logger)
 	    , code(code)
 	{
-		this->in(code.str); // 基类方法：设置输入源
+		this->in(code.str.as_str()); // 基类方法：设置输入源
 	}
 	SourceCode &code;
 	Logger     &logger;
@@ -39,6 +39,8 @@ public:
 	using protolang_generated::Lexer::lex;
 
 protected:
+	StringU8 u8text() const { return as_u8(text()); }
+
 	int vlex(Rule ruleno) override
 	{
 		switch (ruleno)
@@ -165,17 +167,17 @@ protected:
 
 	void rule_id()
 	{
-		token = Token::make_id(text(), get_pos1(), get_pos2());
+		token = Token::make_id(u8text(), get_pos1(), get_pos2());
 	}
 	void rule_keyword()
 	{
-		token =
-		    Token::make_keyword(text(), get_pos1(), get_pos2());
-		token.int_data = kw_map.at(text());
+		token = Token::make_keyword(
+		    u8text(), get_pos1(), get_pos2());
+		token.int_data = kw_map.at(u8text());
 	}
 	void rule_op()
 	{
-		token = Token::make_op(text(), get_pos1(), get_pos2());
+		token = Token::make_op(u8text(), get_pos1(), get_pos2());
 	}
 	void rule_eof() { token = Token::make_eof(get_pos1()); };
 	void rule_paren(bool left)

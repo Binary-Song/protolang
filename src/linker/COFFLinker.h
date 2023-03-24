@@ -9,7 +9,8 @@ class COFFLinker : public Linker
 {
 public:
 	explicit COFFLinker();
-	void link(const std::vector<StringU8> &inputs,
-	          const StringU8              &output) const override;
+	std::filesystem::path link(
+	    const std::vector<std::filesystem::path> &inputs,
+	    const std::filesystem::path &output) const override;
 };
 } // namespace protolang

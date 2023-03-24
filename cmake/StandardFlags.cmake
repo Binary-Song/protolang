@@ -4,7 +4,7 @@ function(set_standard_flags TARGET)
         set(GENERAL_FLAGS
                 /utf-8 # 源文件编码 utf-8
                 /W4 # 警告等级
-                /WX # 警告=错误
+                #/WX # 警告=错误
                 /Zc:preprocessor # 预处理器符合标准
                 /permissive- # 各种符合标准
                 #/GR- # 禁用RTII

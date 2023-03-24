@@ -130,13 +130,16 @@ IOp *Env::overload_resolution(
 	e.arg_types = arg_type_names(arg_types);
 	throw std::move(e);
 }
-void Env::add_to_overload_set(OverloadSet       *overloads,
-                              IOp               *func,
+void Env::add_to_overload_set(OverloadSet    *overloads,
+                              IOp            *func,
                               const StringU8 &name)
 {
 	// 设置函数名
-	func->set_mangled_name(get_full_qualified_name(name) + "#" +
-	                       std::to_string(overloads->count()));
+	auto mangled_name =
+	    fmt::format(u8"{}#{}",
+	                get_full_qualified_name(name),
+	                overloads->count());
+	func->set_mangled_name(std::move(mangled_name));
 	overloads->add_func(func);
 }
 
@@ -156,8 +159,8 @@ static ErrorNameRedef create_name_redef_error(const Ident &ident,
 	return e;
 }
 
-void Env::add_to(const Ident                      &ident,
-                 IEntity                          *obj,
+void Env::add_to(const Ident                   &ident,
+                 IEntity                       *obj,
                  std::map<StringU8, IEntity *> &to)
 {
 	auto &&name       = ident.name;
@@ -215,7 +218,7 @@ StringU8 Env::dump_json()
 		vals.push_back(value);
 	}
 	return fmt::format(
-	    R"({{"obj":"Env","this":{},"sub":{}}})",
+	    u8R"({{"obj":"Env","this":{},"sub":{}}})",
 	    dump_json_for_vector_of_ptr(vals),
 	    dump_json_for_vector_of_ptr(this->m_subenvs));
 }
@@ -272,7 +275,7 @@ template <std::derived_from<IEntity> T,
 T *Env::get(const Ident &ident) const
 {
 	StringU8 name = ident.name;
-	IEntity    *ent  = nullptr;
+	IEntity *ent  = nullptr;
 
 	if constexpr (look_at_kw_table)
 	{
@@ -302,7 +305,7 @@ T *Env::get(const Ident &ident) const
 
 			ErrorUnexpectedNameKind e;
 			e.name_range = ident.range;
-			e.expected   = T::TYPE_NAME;
+			e.expected   = as_u8(T::TYPE_NAME);
 			throw std::move(e);
 		}
 	}
@@ -368,7 +371,7 @@ StringU8 OverloadSet::dump_json()
 		auto f = *iter;
 		all.push_back(f);
 	}
-	return fmt::format(R"({{"obj":"OverloadSet","funcs":{}}})",
+	return fmt::format(u8R"({{"obj":"OverloadSet","funcs":{}}})",
 	                   dump_json_for_vector_of_ptr(all));
 }
 size_t OverloadSet::count() const

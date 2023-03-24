@@ -1,9 +1,11 @@
 #pragma once
+#include <cassert>
 #include <map>
 #include <string>
 #include <utility>
+#include "encoding.h"
 #include "typedef.h"
-#include <cassert>
+
 namespace protolang
 {
 struct SrcPos
@@ -124,9 +126,9 @@ public:
 	};
 
 public:
-	Type        type = Type::None;
-	u64         int_data;
-	double      fp_data;
+	Type     type = Type::None;
+	u64      int_data;
+	double   fp_data;
 	StringU8 str_data;
 
 	/// 第一个字符的位置
@@ -141,7 +143,7 @@ public:
 	      const SrcPos &lastPos,
 	      u64           intData,
 	      double        fpData,
-	      StringU8   strData = "")
+	      StringU8      strData = "")
 	    : type(type)
 	    , first_pos(firstPos)
 	    , last_pos(lastPos)
@@ -166,15 +168,15 @@ public:
 	}
 
 	static Token make_id(const StringU8 &str,
-	                     const SrcPos      &firstPos,
-	                     const SrcPos      &lastPos)
+	                     const SrcPos   &firstPos,
+	                     const SrcPos   &lastPos)
 	{
 		return Token(Type::Id, firstPos, lastPos, 0, 0, str);
 	}
 
 	static Token make_keyword(const StringU8 &str,
-	                          const SrcPos      &firstPos,
-	                          const SrcPos      &lastPos)
+	                          const SrcPos   &firstPos,
+	                          const SrcPos   &lastPos)
 	{
 		return Token(Type::Keyword,
 		             firstPos,
@@ -185,8 +187,8 @@ public:
 	}
 
 	static Token make_op(const StringU8 &str,
-	                     const SrcPos      &firstPos,
-	                     const SrcPos      &lastPos)
+	                     const SrcPos   &firstPos,
+	                     const SrcPos   &lastPos)
 	{
 		return Token(Type::Op, firstPos, lastPos, 0, 0, str);
 	}
@@ -205,12 +207,12 @@ public:
 	                       const SrcPos &pos,
 	                       const char   *literal)
 	{
-		return Token(type, pos, pos, 0, 0, literal);
+		return Token(type, pos, pos, 0, 0, as_u8(literal));
 	}
 
 	static Token make_str(const StringU8 &str,
-	                      const SrcPos      &firstPos,
-	                      const SrcPos      &lastPos)
+	                      const SrcPos   &firstPos,
+	                      const SrcPos   &lastPos)
 	{
 		return Token(Type::Str, firstPos, lastPos, 0, 0, str);
 	}

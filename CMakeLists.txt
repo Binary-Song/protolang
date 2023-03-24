@@ -101,8 +101,9 @@ endif ()
 # play
 add_executable(Playground "./test/playground.cpp"
         "./src/encoding/win/encoding_win.cpp" ${FMT_SRC})
-target_include_directories(Playground PUBLIC ${FMT_INCLUDE} ./src/)
-target_compile_definitions(Playground PUBLIC "${DEFS}")
+target_include_directories(Playground PUBLIC ${FMT_INCLUDE} ${LLVM_INCLUDE_DIRS} ./src/)
+target_link_libraries(Playground PUBLIC ${llvm_libs})
+target_compile_definitions(Playground PUBLIC "${DEFS} ")
 
 # Google test
 #set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

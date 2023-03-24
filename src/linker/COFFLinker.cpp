@@ -1,42 +1,45 @@
 #include "COFFLinker.h"
 
+#include <Windows.h>
+#include <codecvt>
 #include <cstdlib>
 #include <deque>
 #include <iostream>
-#include "guessing.h"
-
-#include <Windows.h>
-#include <codecvt>
 #include <string>
+#include "encoding/win/encoding_win.h"
+#include "guessing.h"
 
 namespace protolang
 {
-void COFFLinker::link(const std::vector<StringU8> &inputs,
-                      const StringU8              &output) const
+std::filesystem::path COFFLinker::link(
+    const std::vector<std::filesystem::path> &_inputs,
+    const std::filesystem::path              &_output) const
 {
-	StringU8             output_exe = output + u8".exe";
-	std::deque<StringU8> args       = {
-        "/OUT:" + output_exe,
-        "/ENTRY:main",
-    };
-	for (auto &input : inputs)
+	std::filesystem::path output{_output};
+	output += ".exe";
+
+	std::deque<StringU8> args = {
+	    u8"/OUT:" + StringU8(output),
+	    u8"/ENTRY:main",
+	};
+	for (auto &input : _inputs)
 	{
-		args.push_front(input);
+		args.emplace_front(input);
 	}
 
-	auto linker  = guess_linker_path();
-	auto command = '\"' + linker + "\" ";
+	auto     linker  = guess_linker_path();
+	StringU8 command = u8'\"' + StringU8(linker) + u8"\" ";
 	for (auto &arg : args)
 	{
-		command += '\"';
+		command += u8'\"';
 		command += arg;
-		command += "\" ";
+		command += u8"\" ";
 	}
 
 	STARTUPINFO         si;
 	PROCESS_INFORMATION pi;
-	std::wstring        wcommand;
-	StringToWString(wcommand, command);
+	std::wstring        wcommand = protolang::u8towide(command);
+
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
@@ -51,13 +54,11 @@ void COFFLinker::link(const std::vector<StringU8> &inputs,
 	                     &si,
 	                     &pi))
 	{
-		return;
+		return {};
 	}
 	WaitForSingleObject(pi.hProcess, INFINITE);
-	// Close process and thread handles
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-	std::cout << output_exe << std::endl;
 }
 
 COFFLinker::COFFLinker() = default;

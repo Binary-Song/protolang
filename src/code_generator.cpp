@@ -7,11 +7,12 @@
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/TargetParser/Host.h>
 #include "code_generator.h"
-#include "log.h"
 #include "encoding.h"
+#include "log.h"
 namespace protolang
 {
-void CodeGenerator::emit_object(const StringU8 &output_file)
+void CodeGenerator::emit_object(
+    const std::filesystem::path &path)
 {
 	llvm::InitializeAllTargetInfos();
 	llvm::InitializeAllTargets();
@@ -45,12 +46,12 @@ void CodeGenerator::emit_object(const StringU8 &output_file)
 
 	std::error_code      ec;
 	llvm::raw_fd_ostream dest(
-	    to_native(output_file), ec, llvm::sys::fs::OF_None);
+	    StringU8(path).as_str(), ec, llvm::sys::fs::OF_None);
 
 	if (ec)
 	{
 		ErrorWrite e;
-		e.path = output_file;
+		e.path = StringU8(path);
 		throw std::move(e);
 	}
 
@@ -67,11 +68,11 @@ void CodeGenerator::emit_object(const StringU8 &output_file)
 	pass.run(this->module());
 	dest.flush();
 }
-void CodeGenerator::gen(const StringU8 &output_file)
+void CodeGenerator::gen(const std::filesystem::path &output_path)
 {
 	try
 	{
-		this->emit_object(output_file);
+		this->emit_object(output_path);
 	}
 	catch (Error &e)
 	{

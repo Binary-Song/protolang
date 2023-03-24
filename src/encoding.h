@@ -15,7 +15,7 @@ struct StringU8 : std::u8string
 	// 因为源代码字符集是UTF-8，所以这个成立
 	template <unsigned Size>
 	StringU8(const char (&literal)[Size])
-	    : std::u8string((const char8_t *)literal, Size)
+	    : std::u8string((const char8_t *)literal, Size - 1)
 	{}
 
 	// 本类可以和u8string随便转，但不能和
@@ -28,6 +28,8 @@ struct StringU8 : std::u8string
 	    : std::u8string(std::move(s))
 	{}
 
+	explicit StringU8(const std::filesystem::path &path);
+
 	operator std::u8string() const & { return {*this}; }
 	operator std::u8string() && { return {std::move(*this)}; }
 
@@ -38,10 +40,11 @@ struct StringU8 : std::u8string
 
 // MSVC需要对Utf8字符串执行编码转换
 // 参见 encoding_win.cpp
+// #undef PROTOLANG_HOST_MSVC
 #ifdef PROTOLANG_HOST_MSVC
 std::string to_native(const StringU8 &);
 StringU8    to_u8(const std::string &);
-#else
+#else // 非MSVC的实现
 inline std::string to_native(const StringU8 &s)
 {
 	return {(const char *)s.data(), s.size()};
@@ -52,8 +55,15 @@ inline StringU8 to_u8(const std::string &s)
 }
 inline std::filesystem::path StringU8::to_path() const
 {
-	return {this.as_str()};
+	return {this->as_str()};
 }
+// from path
+StringU8 as_u8(const std::string &s);
+StringU8::StringU8(const std::filesystem::path &path)
+{
+	*this = path.u8string();
+}
+
 #endif
 
 inline StringU8 as_u8(const std::string &s)

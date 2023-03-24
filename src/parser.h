@@ -72,27 +72,27 @@ private:
 		}
 	}
 
-	uptr<ast::Program>        program();
-	uptr<ast::Decl>           declaration();
-	uptr<ast::TypeExpr>       type_expr();
-	uptr<ast::VarDecl>        var_decl();
-	uptr<ast::FuncDecl>       func_decl();
-	uptr<ast::StructDecl>     struct_decl();
-	uptr<ast::Stmt>           statement();
-	uptr<ast::ReturnStmt>     return_statement();
-	uptr<ast::ExprStmt>       expression_statement();
-	uptr<ast::CompoundStmt>   compound_statement();
-	uptr<ast::StructBody>     struct_body();
-	uptr<ast::Expr>           expression();
-	uptr<ast::Expr>           assignment();
-	uptr<ast::Expr>           equality();
-	uptr<ast::Expr>           comparison();
-	uptr<ast::Expr>           term();
-	uptr<ast::Expr>           factor();
-	uptr<ast::Expr>           unary_pre();
-	uptr<ast::Expr>           unary_post();
-	uptr<ast::Expr>           member_access();
-	uptr<ast::Expr>           primary();
+	uptr<ast::Program>      program();
+	uptr<ast::Decl>         declaration();
+	uptr<ast::TypeExpr>     type_expr();
+	uptr<ast::VarDecl>      var_decl();
+	uptr<ast::FuncDecl>     func_decl();
+	uptr<ast::StructDecl>   struct_decl();
+	uptr<ast::Stmt>         statement();
+	uptr<ast::ReturnStmt>   return_statement();
+	uptr<ast::ExprStmt>     expression_statement();
+	uptr<ast::CompoundStmt> compound_statement();
+	uptr<ast::StructBody>   struct_body();
+	uptr<ast::Expr>         expression();
+	uptr<ast::Expr>         assignment();
+	uptr<ast::Expr>         equality();
+	uptr<ast::Expr>         comparison();
+	uptr<ast::Expr>         term();
+	uptr<ast::Expr>         factor();
+	uptr<ast::Expr>         unary_pre();
+	uptr<ast::Expr>         unary_post();
+	uptr<ast::Expr>         member_access();
+	uptr<ast::Expr>         primary();
 	/*
 	 *
 	 *
@@ -143,7 +143,7 @@ private:
 
 	const Token &eat_or_panic(
 	    std::function<bool(const Token &)> criteria,
-	    const StringU8                 &expected)
+	    const StringU8                    &expected)
 	{
 		if (!criteria(curr()))
 		{
@@ -160,9 +160,9 @@ private:
 	}
 
 	const Token &eat_given_type_or_panic(
-	    Token::Type        type,
+	    Token::Type     type,
 	    const StringU8 &expected,
-	    bool               add_quotes = true)
+	    bool            add_quotes = true)
 	{
 		if (add_quotes)
 			return eat_or_panic(
@@ -170,7 +170,7 @@ private:
 			    {
 				    return token.type == type;
 			    },
-			    "`" + expected + "`");
+			    expected);
 		else
 			return eat_or_panic(
 			    [type](const Token &token)
@@ -188,7 +188,7 @@ private:
 			    return token.type == Token::Type::Op &&
 			           token.str_data == op;
 		    },
-		    "`" + op + "`");
+		    op);
 	}
 
 	const Token &eat_keyword_or_panic(Keyword kw)
@@ -199,7 +199,7 @@ private:
 			    return token.type == Token::Type::Keyword &&
 			           token.int_data == kw;
 		    },
-		    "`" + kw_map_rev(kw) + "`");
+		    kw_map_rev(kw));
 	}
 
 	const Token &eat_ident_or_panic(
@@ -220,7 +220,7 @@ private:
 				    return false;
 			    for (auto op : ops)
 			    {
-				    if (token.str_data == op)
+				    if (token.str_data == to_u8(op))
 					    return true;
 			    }
 			    return false;

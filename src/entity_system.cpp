@@ -1,4 +1,5 @@
 #include <concepts>
+#include <fmt/xchar.h>
 #include "entity_system.h"
 #include "builtin.h"
 #include "code_generator.h"
@@ -10,14 +11,14 @@ namespace protolang
 StringU8 IFuncType::get_type_name()
 {
 	StringU8 param_list;
-	size_t      param_count = this->get_param_count();
+	size_t   param_count = this->get_param_count();
 	for (size_t i = 0; i < param_count; i++)
 	{
 		param_list += get_param_type(i)->get_type_name();
-		param_list += ",";
+		param_list += u8",";
 	}
 	param_list.pop_back();
-	return fmt::format("func({})->{}",
+	return fmt::format(u8"func({})->{}",
 	                   param_list,
 	                   get_return_type()->get_type_name());
 }

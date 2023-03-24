@@ -12,15 +12,16 @@ static void print_overload_set(Logger                   &logger,
 		if (auto func = dynamic_cast<ast::FuncDecl *>(overload))
 		{
 			logger.print(
-			    fmt::format("Overload [{}] defined here, typed "
-			                "`{}`.",
-			                ovl_index,
-			                func->get_type_name()),
+			    fmt::format(
+			        u8"Overload [{}] defined here, typed "
+			        "`{}`.",
+			        ovl_index,
+			        func->get_type_name()),
 			    func->range());
 		}
 		else
 		{
-			logger << fmt::format("Overload [{}] typed `{}`.",
+			logger << fmt::format(u8"Overload [{}] typed `{}`.",
 			                      ovl_index,
 			                      overload->get_type_name());
 		}
@@ -28,14 +29,14 @@ static void print_overload_set(Logger                   &logger,
 	}
 }
 
-static void print_arg_types(
-    Logger &logger, const std::vector<StringU8> &types)
+static void print_arg_types(Logger                      &logger,
+                            const std::vector<StringU8> &types)
 {
 	int i = 0;
 	for (auto &&type : types)
 	{
 		logger << fmt::format(
-		    "Argument [{}] is typed `{}`", i, type);
+		    u8"Argument [{}] is typed `{}`", i, type);
 		i++;
 	}
 }
