@@ -15,5 +15,7 @@ int main()
 	catch (const protolang::Error &e)
 	{
 		e.print(compiler.logger());
+		return 1;
 	}
+	return 0;
 }

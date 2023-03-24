@@ -10,12 +10,17 @@ namespace protolang
 
 void Logger::print(const CodeRef &ref)
 {
-	if (ref.range == SrcRange{})
-		return;
 
 	// 输出第一行
 	if (!ref.comment.empty())
 		out << ref.comment.to_native() << "\n";
+
+	if (ref.range == SrcRange{})
+	{
+		out << "[No Source]\n";
+		return;
+	}
+
 	// 输出后续
 
 	auto start = ref.range.head;

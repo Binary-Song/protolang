@@ -59,15 +59,17 @@ void Compiler::compile()
 	program->codegen(g, success);
 	if (!success)
 		return;
-	g.module().print(llvm::outs(), nullptr);
+	// g.module().print(llvm::outs(), nullptr);
 	// 目标代码生成
 	auto obj_path = m_output_path_no_ext;
 	obj_path += ".o";
 	g.gen(obj_path);
-	std::cout << StringU8(obj_path).to_native() << std::endl;
+	std::cout << StringU8(obj_path).to_native() << "\n\n";
 	// 链接
 	auto linker = create_linker(LinkerType::COFF);
-	linker->link({obj_path}, m_output_path_no_ext.stem());
-	std::cout << StringU8(obj_path).to_native() << std::endl;
+
+	auto exe_path =
+	    linker->link({obj_path}, m_output_path_no_ext.stem());
+	std::cout << StringU8(exe_path).to_native() << std::endl;
 }
 } // namespace protolang

@@ -59,6 +59,7 @@ std::filesystem::path COFFLinker::link(
 	WaitForSingleObject(pi.hProcess, INFINITE);
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
+	return output;
 }
 
 COFFLinker::COFFLinker() = default;

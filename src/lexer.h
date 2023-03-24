@@ -12,9 +12,11 @@ public:
 	Lexer(SourceCode &code, Logger &logger)
 	    : logger(logger)
 	    , code(code)
+	    , code_str(code.str.as_str())
 	{
-		this->in(code.str.as_str()); // 基类方法：设置输入源
+		this->in(code_str);
 	}
+	std::string code_str;
 	SourceCode &code;
 	Logger     &logger;
 	Token       token;
