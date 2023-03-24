@@ -1,3 +1,4 @@
+#include <fmt/xchar.h>
 #include <utility>
 #include "ast.h"
 #include "entity_system.h"
@@ -31,6 +32,12 @@ IType *IdentTypeExpr::recompute_type()
 void IdentTypeExpr::validate_types()
 {
 	[[maybe_unused]] auto _ = get_type();
+}
+StringU8 IdentTypeExpr::dump_json()
+{
+	return fmt::format(
+	    R"({{"obj":"IdentTypeExpr","ident":{}}})"_u8v,
+	    m_ident.dump_json());
 }
 
 // === BinaryExpr ===
@@ -246,7 +253,7 @@ IType *IdentExpr::get_type()
 IType *IdentExpr::recompute_type()
 {
 	auto entity = env()->get(ident());
-	if(auto var = dynamic_cast<IVar*>(entity))
+	if (auto var = dynamic_cast<IVar *>(entity))
 	{
 		// 解决var a = 1 + a; 解析a类型时无限递归报错
 		check_forward_ref<true>(this->ident(), var);

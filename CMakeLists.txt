@@ -9,7 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(BUILD_TESTING "是否创建单元测试目标" OFF)
-
+option(PROTOLANG_USE_WCHAR
+        "在调用系统API时（写文件、输出等）使用是wchar_t还是char。在Windows上，wchar_t即utf16，char即ansi。在Linux等支持UTF-8的平台上一般不使用wchar_t"
+        OFF)
 
 # 包含CMake模块
 include(StandardFlags)
@@ -29,11 +31,19 @@ message("Found Reflex executable: ${REFLEX_EXECUTABLE_PATH}")
 find_package(LLVM REQUIRED)
 message("Found LLVM @ ${LLVM_CONFIG}")
 
+# fmt:
+set(FMT_INCLUDE
+        "${CMAKE_CURRENT_LIST_DIR}/src/3rdparty/fmt/include")
+set(FMT_SRC
+        "${CMAKE_CURRENT_LIST_DIR}/src/3rdparty/fmt/src/format.cc"
+        )
+
 # 创建target：Protolang
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/src/*.h")
 add_executable(Protolang
-        ${SOURCE_FILES})
+        ${SOURCE_FILES}
+        ${FMT_SRC})
 
 # 设置reflex输出目录
 set(REFLEX_OUTPUT_DIR "${PROJECT_BINARY_DIR}/src_generated")
@@ -60,11 +70,28 @@ target_include_directories(lexer PUBLIC "${REFLEX_OUTPUT_DIR}" "${REFLEX_INCLUDE
 
 # link
 set_standard_flags(Protolang)
-target_include_directories(Protolang PUBLIC ${LLVM_INCLUDE_DIRS})
+target_include_directories(Protolang PUBLIC
+        ${LLVM_INCLUDE_DIRS}
+        "src/"
+        ${FMT_INCLUDE}
+        )
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
 llvm_map_components_to_libnames(llvm_libs core irreader x86codegen x86asmparser)
 target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
+
+# add defs
+set(DEFS "")
+if (MSVC)
+    list(APPEND DEFS "PROTOLANG_HOST_MSVC")
+endif ()
+if(PROTOLANG_USE_WCHAR)
+    list(APPEND DEFS "PROTOLANG_USE_WCHAR")
+
+    endif()
+# set defs
+target_compile_definitions(Protolang PUBLIC "${DEFS}")
+
 
 option(BUILD_DOC "Generate documentation" FALSE)
 if (BUILD_DOC)
@@ -72,6 +99,9 @@ if (BUILD_DOC)
     add_doc()
 endif ()
 
+# play
+add_executable(Playground "./test/playground.cpp" ${FMT_SRC})
+target_include_directories(Playground PUBLIC ${FMT_INCLUDE} src)
 # Google test
 #set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 #add_subdirectory("3rdparty/googletest-release-1.12.1")

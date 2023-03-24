@@ -1,7 +1,8 @@
-#ifdef _WIN32
+#ifdef PROTOLANG_HOST_MSVC
 #include "encoding/win/encoding_win.h"
-
+// WINDOWS include 放在后面
 #include <Windows.h>
+
 namespace protolang
 {
 // Convert a wide Unicode string to an UTF8 string
@@ -78,18 +79,27 @@ static std::wstring ansi2unicode(const std::string &str)
 	return wstrTo;
 }
 
-std::string to_narrow_win(const u8str &s)
+StringNative to_native(const StringU8 &s)
 {
 	auto u16 = utf8_decode(s);
-	auto uni = unicode2ansi(u16);
-	return uni;
+#ifdef PROTOLANG_USE_WCHAR
+	return u16;
+#else
+	auto ansi = unicode2ansi(u16);
+	return ansi;
+#endif
 }
 
-u8str to_u8str_win(const std::string &ansi)
+StringU8 to_u8(const StringNative &s)
 {
-	auto uni = ansi2unicode(ansi);
-	auto u8  = utf8_encode(uni);
+#ifdef PROTOLANG_USE_WCHAR
+	auto u8 = utf8_encode(s);
 	return u8;
+#else
+	auto u16 = ansi2unicode(s);
+	auto u8  = utf8_encode(u16);
+	return u8;
+#endif
 }
 
 } // namespace protolang

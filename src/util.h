@@ -33,11 +33,11 @@ std::unique_ptr<Derived> dyn_cast_uptr_force(
 struct IJsonDumper
 {
 	virtual ~IJsonDumper()          = default;
-	virtual u8str dump_json() = 0;
+	virtual StringU8 dump_json() = 0;
 };
 
 template <typename T>
-u8str dump_json_for_vector_of_ptr(
+StringU8 dump_json_for_vector_of_ptr(
     const std::vector<T> &data)
 {
 	u8str json = "[";

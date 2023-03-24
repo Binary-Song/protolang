@@ -1,5 +1,4 @@
 #pragma once
-#ifdef _WIN32
 #include "encoding.h"
 #include "linker.h"
 
@@ -14,4 +13,3 @@ public:
 	          const u8str              &output) const override;
 };
 } // namespace protolang
-#endif

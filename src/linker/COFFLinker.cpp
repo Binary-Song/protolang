@@ -1,4 +1,3 @@
-#ifdef _WIN32
 #include "COFFLinker.h"
 
 #include <cstdlib>
@@ -63,4 +62,3 @@ void COFFLinker::link(const std::vector<u8str> &inputs,
 
 COFFLinker::COFFLinker() = default;
 } // namespace protolang
-#endif

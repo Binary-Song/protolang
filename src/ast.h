@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 #include "cache.h"
-#include "encoding/encoding.h"
+#include "encoding.h"
 #include "entity_system.h"
 #include "ident.h"
 #include "token.h"
@@ -59,12 +59,7 @@ public:
 	explicit IdentTypeExpr(Env *env, Ident ident);
 	Ident ident() const { return m_ident; }
 	// 实现基类成员
-	u8str dump_json() override
-	{
-		return to_u8str(std::format(
-		    R"({{"obj":"IdentTypeExpr","ident":{}}})",
-		    to_narrow(m_ident.dump_json())));
-	}
+	StringU8 dump_json() override;
 	SrcRange range() const override { return m_ident.range; }
 	Env     *env() const override { return m_env; }
 	IType   *get_type() override;
@@ -127,7 +122,7 @@ public:
 	u8str  dump_json() override
 	{
 		return std::format(
-		    R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
+		    u8R"({{"obj":"BinaryExpr","op":{},"lhs":{},"rhs":{}}})",
 		    m_op.dump_json(),
 		    m_left->dump_json(),
 		    m_right->dump_json());
