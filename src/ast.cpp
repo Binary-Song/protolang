@@ -1,12 +1,12 @@
 #include <fmt/xchar.h>
 #include <utility>
 #include "ast.h"
+#include "builtin.h"
 #include "encoding.h"
 #include "entity_system.h"
 #include "env.h"
 #include "log.h"
 #include "logger.h"
-
 namespace protolang::ast
 {
 
@@ -30,10 +30,6 @@ IType *IdentTypeExpr::recompute_type()
 	return this->env()->get<IType>(ident());
 }
 
-void IdentTypeExpr::validate_types()
-{
-	[[maybe_unused]] auto _ = get_type();
-}
 StringU8 IdentTypeExpr::dump_json()
 {
 	return fmt::format(
@@ -270,6 +266,13 @@ IType *LiteralExpr::recompute_type()
 		return root_env()->get<IType>(
 		    Ident(u8"double", m_token.range()));
 	}
+	else if (m_token.type == Token::Type::Keyword &&
+	         (m_token.str_data == u8"false" ||
+	          m_token.str_data == u8"true"))
+	{
+		return root_env()->get_bool();
+	}
+
 	assert(false); // 没有这种literal
 	return nullptr;
 }
@@ -318,9 +321,48 @@ StringU8 IdentExpr::dump_json()
 {
 	return fmt::format(u8"\"{}\"", m_ident.name);
 }
-
-// === Block ===
-
+StringU8 ast::ExprStmt::dump_json()
+{
+	return fmt::format(u8R"({{"obj":"ExprStmt","expr":{}}})",
+	                   m_expr->dump_json());
+}
+StringU8 ast::ReturnStmt::dump_json()
+{
+	return fmt::format(u8R"({{"obj":"ReturnStmt","expr":{}}})",
+	                   m_expr->dump_json());
+}
+void ast::ReturnStmt::validate_types(IType *return_type)
+{
+	if (!return_type->can_accept(this->get_expr()->get_type()))
+	{
+		ErrorReturnTypeMismatch e;
+		e.expected = return_type->get_type_name();
+		e.actual = this->get_expr()->get_type()->get_type_name();
+		e.return_range = this->range();
+		throw std::move(e);
+	}
+}
+void ast::ReturnVoidStmt::validate_types(IType *return_type)
+{
+	auto void_type = env()->get_void();
+	if (!return_type->can_accept(void_type))
+	{
+		ErrorReturnTypeMismatch e;
+		e.expected = return_type->get_type_name();
+		e.actual =
+		    dyn_cast_force<IType *>(void_type)->get_type_name();
+		e.return_range = this->range();
+		throw std::move(e);
+	}
+}
+StringU8 ast::FuncDecl::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
+	    m_ident.dump_json(),
+	    m_return_type->dump_json(),
+	    m_body->dump_json());
+}
 void VarDecl::validate_types()
 {
 	assert(m_init || m_type);
@@ -365,7 +407,16 @@ FuncDecl::FuncDecl(Env                         *env,
     , m_return_type(std::move(return_type))
     , m_body(std::move(body))
 {}
-
+void FuncDecl::validate_types()
+{
+	// todo: params 如果有默认值，可能还得check一下
+	for (auto &&p : m_params)
+	{
+		p->validate_types();
+	}
+	m_return_type->validate_types();
+	m_body->validate_types(m_return_type->get_type());
+}
 StructDecl::StructDecl(Env             *env,
                        const SrcRange  &range,
                        Ident            ident,
@@ -390,6 +441,10 @@ StringU8 StructDecl::get_type_name()
 {
 	return m_ident.name;
 }
+void StructDecl::validate_types()
+{
+	m_body->validate_types();
+}
 
 Env *Ast::root_env() const
 {
@@ -403,6 +458,7 @@ Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
 {}
 void Program::validate_types(bool &success)
 {
+	success = true;
 	try
 	{
 		for (auto &&decl : m_decls)
@@ -415,12 +471,8 @@ void Program::validate_types(bool &success)
 		e.print(logger);
 		success = false;
 	}
-	success = true;
 }
-void Program::validate_types()
-{
-	assert(false);
-}
+
 void Program::codegen(CodeGenerator &g, bool &success)
 {
 	try
@@ -454,16 +506,39 @@ void Program::codegen(CodeGenerator &)
 }
 StringU8 Program::dump_json()
 {
-	return fmt::format(
-		u8R"({{"obj":"Program","decls":[{}]}})",
-		dump_json_for_vector_of_ptr(m_decls));
+	return fmt::format(u8R"({{"obj":"Program","decls":[{}]}})",
+	                   dump_json_for_vector_of_ptr(m_decls));
 }
+IfStmt::IfStmt(Env               *mEnv,
+               Token              if_token,
+               uptr<Expr>         mCondition,
+               uptr<CompoundStmt> mThen)
+    : m_env(mEnv)
+    , m_if_token(std::move(if_token))
+    , m_condition(std::move(mCondition))
+    , m_then(std::move(mThen))
+{}
 
-// 表达式默认的语义检查方法是计算一次类型
-
-void Expr::validate_types()
+void IfStmt::validate_types(IType *return_type)
 {
-	[[maybe_unused]] auto _ = get_type();
+	auto bool_type = env()->get_bool();
+	if (!bool_type->can_accept(m_condition->get_type()))
+	{
+		ErrorConditionMustBeBool e;
+		e.condition   = m_condition->range();
+		e.actual_type = m_condition->get_type()->get_type_name();
+		throw std::move(e);
+	}
+	m_then->validate_types(return_type);
+	if (m_else.has_value())
+		m_else->get()->validate_types(return_type);
+}
+StringU8 IfStmt::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"IfStmt","cond":{},"then":{}}})",
+	    m_condition->dump_json(),
+	    m_then->dump_json());
 }
 
 } // namespace protolang::ast

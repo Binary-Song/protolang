@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "builtin.h"
 #include "entity_system.h"
 #include "log.h"
 #include "logger.h"
@@ -52,6 +53,16 @@ public:
 		auto env_ptr = env.get();
 		parent->m_subenvs.push_back(std::move(env));
 		return env_ptr;
+	}
+
+	const Env *get_root() const
+	{
+		auto e = this;
+		while (e->m_parent)
+		{
+			e = e->m_parent;
+		}
+		return e;
 	}
 
 	StringU8 get_qualifier() const
@@ -118,15 +129,33 @@ public:
 
 	IEntity *get_keyword_entity(const StringU8 &keyword) const
 	{
-		if (m_keyword_symbol_table.contains(keyword))
+		auto &&symb_tbl = get_root()->m_keyword_symbol_table;
+		if (symb_tbl.contains(keyword))
 		{
-			return m_keyword_symbol_table.at(keyword);
-		}
-		if (this->m_parent)
-		{
-			return m_parent->get_keyword_entity(keyword);
+			return symb_tbl.at(keyword);
 		}
 		return nullptr;
+	}
+
+	template <std::derived_from<IEntity> T>
+	T *get_keyword_entity(const StringU8 &keyword) const
+	{
+		auto entity =
+		    dyn_cast_force<T *>(get_keyword_entity(keyword));
+		assert(entity);
+		return entity;
+	}
+
+	IType *get_void() const
+	{
+		return dyn_cast_force<IType *>(
+		    get_keyword_entity("void"));
+	}
+
+	IType *get_bool() const
+	{
+		return dyn_cast_force<IType *>(
+		    get_keyword_entity("bool"));
 	}
 
 	IOp *overload_resolution(

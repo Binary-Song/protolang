@@ -57,9 +57,9 @@ void Compiler::compile()
 	if (!success)
 		return;
 	program->codegen(g, success);
+	g.module().print(llvm::outs(), nullptr);
 	if (!success)
 		return;
-	// g.module().print(llvm::outs(), nullptr);
 	// 目标代码生成
 	auto obj_path = m_output_path_no_ext;
 	obj_path += ".o";

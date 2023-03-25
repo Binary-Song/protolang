@@ -17,7 +17,7 @@ void Logger::print(const CodeRef &ref)
 
 	if (ref.range == SrcRange{})
 	{
-		out << "[No Source]\n";
+		out << "[Source Missing]\n";
 		return;
 	}
 

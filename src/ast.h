@@ -2,6 +2,8 @@
 #include <cassert>
 #include <fmt/xchar.h>
 #include <functional>
+#include <llvm/IR/BasicBlock.h>
+#include <optional>
 #include <utility>
 #include <vector>
 #include "cache.h"
@@ -10,7 +12,6 @@
 #include "ident.h"
 #include "token.h"
 #include "util.h"
-
 namespace llvm
 {
 class Value;
@@ -25,7 +26,28 @@ struct CodeGenerator;
 namespace ast
 {
 
-struct Ast : virtual IJsonDumper, ICodeGen
+struct IBlockContent
+{
+	virtual ~IBlockContent() = default;
+};
+
+struct ICompoundStmtContent : IBlockContent,
+                              virtual IJsonDumper,
+                              virtual ICodeGen
+{
+	virtual void validate_types(IType *return_type) = 0;
+};
+
+struct IStructContent : IBlockContent,
+                        virtual IJsonDumper,
+                        virtual ICodeGen
+{
+	virtual void validate_types() = 0;
+};
+
+////////////////////////
+
+struct Ast : virtual IJsonDumper, virtual ICodeGen
 {
 	// 函数
 public:
@@ -33,16 +55,17 @@ public:
 
 	// 虚函数
 public:
-	~Ast() override                   = default;
-	virtual SrcRange range() const    = 0;
-	virtual Env     *env() const      = 0;
-	virtual void     validate_types() = 0;
+	~Ast() override                = default;
+	virtual SrcRange range() const = 0;
+	virtual Env     *env() const   = 0;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
 struct TypeExpr : Ast
 {
 	virtual IType *get_type() = 0;
+
+	void validate_types() { get_type(); }
 };
 
 // 类型标识符
@@ -63,7 +86,6 @@ public:
 	SrcRange range() const override { return m_ident.range; }
 	Env     *env() const override { return m_env; }
 	IType   *get_type() override;
-	void     validate_types() override;
 	void     codegen(CodeGenerator &) override {}
 
 private:
@@ -86,7 +108,7 @@ struct Expr : Ast, ITyped
 		return ValueCat::Pending;
 	}
 	// 表达式默认的语义检查方法是计算一次类型
-	void validate_types() override;
+	void validate_types() { get_type(); }
 	void codegen(CodeGenerator &g) override { codegen_value(g); }
 	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
 };
@@ -295,9 +317,11 @@ private:
 };
 
 struct Decl : virtual Ast
-{};
+{
+	virtual void validate_types() = 0;
+};
 
-struct VarDecl : Decl, IVar
+struct VarDecl : Decl, IVar, ICompoundStmtContent
 {
 private:
 	Ident             m_ident;
@@ -326,7 +350,11 @@ public:
 	{
 		return m_type ? m_type->env() : m_init->env();
 	}
-	void              validate_types() override;
+	void validate_types() override;
+	void validate_types(IType *) override
+	{
+		return validate_types();
+	}
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -365,10 +393,7 @@ public:
 		return m_ident.range + m_type->range();
 	}
 	Env *env() const override { return m_env; }
-	void validate_types() override
-	{
-		this->m_type->validate_types();
-	}
+	void validate_types() override { this->m_type->get_type(); }
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -383,8 +408,11 @@ public:
 	}
 };
 
-struct Stmt : virtual Ast
-{};
+struct Stmt : virtual Ast, ICompoundStmtContent
+{
+	/// 如果语句返回，则返回值类型由return_type给出
+	virtual void validate_types(IType *return_type) = 0;
+};
 
 struct ExprStmt : Stmt
 {
@@ -401,26 +429,21 @@ public:
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_range; }
 	Env     *env() const override { return m_expr->env(); }
-	void validate_types() override { m_expr->validate_types(); }
+	void validate_types(IType *) override { m_expr->get_type(); }
 	void codegen(CodeGenerator &g) override;
 };
 
-struct IBlock : virtual Ast
+struct IScope : virtual Ast
 {
-	~IBlock() override                              = default;
-	virtual void   set_outer_env(Env *env)          = 0;
-	virtual Env   *get_outer_env() const            = 0;
-	virtual void   set_inner_env(Env *env)          = 0;
-	virtual Env   *get_inner_env() const            = 0;
-	virtual void   set_range(const SrcRange &range) = 0;
-	virtual void   add_content(uptr<Ast>)           = 0;
-	virtual Ast   *get_content(size_t i)            = 0;
-	virtual size_t get_content_size() const         = 0;
+	virtual void set_outer_env(Env *env) = 0;
+	virtual Env *get_outer_env() const   = 0;
+	virtual void set_inner_env(Env *env) = 0;
+	virtual Env *get_inner_env() const   = 0;
 
-	template <std::derived_from<IBlock> BlockType>
-	static uptr<BlockType> create_with_inner_env(Env *outer_env)
+	template <std::derived_from<IScope> ScopeType>
+	static uptr<ScopeType> nest(Env *outer_env)
 	{
-		auto ptr = make_uptr(new BlockType());
+		auto ptr = make_uptr(new ScopeType());
 		ptr->set_outer_env(outer_env);
 		auto inner_env = create_env(
 		    ptr->get_outer_env(), ptr->get_outer_env()->logger);
@@ -429,13 +452,23 @@ struct IBlock : virtual Ast
 	}
 };
 
-struct CompoundStmt : Stmt, IBlock
+template <std::derived_from<IBlockContent> TContent>
+struct IBlock : IScope
+{
+	virtual void      set_range(const SrcRange &range) = 0;
+	virtual void      add_content(uptr<TContent>)      = 0;
+	virtual TContent *get_content(size_t i)            = 0;
+	virtual size_t    get_content_size() const         = 0;
+};
+
+struct CompoundStmt : Stmt, IBlock<ICompoundStmtContent>
 {
 private:
-	SrcRange               m_range;
-	Env                   *m_inner_env = nullptr;
-	Env                   *m_outer_env = nullptr;
-	std::vector<uptr<Ast>> m_content;
+	SrcRange m_range;
+	Env     *m_inner_env = nullptr;
+	Env     *m_outer_env = nullptr;
+
+	std::vector<uptr<ICompoundStmtContent>> m_content;
 
 public:
 	CompoundStmt() = default;
@@ -452,11 +485,11 @@ public:
 	{
 		m_range = range;
 	}
-	void add_content(uptr<Ast> content) override
+	void add_content(uptr<ICompoundStmtContent> content) override
 	{
 		m_content.push_back(std::move(content));
 	}
-	Ast *get_content(size_t i) override
+	ICompoundStmtContent *get_content(size_t i) override
 	{
 		return m_content[i].get();
 	}
@@ -464,70 +497,100 @@ public:
 	{
 		return m_content.size();
 	}
-
 	StringU8 dump_json() override
 	{
 		return dump_json_for_vector_of_ptr(m_content);
 	}
-	void validate_types() override
+	void validate_types(IType *return_type) override
 	{
 		for (auto &&elem : m_content)
 		{
-			elem->validate_types();
+			elem->validate_types(return_type);
 		}
 	}
-	void validate_types(IType *return_type);
 	void codegen(CodeGenerator &g) override;
 };
 
-struct ReturnStmt : ExprStmt
-{
-public:
-	using ExprStmt::ExprStmt;
-	void     codegen(CodeGenerator &g) override;
-	StringU8 dump_json() override
-	{
-		return fmt::format(
-		    u8R"({{"obj":"ReturnStmt","expr":{}}})",
-		    get_expr()->dump_json());
-	}
-	virtual void validate_types(IType *return_type);
-
-private:
-	void validate_types() override
-	{
-		throw ExceptionNotImplemented();
-	}
-};
-
-struct ReturnVoidStmt : ReturnStmt
+struct ReturnStmt : Stmt
 {
 private:
-	Env *m_env;
+	SrcRange   m_range;
+	uptr<Expr> m_expr;
 
 public:
-	explicit ReturnVoidStmt(const SrcRange &r, Env *env)
-	    : ReturnStmt(r, nullptr)
-	    , m_env(env)
+public:
+	explicit ReturnStmt(const SrcRange &range, uptr<Expr> expr)
+	    : m_expr(std::move(expr))
+	    , m_range(range)
 	{}
-	Env     *env() const override { return m_env; }
-	void     validate_types(IType *return_type) override;
+	Expr    *get_expr() { return m_expr.get(); }
+	StringU8 dump_json() override;
+	SrcRange range() const override { return m_range; }
+	Env     *env() const override { return m_expr->env(); }
 	void     codegen(CodeGenerator &g) override;
+	void     validate_types(IType *return_type) override;
+};
+struct ReturnVoidStmt : Stmt
+{
+private:
+	Env     *m_env;
+	SrcRange m_range;
+
+public:
+	explicit ReturnVoidStmt(const SrcRange &range, Env *env)
+	    : m_env(env)
+	    , m_range(range)
+	{}
 	StringU8 dump_json() override
 	{
 		return u8R"({{"obj":"ReturnVoidStmt"}})";
 	}
-
-private:
-	void validate_types() override {}
+	SrcRange range() const override { return m_range; }
+	Env     *env() const override { return m_env; }
+	void     codegen(CodeGenerator &g) override;
+	void     validate_types(IType *return_type) override;
 };
 
 struct IfStmt : Stmt
 {
-	SrcRange           m_range;
-	uptr<Expr>         m_cond;
-	uptr<CompoundStmt> m_then;
-	uptr<CompoundStmt> m_else;
+protected:
+	Env                              *m_env;
+	Token                             m_if_token;
+	uptr<Expr>                        m_condition;
+	uptr<CompoundStmt>                m_then;
+	std::optional<uptr<CompoundStmt>> m_else;
+
+public:
+	IfStmt(Env               *env,
+	       Token              if_token,
+	       uptr<Expr>         cond,
+	       uptr<CompoundStmt> then);
+
+	void set_else_clause(uptr<CompoundStmt> else_clause)
+	{
+		m_else = std::move(else_clause);
+	}
+
+	SrcRange range() const override
+	{
+		if (m_else.has_value())
+		{
+			return m_if_token.range() + m_else.value()->range();
+		}
+		return m_if_token.range() + m_then->range();
+	}
+	Env     *env() const override { return m_env; }
+	void     validate_types(IType *return_type) override;
+	void     codegen(CodeGenerator &g) override;
+	StringU8 dump_json() override;
+
+private:
+	void generate_branch(
+	    CodeGenerator                 &g,
+	    llvm::Function                *func,
+	    llvm::BasicBlock              *branch_blk,
+	    std::unique_ptr<CompoundStmt> &branch_ast,
+	    llvm::BasicBlock              *merge_blk);
 };
 
 struct FuncDecl : Decl, IFunc
@@ -569,17 +632,8 @@ public:
 		return m_params[i]->get_type();
 	}
 	ICodeGen *get_body() override { return m_body.get(); }
-
-	void validate_types() override
-	{ // todo: params 如果有默认值，可能还得check一下
-		for (auto &&p : m_params)
-		{
-			p->validate_types();
-		}
-		m_return_type->validate_types();
-		m_body->validate_types(m_return_type->get_type());
-	}
-	StringU8 get_mangled_name() const override
+	void      validate_types() override;
+	StringU8  get_mangled_name() const override
 	{
 		return m_mangled_name;
 	}
@@ -603,8 +657,18 @@ public:
 	                      CodeGenerator             &g) override;
 };
 
-struct StructBody : IBlock
-{};
+struct StructBody : IBlock<IStructContent>
+{
+	std::vector<uptr<IStructContent>> m_content;
+
+	void validate_types()
+	{
+		for (auto &&elem : m_content)
+		{
+			elem->validate_types();
+		}
+	}
+};
 
 struct StructDecl : Decl, IType
 {
@@ -632,7 +696,7 @@ public:
 	bool     can_accept(IType *iType) override;
 	bool     equal(IType *iType) override;
 	StringU8 get_type_name() override;
-	void validate_types() override { m_body->validate_types(); }
+	void     validate_types() override;
 };
 
 struct Program : Ast
@@ -658,7 +722,6 @@ public:
 	void codegen(CodeGenerator &g, bool &success);
 	void codegen(CodeGenerator &g) override;
 
-	void validate_types() override;
 	void validate_types(bool &success);
 };
 } // namespace ast

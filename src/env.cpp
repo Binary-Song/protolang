@@ -101,6 +101,7 @@ IOp *Env::overload_resolution(
 	if (fits.empty())
 	{
 		ErrorNoMatchingOverload e;
+		e.call = func_ident.range;
 		e.overloads = get_ops_from_overload_set(overloads);
 		e.arg_types = arg_type_names(arg_types);
 		throw std::move(e);
@@ -226,15 +227,6 @@ StringU8 Env::dump_json()
 void Env::add_built_in_facility()
 {
 	protolang::add_builtins(this);
-	//	// 神说：
-	//	// 要有int和float！
-	//	add("int", BuiltInInt::get_instance());
-	//	add("float", BuiltInFloat::get_instance());
-	//	add("double", BuiltInDouble::get_instance());
-	//	// 要有加法
-	//	add("+", make_uptr(new BuiltInAdd<BuiltInInt>()));
-	//	add("+", make_uptr(new BuiltInAdd<BuiltInDouble>()));
-	//	add("+", make_uptr(new BuiltInAdd<BuiltInFloat>()));
 }
 template <bool do_throw>
 bool check_forward_ref(const Ident &ref, IEntity *ent)

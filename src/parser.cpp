@@ -56,7 +56,7 @@ uptr<ast::ExprStmt> Parser::expression_statement()
 
 	return make_uptr(new ast::ExprStmt(range, std::move(expr)));
 }
-uptr<ast::ReturnStmt> Parser::return_statement()
+uptr<ast::Stmt> Parser::return_statement()
 {
 	auto return_kw   = eat_keyword_or_panic(Keyword::KW_RETURN);
 	bool return_void = is_curr_of_type(Token::Type::SemiColumn);
@@ -68,13 +68,14 @@ uptr<ast::ReturnStmt> Parser::return_statement()
 	if (expr)
 		return make_uptr(
 		    new ast::ReturnStmt(range, std::move(expr)));
-	return uptr<ast::ReturnStmt>(
+	return make_uptr( //
 	    new ast::ReturnVoidStmt(range, curr_env));
 }
 
+template <std::derived_from<ast::IBlockContent> TContent>
 void Parser::parse_block(
-    ast::IBlock                       *block,
-    std::function<void(ast::IBlock *)> elem_handler)
+    ast::IBlock<TContent>                       *block,
+    std::function<void(ast::IBlock<TContent> *)> elem_handler)
 {
 	EnvGuard guard(curr_env, block->get_inner_env());
 	auto     left_brace =
@@ -92,17 +93,38 @@ void Parser::parse_block(
 uptr<ast::CompoundStmt> Parser::compound_statement()
 {
 	auto compound =
-	    ast::IBlock::create_with_inner_env<ast::CompoundStmt>(
-	        curr_env);
-	parse_block(compound.get(),
-	            [this](ast::IBlock *b)
-	            {
-		            if (is_curr_keyword(Keyword::KW_VAR))
-			            b->add_content(var_decl());
-		            else
-			            b->add_content(statement());
-	            });
+	    ast::IScope::nest<ast::CompoundStmt>(curr_env);
+
+	parse_block<ast::ICompoundStmtContent>(
+	    compound.get(),
+	    [this](ast::IBlock<ast::ICompoundStmtContent> *b)
+	    {
+		    if (is_curr_keyword(Keyword::KW_VAR))
+			    b->add_content(var_decl());
+		    else
+			    b->add_content(statement());
+	    });
 	return compound;
+}
+
+uptr<ast::IfStmt> Parser::if_statement()
+{
+	auto if_kw   = eat_keyword_or_panic(Keyword::KW_IF);
+	auto cond    = expression();
+	auto then_br = compound_statement();
+
+	auto if_stmt = make_uptr(new ast::IfStmt(
+	    curr_env,
+	    std::move(if_kw),
+	    std::move(cond),
+	    std::move(then_br))); // 小心！之后用不了move的东西
+
+	if (eat_if_is_given_keyword(KW_ELSE))
+	{
+		auto else_br = compound_statement();
+		if_stmt->set_else_clause(std::move(else_br));
+	}
+	return if_stmt;
 }
 
 uptr<ast::StructBody> Parser::struct_body()
@@ -293,6 +315,16 @@ uptr<ast::Expr> Parser::primary()
 		return uptr<ast::Expr>(
 		    new ast::LiteralExpr(curr_env, prev()));
 	}
+	if (eat_if_is_given_keyword(KW_FALSE))
+	{
+		return uptr<ast::Expr>(
+		    new ast::LiteralExpr(curr_env, prev()));
+	}
+	if (eat_if_is_given_keyword(KW_TRUE))
+	{
+		return uptr<ast::Expr>(
+		    new ast::LiteralExpr(curr_env, prev()));
+	}
 	if (eat_if_is_given_type({Token::Type::LeftParen}))
 	{
 		Token           left_paren = prev();
@@ -354,10 +386,10 @@ uptr<ast::Decl> Parser::declaration()
 uptr<ast::FuncDecl> Parser::func_decl()
 {
 	// func foo(arg1: int, arg2: int) -> int { ... }
-	Token       func_kw_token   = eat_keyword_or_panic(KW_FUNC);
-	Token       func_name_token = eat_ident_or_panic();
+	Token    func_kw_token   = eat_keyword_or_panic(KW_FUNC);
+	Token    func_name_token = eat_ident_or_panic();
 	StringU8 func_name       = func_name_token.str_data;
-	Ident       func_ident{func_name_token.str_data,
+	Ident    func_ident{func_name_token.str_data,
                      func_name_token.range()};
 
 	eat_given_type_or_panic(Token::Type::LeftParen, "(");
@@ -450,6 +482,10 @@ uptr<ast::Stmt> Parser::statement()
 	else if (is_curr_keyword(KW_RETURN))
 	{
 		return return_statement();
+	}
+	else if (is_curr_keyword(KW_IF))
+	{
+		return if_statement();
 	}
 	else
 	{

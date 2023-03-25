@@ -11,7 +11,7 @@
 #include "token.h"
 /*
 expression     → assignment
-assignment    -> equality "=" assignment
+assignment     → equality "=" assignment
                | equality
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
@@ -79,9 +79,10 @@ private:
 	uptr<ast::FuncDecl>     func_decl();
 	uptr<ast::StructDecl>   struct_decl();
 	uptr<ast::Stmt>         statement();
-	uptr<ast::ReturnStmt>   return_statement();
+	uptr<ast::Stmt>         return_statement();
 	uptr<ast::ExprStmt>     expression_statement();
 	uptr<ast::CompoundStmt> compound_statement();
+	uptr<ast::IfStmt>       if_statement();
 	uptr<ast::StructBody>   struct_body();
 	uptr<ast::Expr>         expression();
 	uptr<ast::Expr>         assignment();
@@ -107,9 +108,10 @@ private:
 	// 解析一个块，T为具体是什么块，elem_handler用来解析块中的一条语句
 	// (不同的块对块中的语句可能有不同的要求)
 
-	void parse_block(
-	    ast::IBlock                       *block,
-	    std::function<void(ast::IBlock *)> elem_handler);
+	template <std::derived_from<ast::IBlockContent> TContent>
+	void parse_block(ast::IBlock<TContent> *block,
+	                 std::function<void(ast::IBlock<TContent> *)>
+	                     elem_handler);
 
 	bool is_curr_eof() const
 	{
@@ -209,7 +211,6 @@ private:
 		    Token::Type::Id, expected, false);
 	}
 
-	/// 看看curr是不是指定操作符之一。
 	bool eat_if_is_given_op(
 	    std::initializer_list<const char *> ops)
 	{
@@ -220,13 +221,21 @@ private:
 				    return false;
 			    for (auto op : ops)
 			    {
-				    if (token.str_data == to_u8(op))
+				    if (token.str_data == as_u8(op))
 					    return true;
 			    }
 			    return false;
 		    });
 	}
-
+	bool eat_if_is_given_keyword(const Keyword &kw)
+	{
+		return eat_if(
+		    [kw](const Token &token)
+		    {
+			    return (token.type == Token::Type::Keyword) &&
+			           (token.int_data == kw);
+		    });
+	}
 	bool eat_if_is_given_type(
 	    std::initializer_list<Token::Type> types)
 	{

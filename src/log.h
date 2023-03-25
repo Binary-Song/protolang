@@ -299,7 +299,7 @@ struct ErrorZeroPrefixNotAllowed : Error
 	SrcRange range;
 	void     print(Logger &logger) const override
 	{
-		logger.print("Numeric literals starting with `0`'s are "
+		logger.print("Numeric literals starting with `0` are "
 		             "not allowed. "
 		             "Use the `0x` prefix to represent octals.",
 		             range);
@@ -351,6 +351,20 @@ struct ErrorIncompleteBlockInFunc : Error
 		        "Possible cause: not all code paths return.",
 		        name),
 		    defined_here);
+	}
+};
+
+struct ErrorConditionMustBeBool : Error
+{
+	SrcRange condition;
+	StringU8 actual_type;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(fmt::format(u8"Condition must be a `bool` "
+		                         u8"value. Found `{}`.",
+		                         actual_type),
+		             condition);
 	}
 };
 

@@ -8,6 +8,8 @@
 #include "env.h"
 #include "exceptions.h"
 #include "log.h"
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+
 namespace protolang
 {
 
@@ -74,6 +76,22 @@ llvm::Value *LiteralExpr::codegen_value(CodeGenerator &g)
 		return llvm::ConstantInt::get(
 		    g.context(),
 		    llvm::APInt(32, this->m_token.int_data));
+	else if (m_token.type == Token::Type::Keyword &&
+	         m_token.str_data == u8"false")
+	{
+		llvm::Type *boolType =
+		    llvm::Type::getInt1Ty(g.context());
+		llvm::Constant *v = llvm::ConstantInt::get(boolType, 0);
+		return v;
+	}
+	else if (m_token.type == Token::Type::Keyword &&
+	         m_token.str_data == u8"true")
+	{
+		llvm::Type *boolType =
+		    llvm::Type::getInt1Ty(g.context());
+		llvm::Constant *v = llvm::ConstantInt::get(boolType, 1);
+		return v;
+	}
 	else
 		throw ExceptionNotImplemented{};
 }
@@ -138,6 +156,7 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 	return func;
 }
 
+
 llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
@@ -165,9 +184,12 @@ llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 		this->get_param(i)->codegen_value(g, &arg);
 		i++;
 	}
+
+	// 生成实现
 	get_body()->codegen(g);
 
 	// 检查函数ok不ok
+	llvm::EliminateUnreachableBlocks(*func);
 	bool error = llvm::verifyFunction(*func);
 	if (error)
 	{
@@ -195,14 +217,7 @@ llvm::Value *ast::FuncDecl::gen_call(
 	}
 	return g.builder().CreateCall(func, args, "calltmp");
 }
-StringU8 ast::FuncDecl::dump_json()
-{
-	return fmt::format(
-	    u8R"({{"obj":"FuncDecl","ident":{},"return_type":{},"body":{}}})",
-	    m_ident.dump_json(),
-	    m_return_type->dump_json(),
-	    m_body->dump_json());
-}
+
 void ast::CompoundStmt::codegen(CodeGenerator &g)
 {
 	for (auto &&content : this->m_content)
@@ -210,30 +225,10 @@ void ast::CompoundStmt::codegen(CodeGenerator &g)
 		content->codegen(g);
 	}
 }
-void ast::CompoundStmt::validate_types(IType *return_type)
-{
-	for (auto &&elem : m_content)
-	{
-		if (auto return_stmt =
-		        dynamic_cast<ReturnStmt *>(elem.get()))
-		{
-			return_stmt->validate_types(return_type);
-		}
-		else
-		{
-			elem->validate_types();
-		}
-	}
-}
 
 void ast::ExprStmt::codegen(CodeGenerator &g)
 {
 	m_expr->codegen(g);
-}
-StringU8 ast::ExprStmt::dump_json()
-{
-	return fmt::format(u8R"({{"obj":"ExprStmt","expr":{}}})",
-	                   m_expr->dump_json());
 }
 
 void ast::ReturnStmt::codegen(CodeGenerator &g)
@@ -242,31 +237,6 @@ void ast::ReturnStmt::codegen(CodeGenerator &g)
 	g.builder().CreateRet(expr_val);
 }
 
-void ast::ReturnStmt::validate_types(IType *return_type)
-{
-	if (!return_type->can_accept(this->get_expr()->get_type()))
-	{
-		ErrorReturnTypeMismatch e;
-		e.expected = return_type->get_type_name();
-		e.actual = this->get_expr()->get_type()->get_type_name();
-		e.return_range = this->range();
-		throw std::move(e);
-	}
-}
-void ast::ReturnVoidStmt::validate_types(IType *return_type)
-{
-	auto void_type = env()->get_keyword_entity("void");
-	if (!return_type->can_accept(
-	        dyn_cast_force<IType *>(void_type)))
-	{
-		ErrorReturnTypeMismatch e;
-		e.expected = return_type->get_type_name();
-		e.actual =
-		    dyn_cast_force<IType *>(void_type)->get_type_name();
-		e.return_range = this->range();
-		throw std::move(e);
-	}
-}
 void ast::ReturnVoidStmt::codegen(CodeGenerator &g)
 {
 	g.builder().CreateRetVoid();
@@ -320,6 +290,62 @@ llvm::FunctionType *IFuncType::get_llvm_func_type(
 llvm::Type *IFuncType::get_llvm_type(CodeGenerator &g)
 {
 	return get_llvm_func_type(g);
+}
+
+void ast::IfStmt::codegen(CodeGenerator &g)
+{
+	auto bool_type     = env()->get_bool();
+	auto cond_val_raw  = this->m_condition->codegen_value(g);
+	auto cond_val_bool = bool_type->cast_implicit(
+	    g, cond_val_raw, m_condition->get_type());
+	cond_val_bool->setName("cond");
+
+	auto func = g.builder().GetInsertBlock()->getParent();
+
+	auto then_blk =
+	    llvm::BasicBlock::Create(g.context(), "then");
+	auto merge_blk =
+	    llvm::BasicBlock::Create(g.context(), "merge");
+
+	if (m_else.has_value())
+	{
+		auto else_blk =
+		    llvm::BasicBlock::Create(g.context(), "else");
+		g.builder().CreateCondBr(
+		    cond_val_bool, then_blk, else_blk);
+		this->generate_branch(
+		    g, func, then_blk, m_then, merge_blk);
+		this->generate_branch(
+		    g, func, else_blk, m_else.value(), merge_blk);
+	}
+	else
+	{
+		g.builder().CreateCondBr(
+		    cond_val_bool, then_blk, merge_blk);
+		this->generate_branch(
+		    g, func, then_blk, m_then, merge_blk);
+	}
+
+	func->insert(func->end(), merge_blk);
+	g.builder().SetInsertPoint(
+	    merge_blk); // 确保结束时插入点是merge块，见上
+}
+void ast::IfStmt::generate_branch(
+    CodeGenerator                 &g,
+    llvm::Function                *func,
+    llvm::BasicBlock              *branch_blk,
+    std::unique_ptr<CompoundStmt> &branch_ast,
+    llvm::BasicBlock              *merge_blk)
+{
+	func->insert(func->end(), branch_blk);
+	g.builder().SetInsertPoint(branch_blk);
+	branch_ast->codegen(g);
+	// 假设then里面还套if，那现在的插入点是then内部if的末尾merge块
+	// 如果以后还要往then插，就直接往then分支的末尾插了
+	branch_blk      = g.builder().GetInsertBlock();
+	auto terminator = branch_blk->getTerminator();
+	if (!terminator || !llvm::isa<llvm::ReturnInst>(terminator))
+		g.builder().CreateBr(merge_blk); // 无条件跳转
 }
 
 } // namespace protolang

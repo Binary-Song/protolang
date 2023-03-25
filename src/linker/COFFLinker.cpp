@@ -19,6 +19,7 @@ std::filesystem::path COFFLinker::link(
 	output += ".exe";
 
 	std::deque<StringU8> args = {
+	    u8R"(C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\lib\x64\msvcrt.lib)",
 	    u8"/OUT:" + StringU8(output),
 	    u8"/ENTRY:main",
 	};
@@ -35,6 +36,8 @@ std::filesystem::path COFFLinker::link(
 		command += arg;
 		command += u8"\" ";
 	}
+
+	std::cout << command.to_native() << "\n";
 
 	STARTUPINFO         si;
 	PROCESS_INFORMATION pi;
