@@ -1,3 +1,4 @@
+#include <fmt/xchar.h>
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/Verifier.h>
 #include "ast.h"
@@ -7,7 +8,6 @@
 #include "env.h"
 #include "exceptions.h"
 #include "log.h"
-#include <fmt/xchar.h>
 namespace protolang
 {
 
@@ -186,7 +186,7 @@ llvm::Value *ast::FuncDecl::gen_call(
     std::vector<llvm::Value *> args, CodeGenerator &g)
 {
 	auto mangled_name = get_mangled_name();
-	auto func         = g.module().getFunction(mangled_name.as_str());
+	auto func = g.module().getFunction(mangled_name.as_str());
 	if (!func || func->arg_size() != args.size())
 	{
 		ErrorMissingFunc e;
@@ -219,9 +219,6 @@ void ast::CompoundStmt::validate_types(IType *return_type)
 		{
 			return_stmt->validate_types(return_type);
 		}
-		else if (auto return_void_stmt =
-		             dynamic_cast<ReturnVoidStmt *>(elem.get()))
-		{}
 		else
 		{
 			elem->validate_types();

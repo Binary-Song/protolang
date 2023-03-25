@@ -522,6 +522,14 @@ private:
 	void validate_types() override {}
 };
 
+struct IfStmt : Stmt
+{
+	SrcRange           m_range;
+	uptr<Expr>         m_cond;
+	uptr<CompoundStmt> m_then;
+	uptr<CompoundStmt> m_else;
+};
+
 struct FuncDecl : Decl, IFunc
 {
 private:
