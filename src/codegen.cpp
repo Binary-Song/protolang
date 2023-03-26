@@ -3,7 +3,6 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include "ast.h"
-#include "builtin.h"
 #include "code_generator.h"
 #include "entity_system.h"
 #include "env.h"
@@ -64,9 +63,7 @@ static llvm::AllocaInst *alloca_for_local_var(
 	    .CreateAlloca(type, nullptr, name);
 }
 
-namespace ast
-{
-llvm::Value *LiteralExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::LiteralExpr::codegen_value(CodeGenerator &g)
 {
 	// 生成常数
 	if (m_token.type == Token::Type::Fp)
@@ -95,7 +92,7 @@ llvm::Value *LiteralExpr::codegen_value(CodeGenerator &g)
 	else
 		throw ExceptionNotImplemented{};
 }
-llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::IdentExpr::codegen_value(CodeGenerator &g)
 {
 	// 变量：引用变量的值，未定义就报错
 	// 函数：重载决策后直接得到IFunc了，不用我来生成，
@@ -110,7 +107,6 @@ llvm::Value *IdentExpr::codegen_value(CodeGenerator &g)
 	return load_inst;
 }
 
-} // namespace ast
 llvm::Value *IVar::codegen_value(CodeGenerator &g)
 {
 	return codegen_value(g, this->get_init()->codegen_value(g));
@@ -118,7 +114,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g)
 llvm::Value *IVar::codegen_value(CodeGenerator &g,
                                  llvm::Value   *init)
 {
-	// 这个 是局部变量 
+	// 这个 是局部变量
 	assert(this->get_stack_addr() == nullptr);
 
 	// 在当前函数的入口块申请栈空间
@@ -368,5 +364,9 @@ IType *ast::AsExpr::get_type()
 	}
 	return m_type->get_type();
 }
+llvm::Value *ast::AssignmentExpr::codegen_value(CodeGenerator &g)
+{
 
+	return nullptr;
+}
 } // namespace protolang

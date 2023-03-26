@@ -541,4 +541,16 @@ StringU8 IfStmt::dump_json()
 	    m_then->dump_json());
 }
 
+StringU8 AssignmentExpr::dump_json()
+{
+	return fmt::format(
+	    u8R"({{"obj":"AssignmentExpr","lhs":{},"rhs":{}}})",
+	    m_left->dump_json(),
+	    m_right->dump_json());
+}
+IType *AssignmentExpr::get_type()
+{
+	return env()->get_void();
+}
+
 } // namespace protolang::ast

@@ -626,17 +626,19 @@ void add_scalar_and_op(Env *env, IType *bool_type)
 
 void add_builtins(Env *env)
 {
+	// void
 	add_type<VoidType>(env);
+	// bool
 	auto bool_type = add_type<BoolType>(env);
-
+	//   bool ==
 	env->add(Ident(u8"==", SrcRange()),
 	         make_uptr(new Operator<OperationType::Eq>{
 	             bool_type, bool_type}));
-
+	//   bool !=
 	env->add(Ident(u8"!=", SrcRange()),
 	         make_uptr(new Operator<OperationType::Ne>{
 	             bool_type, bool_type}));
-
+	// scalars
 	add_scalar_and_op<IntType<32, true>>(env, bool_type);
 	add_scalar_and_op<IntType<64, true>>(env, bool_type);
 	add_scalar_and_op<IntType<32, false>>(env, bool_type);

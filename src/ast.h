@@ -178,6 +178,25 @@ public:
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
+struct AssignmentExpr : Expr
+{
+	uptr<Expr> m_left;
+	uptr<Expr> m_right;
+
+	StringU8 dump_json() override;
+	Env     *env() const override
+	{
+		assert(m_left->env() == m_right->env());
+		return m_left->env();
+	}
+	SrcRange range() const override
+	{
+		return m_left->range() + m_right->range();
+	}
+	IType *get_type() override;
+	llvm::Value *codegen_value(CodeGenerator &g) override;
+};
+
 struct AsExpr : Expr
 {
 	uptr<TypeExpr> m_type;
