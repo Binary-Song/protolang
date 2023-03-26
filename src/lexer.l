@@ -51,10 +51,10 @@ int_hex     0x([0-9a-fA-F]+)
 int_bin     0b([01]+)
 fp          {int_dec}"."[0-9]+
 blank       [ \n\t]+
-keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"false"|"return"
+keyword     "var"|"func"|"struct"|"class"|"return"|"if"|"else"|"while"|"true"|"false"
 id          [A-Za-z_][0-9A-Za-z_]*
 op1         "!"|"+"|"-"|"*"|"/"|"%"|"="|">"|"<"|"&"|"|"|"."
-op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"
+op2         "+="|"-="|"*="|"/="|"%="|"!="|">="|"<="|"=="|"&&"|"||"|"as"|"is"
 dq          \"
 sq          '
 str_esc     [nts"'\\]
@@ -76,11 +76,11 @@ err_amb_int 0[0-9]+
 
 {fp}            return vlex(Rule::fp);
 {blank}         // do nothing
+{op2}           return vlex(Rule::op);
+{op1}           return vlex(Rule::op);
 {keyword}       return vlex(Rule::keyword);
 {id}            return vlex(Rule::id);
 "->"            return vlex(Rule::arrow);
-{op2}           return vlex(Rule::op);
-{op1}           return vlex(Rule::op);
 "("             return vlex(Rule::left_paren);
 ")"             return vlex(Rule::right_paren);
 "{"             return vlex(Rule::left_brace);

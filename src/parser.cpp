@@ -187,15 +187,27 @@ uptr<ast::Expr> Parser::equality()
 }
 uptr<ast::Expr> Parser::comparison()
 {
-	uptr<ast::Expr> expr = term();
+	uptr<ast::Expr> expr = type_unary();
 	while (eat_if_is_given_op({">", ">=", "<", "<="}))
 	{
 		Token           op    = prev();
-		uptr<ast::Expr> right = term();
+		uptr<ast::Expr> right = type_unary();
 		expr                  = uptr<ast::Expr>(
             new ast::BinaryExpr(std::move(expr),
                                 Ident(op.str_data, op.range()),
                                 std::move(right)));
+	}
+	return expr;
+}
+uptr<ast::Expr> Parser::type_unary()
+{
+	uptr<ast::Expr> expr = term();
+	if (eat_if_is_given_op({"as"}))
+	{
+		auto type    = type_expr();
+		auto as_expr = make_uptr(
+		    new ast::AsExpr(std::move(type), std::move(expr)));
+		return as_expr;
 	}
 	return expr;
 }

@@ -368,4 +368,18 @@ struct ErrorConditionMustBeBool : Error
 	}
 };
 
+struct ErrorInvalidExplicitCast : Error
+{
+	StringU8 src;
+	StringU8 dst;
+	SrcRange range;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(
+		    fmt::format(u8"Cannot cast `{}` to `{}`.", src, dst),
+		    range);
+	}
+};
+
 } // namespace protolang

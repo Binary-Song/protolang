@@ -14,7 +14,15 @@ expression     → assignment
 assignment     → equality "=" assignment
                | equality
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+comparison     → type-unary ( (">"|">="|... ) type-unary )*;
+
+type-unary     → term ("as" type-expr)
+
+///// == EXAMPLE =======================
+1.0 > 4 as double == 1.0 > (4 as double)
+5.0 + 5.0 as int  == (5.0 + 5.0) as int
+///// ==================================
+
 term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
@@ -88,6 +96,7 @@ private:
 	uptr<ast::Expr>         assignment();
 	uptr<ast::Expr>         equality();
 	uptr<ast::Expr>         comparison();
+	uptr<ast::Expr>         type_unary();
 	uptr<ast::Expr>         term();
 	uptr<ast::Expr>         factor();
 	uptr<ast::Expr>         unary_pre();

@@ -29,6 +29,7 @@ llvm::Value *IType::cast_implicit(CodeGenerator &g,
 {
 	if (this->equal(type))
 		return val;
+	// 在隐式类型转换时，必须提前检查。
 	assert(this->can_accept(type));
 	return this->cast_inst_no_check(g, val, type);
 }
@@ -39,6 +40,7 @@ llvm::Value *IType::cast_explicit(CodeGenerator &g,
 {
 	if (this->equal(type))
 		return val;
+	assert(this->can_accept_explicit(type));
 	return this->cast_inst_no_check(g, val, type);
 }
 

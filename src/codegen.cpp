@@ -1,6 +1,7 @@
 #include <fmt/xchar.h>
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include "ast.h"
 #include "builtin.h"
 #include "code_generator.h"
@@ -8,7 +9,6 @@
 #include "env.h"
 #include "exceptions.h"
 #include "log.h"
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 namespace protolang
 {
@@ -118,7 +118,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g)
 llvm::Value *IVar::codegen_value(CodeGenerator &g,
                                  llvm::Value   *init)
 {
-	// 这个默认是局部变量！！！！！！！！
+	// 这个 是局部变量 
 	assert(this->get_stack_addr() == nullptr);
 
 	// 在当前函数的入口块申请栈空间
@@ -129,7 +129,7 @@ llvm::Value *IVar::codegen_value(CodeGenerator &g,
 	                         this->get_ident().name.as_str());
 
 	// 生成初始化表达式的代码
-	if (get_init())
+	if (init)
 	{ // 赋予初始值
 		g.builder().CreateStore(init, alloca_inst);
 	}
@@ -155,7 +155,6 @@ llvm::Function *IFunc::codegen_prototype(CodeGenerator &g)
 	    g.module());
 	return func;
 }
-
 
 llvm::Function *IFunc::codegen_func(CodeGenerator &g)
 {
@@ -346,6 +345,28 @@ void ast::IfStmt::generate_branch(
 	auto terminator = branch_blk->getTerminator();
 	if (!terminator || !llvm::isa<llvm::ReturnInst>(terminator))
 		g.builder().CreateBr(merge_blk); // 无条件跳转
+}
+
+llvm::Value *ast::AsExpr::codegen_value(CodeGenerator &g)
+{
+	auto c = m_type->get_type()->cast_explicit(
+	    g, m_operand->codegen_value(g), m_operand->get_type());
+	assert(c);
+	return c;
+}
+IType *ast::AsExpr::get_type()
+{
+	auto src_type = m_operand->get_type();
+	auto dst_type = m_type->get_type();
+	if (!dst_type->can_accept_explicit(src_type))
+	{
+		ErrorInvalidExplicitCast cast;
+		cast.src   = src_type->get_type_name();
+		cast.dst   = dst_type->get_type_name();
+		cast.range = range();
+		throw std::move(cast);
+	}
+	return m_type->get_type();
 }
 
 } // namespace protolang

@@ -144,26 +144,8 @@ protected:
 	void rule_fp()
 	{
 		auto [text, text_len] = matcher()[0];
-
-		double      val = 0;
-		std::size_t i   = 0;
-		// 整数部分
-		for (; i < text_len; i++)
-		{
-			char ch = text[i];
-			if (ch == '.')
-				break;
-			val *= 10;
-			val += ch - '0';
-		}
-		// 小数部分
-		double multiplier = 0.1;
-		for (; i < text_len; i++)
-		{
-			char ch = text[i];
-			val += (ch - '0') * multiplier;
-			multiplier /= 10;
-		}
+		std::string str{text, text_len};
+		auto val = std::stof(str);
 		token = Token::make_fp(val, get_pos1(), get_pos2());
 	}
 

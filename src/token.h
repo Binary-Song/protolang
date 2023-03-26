@@ -73,6 +73,8 @@ enum Keyword
 	KW_WHILE,
 	KW_TRUE,
 	KW_FALSE,
+	KW_AS,
+	KW_IS,
 };
 
 static const std::map<StringU8, Keyword> kw_map = {
@@ -86,6 +88,8 @@ static const std::map<StringU8, Keyword> kw_map = {
     { "while",  KW_WHILE},
     {  "true",   KW_TRUE},
     { "false",  KW_FALSE},
+    {    "as",     KW_AS},
+    {    "is",     KW_IS},
 };
 
 inline StringU8 kw_map_rev(Keyword kw)

@@ -12,7 +12,7 @@ namespace protolang
 
 namespace builtin
 {
-
+struct IScalarType;
 struct VoidType : IType
 {
 	llvm::Value *cast_inst_no_check(
@@ -28,8 +28,10 @@ struct VoidType : IType
 
 static llvm::Value *scalar_cast(CodeGenerator &g,
                                 llvm::Value   *input,
-                                llvm::Type    *out_type);
-llvm::Value        *VoidType::cast_inst_no_check(
+                                IScalarType   *input_type,
+                                IScalarType   *output_type);
+
+llvm::Value *VoidType::cast_inst_no_check(
     [[maybe_unused]] CodeGenerator &g,
     [[maybe_unused]] llvm::Value   *val,
     [[maybe_unused]] IType         *type)
@@ -66,8 +68,7 @@ struct IScalarType : IType
 		Bool,
 		UInt,
 		Int,
-		Float,
-		Double
+		Fp,
 	};
 
 	virtual ScalarKind get_scalar_kind() const = 0;
@@ -75,6 +76,7 @@ struct IScalarType : IType
 
 	bool can_accept(IType *other) override
 	{
+		// 能隐式cast的只有同类型、放大位数
 		if (auto scalar_type =
 		        dynamic_cast<IScalarType *>(other))
 			return this->get_scalar_kind() ==
@@ -82,6 +84,12 @@ struct IScalarType : IType
 			       this->get_bits() >= scalar_type->get_bits();
 		else
 			return false;
+	}
+
+	bool can_accept_explicit_cast_no_check(IType *t) override
+	{
+		// 标量类型之间都可以互相强转
+		return dynamic_cast<IScalarType *>(t);
 	}
 
 	bool equal(IType *other) override
@@ -94,7 +102,18 @@ struct IScalarType : IType
 		else
 			return false;
 	}
+
+	llvm::Value *cast_inst_no_check(CodeGenerator &g,
+	                                llvm::Value   *val,
+	                                IType         *type) override
+	{
+		return scalar_cast(g,
+		                   val,
+		                   dyn_cast_force<IScalarType *>(type),
+		                   dyn_cast_force<IScalarType *>(this));
+	}
 };
+
 struct BoolType : IScalarType
 {
 	bool        can_accept(IType *iType) override;
@@ -103,11 +122,6 @@ struct BoolType : IScalarType
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
 	StringU8    dump_json() override;
 
-private:
-	llvm::Value *cast_inst_no_check(CodeGenerator &g,
-	                                llvm::Value   *val,
-	                                IType *type) override;
-
 public:
 	ScalarKind   get_scalar_kind() const override;
 	unsigned int get_bits() const override;
@@ -115,13 +129,6 @@ public:
 template <unsigned bits, bool is_signed>
 struct IntType : IScalarType
 {
-	llvm::Value *cast_inst_no_check(
-	    CodeGenerator          &g,
-	    llvm::Value            *val,
-	    [[maybe_unused]] IType *type) override
-	{
-		return scalar_cast(g, val, this->get_llvm_type(g));
-	}
 
 	StringU8 get_type_name() override
 	{
@@ -167,13 +174,6 @@ struct IntType : IScalarType
 
 struct FloatType : IScalarType
 {
-	llvm::Value *cast_inst_no_check(
-	    CodeGenerator          &g,
-	    llvm::Value            *val,
-	    [[maybe_unused]] IType *type) override
-	{
-		return scalar_cast(g, val, this->get_llvm_type(g));
-	}
 
 	StringU8 get_type_name() override
 	{
@@ -191,20 +191,13 @@ struct FloatType : IScalarType
 	}
 	ScalarKind get_scalar_kind() const override
 	{
-		return ScalarKind::Float;
+		return ScalarKind::Fp;
 	}
 	unsigned int get_bits() const override { return 32; }
 };
 
 struct DoubleType : IScalarType
 {
-	llvm::Value *cast_inst_no_check(
-	    CodeGenerator          &g,
-	    llvm::Value            *val,
-	    [[maybe_unused]] IType *type) override
-	{
-		return scalar_cast(g, val, this->get_llvm_type(g));
-	}
 
 	StringU8 get_type_name() override
 	{
@@ -222,7 +215,7 @@ struct DoubleType : IScalarType
 	}
 	ScalarKind get_scalar_kind() const override
 	{
-		return ScalarKind::Double;
+		return ScalarKind::Fp;
 	}
 	unsigned int get_bits() const override { return 64; }
 };
@@ -408,8 +401,7 @@ public:
 				                                 args[1]);
 			}
 			break;
-		case IScalarType::ScalarKind::Float:
-		case IScalarType::ScalarKind::Double:
+		case IScalarType::ScalarKind::Fp:
 			switch (Ar)
 			{
 			case OperationType::Add:
@@ -466,43 +458,87 @@ public:
 // 这个函数可以生成任何scalar之间的cast。
 llvm::Value *scalar_cast(CodeGenerator &g,
                          llvm::Value   *input,
-                         llvm::Type    *out_type)
-{
-	// double -> float
-	if (input->getType()->isDoubleTy() && out_type->isFloatTy())
-		return g.builder().CreateFPTrunc(input, out_type);
+                         IScalarType   *input_type,
+                         IScalarType   *output_type)
+{ 
+	assert(input->getType() == input_type->get_llvm_type(g));
 
-	// float -> double
-	if (input->getType()->isFloatTy() && out_type->isDoubleTy())
-		return g.builder().CreateFPExt(input, out_type);
+	auto input_llvm_type  = input_type->get_llvm_type(g);
+	auto output_llvm_type = output_type->get_llvm_type(g);
 
-	// int
-	if (input->getType()->isIntegerTy() &&
-	    out_type->isIntegerTy())
+	auto input_kind  = input_type->get_scalar_kind();
+	auto output_kind = output_type->get_scalar_kind();
+
+	// float <-> double
+	if (input_kind == IScalarType::ScalarKind::Fp &&
+	    output_kind == IScalarType::ScalarKind::Fp)
 	{
-		unsigned inputBitWidth =
-		    input->getType()->getIntegerBitWidth();
-		unsigned outputBitWidth = out_type->getIntegerBitWidth();
-		if (inputBitWidth < outputBitWidth)
+		if (input_type->get_bits() < output_type->get_bits())
+			return g.builder().CreateFPExt(input,
+			                               output_llvm_type);
+		else
+			return g.builder().CreateFPTrunc(input,
+			                                 output_llvm_type);
+	}
+
+	// int <-> long
+	if (input_kind == IScalarType::ScalarKind::Int &&
+	    output_kind == IScalarType::ScalarKind::Int)
+	{
+		if (input_type->get_bits() < output_type->get_bits())
 		{
-			// 注意这里是哪种SExt还是ZExt
-			return g.builder().CreateSExt(input, out_type);
-		}
-		else if (inputBitWidth > outputBitWidth)
-		{
-			return g.builder().CreateTrunc(input, out_type);
+			return g.builder().CreateSExt(input,
+			                              output_llvm_type);
 		}
 		else
 		{
-			return g.builder().CreateBitCast(input, out_type);
+			return g.builder().CreateTrunc(input,
+			                               output_llvm_type);
 		}
 	}
 
-	// pointer
-	if (input->getType()->isPointerTy() &&
-	    out_type->isPointerTy())
+	// uint <-> ulong
+	if (input_kind == IScalarType::ScalarKind::UInt &&
+	    output_kind == IScalarType::ScalarKind::UInt)
 	{
-		return g.builder().CreatePointerCast(input, out_type);
+		if (input_type->get_bits() < output_type->get_bits())
+		{
+			return g.builder().CreateZExt(input,
+			                              output_llvm_type);
+		}
+		else
+		{
+			return g.builder().CreateTrunc(input,
+			                               output_llvm_type);
+		}
+	}
+
+	// fp -> int
+	if (input_kind == IScalarType::ScalarKind::Fp &&
+	    output_kind == IScalarType::ScalarKind::Int)
+	{
+		return g.builder().CreateFPToSI(input, output_llvm_type);
+	}
+
+	// fp -> uint
+	if (input_kind == IScalarType::ScalarKind::Fp &&
+	    output_kind == IScalarType::ScalarKind::UInt)
+	{
+		return g.builder().CreateFPToUI(input, output_llvm_type);
+	}
+
+	// int -> fp
+	if (input_kind == IScalarType::ScalarKind::Int &&
+	    output_kind == IScalarType::ScalarKind::Fp)
+	{
+		return g.builder().CreateSIToFP(input, output_llvm_type);
+	}
+
+	// uint -> fp
+	if (input_kind == IScalarType::ScalarKind::UInt &&
+	    output_kind == IScalarType::ScalarKind::Fp)
+	{
+		return g.builder().CreateUIToFP(input, output_llvm_type);
 	}
 
 	// 不支持
@@ -530,19 +566,6 @@ StringU8 BoolType::dump_json()
 	return "BoolType";
 }
 
-llvm::Value *BoolType::cast_inst_no_check(CodeGenerator &,
-                                          llvm::Value *,
-                                          IType *)
-{
-	//	llvm::Value *val_trunc = g.builder().CreateTrunc(
-	//	    val, llvm::Type::getInt1Ty(g.context()));
-	//
-	//	llvm::Value *cmp = g.builder().CreateICmpNE(
-	//	    val_trunc,
-	//	    llvm::ConstantInt::get(g.context(), llvm::APInt(1,
-	// 0)));
-	return nullptr;
-}
 IScalarType::ScalarKind BoolType::get_scalar_kind() const
 {
 	return ScalarKind::Bool;

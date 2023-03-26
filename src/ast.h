@@ -178,6 +178,27 @@ public:
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
+struct AsExpr : Expr
+{
+	uptr<TypeExpr> m_type;
+	uptr<Expr>     m_operand;
+
+	AsExpr(std::unique_ptr<TypeExpr> mType,
+	       std::unique_ptr<Expr>     mOperand)
+	    : m_type(std::move(mType))
+	    , m_operand(std::move(mOperand))
+	{}
+
+	StringU8 dump_json() override { return "AsExpr"; }
+	SrcRange range() const override
+	{
+		return m_type->range() + m_operand->range();
+	}
+	Env   *env() const override { return m_operand->env(); }
+	IType *get_type() override;
+	llvm::Value *codegen_value(CodeGenerator &g) override;
+};
+
 struct CallExpr : Expr
 {
 	// 数据

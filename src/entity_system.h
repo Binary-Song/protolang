@@ -2,10 +2,10 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include "encoding.h"
 #include "ident.h"
 #include "typedef.h"
 #include "util.h"
-#include "encoding.h"
 
 namespace llvm
 {
@@ -71,31 +71,41 @@ struct IType : IEntity
 {
 	static constexpr const char *TYPE_NAME = "type";
 
-	~IType() override                    = default;
-	virtual bool     can_accept(IType *) = 0;
-	virtual bool     equal(IType *)      = 0;
-	virtual StringU8 get_type_name()     = 0;
+	~IType() override                = default;
+	virtual bool can_accept(IType *) = 0;
+	bool         can_accept_explicit(IType *t)
+	{
+		if (can_accept(t))
+			return true;
+		return can_accept_explicit_cast_no_check(t);
+	}
+	virtual bool     equal(IType *)  = 0;
+	virtual StringU8 get_type_name() = 0;
 	virtual IEntity *get_member(const Ident &)
 	{
 		return nullptr;
 	}
 	virtual llvm::Type *get_llvm_type(CodeGenerator &g) = 0;
 
-	// 将类型为type的val转换到本类型，将检查是不是equal以及can_accept。
 	llvm::Value *cast_implicit(CodeGenerator &g,
 	                           llvm::Value   *val,
 	                           IType         *type);
 
-	// 将类型为type的val转换到本类型，将检查是不是equal。
 	llvm::Value *cast_explicit(CodeGenerator &g,
 	                           llvm::Value   *val,
 	                           IType         *type);
 
 private:
 	// 本函数不负责检查src是不是本类型。能cast的尽量cast。
+	// 不能cast的返回nullptr
 	virtual llvm::Value *cast_inst_no_check(CodeGenerator &g,
 	                                        llvm::Value   *val,
 	                                        IType *type) = 0;
+	// 返回能不能接受显示类型转换到本类型。
+	virtual bool can_accept_explicit_cast_no_check(IType * )
+	{
+		return false;
+	}
 };
 
 struct ICodeGen
