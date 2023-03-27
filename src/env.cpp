@@ -30,7 +30,8 @@ bool Env::check_args(IFuncType                  *func,
 		auto p = func->get_param_type(i);
 		auto a = arg_types[i];
 
-		bool good = strict ? p->equal(a) : p->can_accept(a);
+		bool good =
+		    strict ? p->equal(a) : p->accepts_implicit_cast(a);
 		if (!good)
 		{
 			if (throw_error)
@@ -101,7 +102,7 @@ IOp *Env::overload_resolution(
 	if (fits.empty())
 	{
 		ErrorNoMatchingOverload e;
-		e.call = func_ident.range;
+		e.call      = func_ident.range;
 		e.overloads = get_ops_from_overload_set(overloads);
 		e.arg_types = arg_type_names(arg_types);
 		throw std::move(e);
@@ -164,8 +165,17 @@ void Env::add_to(const Ident                   &ident,
                  IEntity                       *obj,
                  std::map<StringU8, IEntity *> &to)
 {
-	auto &&name       = ident.name;
-	bool   name_clash = to.contains(name);
+	auto &&name = ident.name;
+
+	// 不允许和 keyword entity 重名
+	if (get_root()->m_keyword_symbol_table.contains(name))
+	{
+		throw create_name_redef_error(
+		    ident, get_root()->m_keyword_symbol_table.at(name));
+	}
+
+	// 和本scope下名称重名一般是不允许的
+	bool name_clash = to.contains(name);
 	if (auto func = dynamic_cast<IOp *>(obj))
 	{
 		if (name_clash)

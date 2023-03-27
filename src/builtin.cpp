@@ -15,15 +15,14 @@ namespace builtin
 struct IScalarType;
 struct VoidType : IType
 {
-	llvm::Value *cast_inst_no_check(
-	    CodeGenerator          &g,
-	    llvm::Value            *val,
-	    [[maybe_unused]] IType *type) override;
+
 	StringU8    get_type_name() override;
 	StringU8    dump_json() override;
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
-	bool        can_accept(IType *t) override;
-	bool        equal(IType *t) override;
+	bool        equal(IType *t) override
+	{
+		return t == static_cast<IType *>(this);
+	}
 };
 
 static llvm::Value *scalar_cast(CodeGenerator &g,
@@ -31,13 +30,6 @@ static llvm::Value *scalar_cast(CodeGenerator &g,
                                 IScalarType   *input_type,
                                 IScalarType   *output_type);
 
-llvm::Value *VoidType::cast_inst_no_check(
-    [[maybe_unused]] CodeGenerator &g,
-    [[maybe_unused]] llvm::Value   *val,
-    [[maybe_unused]] IType         *type)
-{
-	return nullptr;
-}
 StringU8 VoidType::get_type_name()
 {
 	return u8"void";
@@ -51,14 +43,6 @@ StringU8 VoidType::dump_json()
 llvm::Type *VoidType::get_llvm_type(CodeGenerator &g)
 {
 	return llvm::Type::getVoidTy(g.context());
-}
-bool VoidType::can_accept(IType *t)
-{
-	return t == static_cast<IType *>(this);
-}
-bool VoidType::equal(IType *t)
-{
-	return t == static_cast<IType *>(this);
 }
 
 struct IScalarType : IType
@@ -74,7 +58,7 @@ struct IScalarType : IType
 	virtual ScalarKind get_scalar_kind() const = 0;
 	virtual unsigned   get_bits() const        = 0;
 
-	bool can_accept(IType *other) override
+	bool accepts_implicit_cast_no_check(IType *other) override
 	{
 		// 能隐式cast的只有同类型、放大位数
 		if (auto scalar_type =
@@ -86,10 +70,10 @@ struct IScalarType : IType
 			return false;
 	}
 
-	bool can_accept_explicit_cast_no_check(IType *t) override
+	bool accepts_explicit_cast_no_check(IType *t) override
 	{
 		// 标量类型之间都可以互相强转
-		return dynamic_cast<IScalarType *>(t);
+		return dynamic_cast<IScalarType *>(t) != nullptr;
 	}
 
 	bool equal(IType *other) override
@@ -116,8 +100,8 @@ struct IScalarType : IType
 
 struct BoolType : IScalarType
 {
-	bool        can_accept(IType *iType) override;
-	bool        equal(IType *iType) override;
+	bool accepts_implicit_cast_no_check(IType *iType) override;
+	bool equal(IType *iType) override;
 	StringU8    get_type_name() override;
 	llvm::Type *get_llvm_type(CodeGenerator &g) override;
 	StringU8    dump_json() override;
@@ -291,9 +275,15 @@ public:
 	{
 		if constexpr (is_arith(Ar))
 			return m_scalar_type;
-		else if (is_compare(Ar))
+		else if constexpr (is_compare(Ar))
 			return m_bool_type;
-		throw ExceptionNotImplemented{};
+		else
+		{
+#pragma warning(push)
+#pragma warning(disable : 4702)
+			throw ExceptionNotImplemented{};
+#pragma warning(pop)
+		}
 	}
 	size_t get_param_count() const override { return 2; }
 	IType *get_param_type(size_t) override
@@ -460,7 +450,7 @@ llvm::Value *scalar_cast(CodeGenerator &g,
                          llvm::Value   *input,
                          IScalarType   *input_type,
                          IScalarType   *output_type)
-{ 
+{
 	assert(input->getType() == input_type->get_llvm_type(g));
 
 	// auto input_llvm_type  = input_type->get_llvm_type(g);
@@ -545,9 +535,9 @@ llvm::Value *scalar_cast(CodeGenerator &g,
 	return nullptr;
 }
 
-bool BoolType::can_accept(IType *iType)
+bool BoolType::accepts_implicit_cast_no_check(IType *t)
 {
-	return equal(iType);
+	return equal(t);
 }
 bool BoolType::equal(IType *iType)
 {

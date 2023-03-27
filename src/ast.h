@@ -96,7 +96,7 @@ private:
 struct Expr : Ast, ITyped
 {
 private:
-	IType *m_implicit_cast;
+	IType *m_implicit_cast = nullptr;
 
 public:
 	// 表达式默认的语义检查方法是计算一次类型
@@ -107,16 +107,15 @@ public:
 	}
 	llvm::Value *codegen_value(CodeGenerator &g)
 	{
-		auto val  = codegen_value_no_implicit_cast(g);
-		auto cast = m_implicit_cast->cast_implicit(
-		    g, val, this->get_type());
-		return cast;
+		// 执行隐式转换
+		auto val = codegen_value_no_implicit_cast(g);
+		if (m_implicit_cast)
+			val = m_implicit_cast->cast_implicit(
+			    g, val, this->get_type());
+		return val;
 	}
 
-	void codegen(CodeGenerator &g) override
-	{
-		codegen_value(g);
-	}
+	void codegen(CodeGenerator &g) override { codegen_value(g); }
 
 	/// 在代码生成时，顺便把我cast到这个类型
 	void set_implicit_cast(IType *type)
@@ -757,8 +756,8 @@ public:
 	}
 	SrcRange range() const override { return m_range; }
 	Env     *env() const override { return m_env; }
-	bool     can_accept(IType *iType) override;
-	bool     equal(IType *iType) override;
+	bool accepts_implicit_cast_no_check(IType *iType) override;
+	bool equal(IType *iType) override;
 	StringU8 get_type_name() override;
 	void     validate_types() override;
 };

@@ -19,6 +19,7 @@ TODO:
 - 处理test3的bug
 - (x)处理正负号的优先级
 - to、as、is 三个运算符 
+- (√)bug: 可以定义名为long的函数？！
 
 ## 关于const的经验
 

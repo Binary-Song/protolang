@@ -71,16 +71,29 @@ struct IType : IEntity
 {
 	static constexpr const char *TYPE_NAME = "type";
 
-	~IType() override                = default;
+	~IType() override = default;
 
-	virtual bool can_accept(IType *) = 0;
-	bool         can_accept_explicit(IType *t)
+	/// 返回两个类型是不是相等
+	virtual bool equal(IType *) = 0;
+
+	/// 如果可以从expr隐式转换到本类型，就对expr调用
+	/// set_implicit_cast(this)，返回true。否则，返回false。
+	bool register_implicit_cast_if_accepts(ast::Expr *expr);
+
+	bool accepts_implicit_cast(IType *t)
 	{
-		if (can_accept(t))
+		if (equal(t))
 			return true;
-		return can_accept_explicit_cast_no_check(t);
+		return accepts_implicit_cast_no_check(t);
 	}
-	virtual bool     equal(IType *)  = 0;
+
+	bool accepts_explicit_cast(IType *t)
+	{
+		if (accepts_implicit_cast(t))
+			return true;
+		return accepts_explicit_cast_no_check(t);
+	}
+
 	virtual StringU8 get_type_name() = 0;
 	virtual IEntity *get_member(const Ident &)
 	{
@@ -101,12 +114,11 @@ private:
 	// 不能cast的返回nullptr
 	virtual llvm::Value *cast_inst_no_check(CodeGenerator &g,
 	                                        llvm::Value   *val,
-	                                        IType *type) = 0;
-	// 返回能不能接受显示类型转换到本类型。
-	virtual bool can_accept_explicit_cast_no_check(IType * )
-	{
-		return false;
-	}
+	                                        IType         *type);
+	// 返回是否接受隐式类型转换，不必检查是否相等
+	virtual bool accepts_implicit_cast_no_check(IType *);
+	// 返回是否接受显式类型转换，不必检查是否相等、是否接受隐式类型转换
+	virtual bool accepts_explicit_cast_no_check(IType *);
 };
 
 struct ICodeGen
@@ -136,10 +148,6 @@ struct IFuncType : IType
 	virtual IType *get_param_type(size_t)  = 0;
 
 	// === 实现 IType  ===
-	bool can_accept(IType *other) override
-	{
-		return this->equal(other);
-	}
 	bool equal(IType *other) override
 	{
 		if (auto other_func = dynamic_cast<IFuncType *>(other))
@@ -167,13 +175,6 @@ struct IFuncType : IType
 	llvm::Type         *get_llvm_type(CodeGenerator &g) override;
 
 private:
-	llvm::Value *cast_inst_no_check(
-	    [[maybe_unused]] CodeGenerator &g,
-	    [[maybe_unused]] llvm::Value   *val,
-	    [[maybe_unused]] IType         *type) override
-	{
-		return nullptr;
-	}
 };
 
 /// 运算符或函数。在此抽象级别无法获取IVar类型的参数（IVar占用栈空间），

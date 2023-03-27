@@ -23,37 +23,41 @@ static std::vector<IType *> get_arg_types(
 	}
 	return types;
 }
-static std::vector<llvm::Value *> cast_args(
-    CodeGenerator                  &g,
-    IOp                            *func,
-    const std::vector<ast::Expr *> &arg_exprs)
-{
-	std::vector<llvm::Value *> arg_vals;
-	size_t                     i = 0;
-	for (auto &&arg_expr : arg_exprs)
-	{
-		auto arg_type   = arg_expr->get_type();
-		auto param_type = func->get_param_type(i);
-
-		auto arg_val_raw =
-		    arg_expr->codegen_value_no_implicit_cast(g);
-
-		auto arg_val_cast =
-		    param_type->cast_implicit(g, arg_val_raw, arg_type);
-
-		arg_vals.push_back(arg_val_cast);
-		i++;
-	}
-	return arg_vals;
-}
-static llvm::Value *generate_call(
+// static std::vector<llvm::Value *> cast_args(
+//     CodeGenerator                  &g,
+//     IOp                            *func,
+//     const std::vector<ast::Expr *> &arg_exprs)
+//{
+//	std::vector<llvm::Value *> arg_vals;
+//	size_t                     i = 0;
+//	for (auto &&arg_expr : arg_exprs)
+//	{
+//		auto arg_type   = arg_expr->get_type();
+//		auto param_type = func->get_param_type(i);
+//
+//		auto arg_val_raw =
+//		    arg_expr->codegen_value(g);
+//
+//		auto arg_val_cast =
+//		    param_type->cast_implicit(g, arg_val_raw, arg_type);
+//
+//		arg_vals.push_back(arg_val_cast);
+//		i++;
+//	}
+//	return arg_vals;
+// }
+static llvm::Value *generate_call_from_arg_exprs(
     CodeGenerator                  &g,
     IOp                            *func,
     const std::vector<ast::Expr *> &arg_exprs)
 {
 	auto arg_types = get_arg_types(arg_exprs);
-	auto args_cast = cast_args(g, func, arg_exprs);
-	return func->gen_call(args_cast, g);
+	std::vector<llvm::Value *> values;
+	for (auto &&arg_expr : arg_exprs)
+	{
+		values.push_back(arg_expr->codegen_value(g));
+	}
+	return func->gen_call(values, g);
 }
 
 static llvm::AllocaInst *alloca_for_local_var(
@@ -64,7 +68,8 @@ static llvm::AllocaInst *alloca_for_local_var(
 	    .CreateAlloca(type, nullptr, name);
 }
 
-llvm::Value *ast::LiteralExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::LiteralExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
 	// 生成常数
 	if (m_token.type == Token::Type::Fp)
@@ -93,7 +98,8 @@ llvm::Value *ast::LiteralExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 	else
 		throw ExceptionNotImplemented{};
 }
-llvm::Value *ast::IdentExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::IdentExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
 	// 变量：引用变量的值，未定义就报错
 	// 函数：重载决策后直接得到IFunc了，不用我来生成，
@@ -110,7 +116,7 @@ llvm::Value *ast::IdentExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 
 llvm::Value *IVar::codegen_value(CodeGenerator &g)
 {
-	return codegen_value(g, this->get_init()->codegen_value_no_implicit_cast(g));
+	return codegen_value(g, this->get_init()->codegen_value(g));
 }
 llvm::Value *IVar::codegen_value(CodeGenerator &g,
                                  llvm::Value   *init)
@@ -229,8 +235,7 @@ void ast::ExprStmt::codegen(CodeGenerator &g)
 
 void ast::ReturnStmt::codegen(CodeGenerator &g)
 {
-	auto expr_val =
-	    get_expr()->codegen_value_no_implicit_cast(g);
+	auto expr_val = get_expr()->codegen_value(g);
 
 	g.builder().CreateRet(expr_val);
 }
@@ -240,19 +245,22 @@ void ast::ReturnVoidStmt::codegen(CodeGenerator &g)
 	g.builder().CreateRetVoid();
 }
 
-llvm::Value *ast::BinaryExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::BinaryExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
-	return generate_call(
+	return generate_call_from_arg_exprs(
 	    g, m_ovlres_cache.get(), {m_left.get(), m_right.get()});
 }
 
-llvm::Value *ast::UnaryExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::UnaryExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
-	return generate_call(
+	return generate_call_from_arg_exprs(
 	    g, m_ovlres_cache.get(), {this->m_operand.get()});
 }
 
-llvm::Value *ast::CallExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::CallExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 { // todo:
   // 如果callee不是一个单名，那就根据callee的类型找调用的函数
 	if (auto callee =
@@ -263,7 +271,8 @@ llvm::Value *ast::CallExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 		{
 			arg_ptrs.push_back(arg.get());
 		}
-		return generate_call(g, m_ovlres_cache.get(), arg_ptrs);
+		return generate_call_from_arg_exprs(
+		    g, m_ovlres_cache.get(), arg_ptrs);
 	}
 	else
 	{
@@ -292,26 +301,22 @@ llvm::Type *IFuncType::get_llvm_type(CodeGenerator &g)
 
 void ast::IfStmt::codegen(CodeGenerator &g)
 {
-	auto bool_type     = env()->get_bool();
-	auto cond_val_raw  =
-	    this->m_condition->codegen_value_no_implicit_cast(g);
-	auto cond_val_bool = bool_type->cast_implicit(
-	    g, cond_val_raw, m_condition->get_type());
-	cond_val_bool->setName("cond");
+	auto cond_val = this->m_condition->codegen_value(g);
+
+	cond_val->setName("if_cond");
 
 	auto func = g.builder().GetInsertBlock()->getParent();
 
 	auto then_blk =
-	    llvm::BasicBlock::Create(g.context(), "then");
+	    llvm::BasicBlock::Create(g.context(), "if_true");
 	auto merge_blk =
-	    llvm::BasicBlock::Create(g.context(), "merge");
+	    llvm::BasicBlock::Create(g.context(), "if_merge");
 
 	if (m_else.has_value())
 	{
 		auto else_blk =
-		    llvm::BasicBlock::Create(g.context(), "else");
-		g.builder().CreateCondBr(
-		    cond_val_bool, then_blk, else_blk);
+		    llvm::BasicBlock::Create(g.context(), "if_false");
+		g.builder().CreateCondBr(cond_val, then_blk, else_blk);
 		this->generate_branch(
 		    g, func, then_blk, m_then, merge_blk);
 		this->generate_branch(
@@ -319,8 +324,7 @@ void ast::IfStmt::codegen(CodeGenerator &g)
 	}
 	else
 	{
-		g.builder().CreateCondBr(
-		    cond_val_bool, then_blk, merge_blk);
+		g.builder().CreateCondBr(cond_val, then_blk, merge_blk);
 		this->generate_branch(
 		    g, func, then_blk, m_then, merge_blk);
 	}
@@ -347,22 +351,22 @@ void ast::IfStmt::generate_branch(
 		g.builder().CreateBr(merge_blk); // 无条件跳转
 }
 
-llvm::Value *ast::AsExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::AsExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
-	auto c = m_type->get_type()->cast_explicit(
-	    g,
-	    m_operand->codegen_value_no_implicit_cast(g), m_operand->get_type());
-	assert(c);
-	return c;
+	auto v = m_type->get_type()->cast_explicit(
+	    g, m_operand->codegen_value(g), m_operand->get_type());
+	assert(v);
+	return v;
 }
 
-llvm::Value *ast::AssignmentExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
+llvm::Value *ast::AssignmentExpr::codegen_value_no_implicit_cast(
+    CodeGenerator &g)
 {
 	if (m_left->get_address().has_value())
 	{
 		auto addr = m_left->get_address().value();
-		g.builder().CreateStore(
-		    m_right->codegen_value_no_implicit_cast(g), addr);
+		g.builder().CreateStore(m_right->codegen_value(g), addr);
 	}
 	else
 	{

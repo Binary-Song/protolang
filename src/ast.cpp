@@ -351,7 +351,8 @@ StringU8 ast::ReturnStmt::dump_json()
 }
 void ast::ReturnStmt::validate_types(IType *return_type)
 {
-	if (!return_type->can_accept(this->get_expr()->get_type()))
+	if (!return_type->register_implicit_cast_if_accepts(
+	        this->get_expr()))
 	{
 		ErrorReturnTypeMismatch e;
 		e.expected = return_type->get_type_name();
@@ -363,7 +364,7 @@ void ast::ReturnStmt::validate_types(IType *return_type)
 void ast::ReturnVoidStmt::validate_types(IType *return_type)
 {
 	auto void_type = env()->get_void();
-	if (!return_type->can_accept(void_type))
+	if (!return_type->equal(void_type))
 	{
 		ErrorReturnTypeMismatch e;
 		e.expected = return_type->get_type_name();
@@ -387,7 +388,8 @@ void VarDecl::validate_types()
 
 	auto init_type = m_init->get_type();
 	auto var_type  = this->get_type();
-	if (!var_type->can_accept(init_type))
+	if (!var_type->register_implicit_cast_if_accepts(
+	        m_init.get()))
 	{
 		ErrorVarDeclInitExprTypeMismatch e;
 		e.init_type    = init_type->get_type_name();
@@ -445,9 +447,9 @@ StructDecl::StructDecl(Env             *env,
     , m_body(std::move(body))
 {}
 
-bool StructDecl::can_accept(IType *other)
+bool StructDecl::accepts_implicit_cast_no_check(IType *)
 {
-	return this->equal(other);
+	return false;
 }
 
 bool StructDecl::equal(IType *other)
@@ -540,7 +542,8 @@ IfStmt::IfStmt(Env               *mEnv,
 void IfStmt::validate_types(IType *return_type)
 {
 	auto bool_type = env()->get_bool();
-	if (!bool_type->can_accept(m_condition->get_type()))
+	if (!bool_type->register_implicit_cast_if_accepts(
+	        m_condition.get()))
 	{
 		ErrorConditionMustBeBool e;
 		e.condition   = m_condition->range();
@@ -572,7 +575,8 @@ IType *AssignmentExpr::get_type()
 }
 void AssignmentExpr::validate_types()
 {
-	if (!m_left->get_type()->can_accept(m_right->get_type()))
+	if (!m_left->get_type()->register_implicit_cast_if_accepts(
+	        m_right.get()))
 	{
 		ErrorAssignTypeMismatch e;
 		e.left  = m_left->get_type()->get_type_name();
@@ -585,7 +589,7 @@ IType *AsExpr::get_type()
 {
 	auto src_type = m_operand->get_type();
 	auto dst_type = m_type->get_type();
-	if (!dst_type->can_accept_explicit(src_type))
+	if (!dst_type->accepts_explicit_cast(m_operand->get_type()))
 	{
 		ErrorInvalidExplicitCast cast;
 		cast.src   = src_type->get_type_name();

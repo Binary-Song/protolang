@@ -1,10 +1,5 @@
-#include <filesystem>
-#include <fmt/xchar.h>
-#include <iostream>
-#include <llvm/Support/raw_ostream.h>
 #include "3rdparty/glob/glob.h"
 #include "encoding.h"
-#include "encoding/win/encoding_win.h"
 int main()
 {
 	using namespace protolang;

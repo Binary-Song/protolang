@@ -104,9 +104,9 @@ public:
 	}
 	void add_keyword(const StringU8 &kw, IEntity *obj)
 	{
-		add_to(Ident{kw, SrcRange{}},
-		       obj,
-		       this->m_keyword_symbol_table);
+		get_root()->add_to(Ident{kw, SrcRange{}},
+		                   obj,
+		                   this->m_keyword_symbol_table);
 	}
 	void add_keyword(const StringU8 &kw, uptr<IEntity> obj)
 	{
