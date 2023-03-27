@@ -392,4 +392,33 @@ struct ErrorCannotFindTool : Error
 	}
 };
 
+struct ErrorAssignTypeMismatch : Error
+{
+	StringU8 left;
+	StringU8 right;
+	SrcRange range;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(fmt::format(u8"Assignment type mismatch. "
+		                         u8"Right: `{}`. Left: `{}`",
+		                         right,
+		                         left),
+		             range);
+	}
+};
+
+struct ErrorAssignmentToRvalue : Error
+{
+	SrcRange range;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(
+		    fmt::format(
+		        u8"Assignment to a temporary is not allowed."),
+		    range);
+	}
+};
+
 } // namespace protolang

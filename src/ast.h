@@ -95,22 +95,14 @@ private:
 // 表达式，抽象类
 struct Expr : Ast, ITyped
 {
-	// 类
-	enum class ValueCat
-	{
-		Pending,
-		Lvalue,
-		Rvalue,
-	};
-
-	virtual ValueCat get_cat() const
-	{
-		return ValueCat::Pending;
-	}
 	// 表达式默认的语义检查方法是计算一次类型
-	void validate_types() { get_type(); }
+	virtual void validate_types() { get_type(); }
 	void codegen(CodeGenerator &g) override { codegen_value(g); }
 	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
+	virtual std::optional<llvm::Value *> get_address()
+	{
+		return std::nullopt;
+	}
 };
 
 // 二元运算表达式
@@ -182,7 +174,11 @@ struct AssignmentExpr : Expr
 {
 	uptr<Expr> m_left;
 	uptr<Expr> m_right;
-
+	AssignmentExpr(std::unique_ptr<Expr> mLeft,
+	               std::unique_ptr<Expr> mRight)
+	    : m_left(std::move(mLeft))
+	    , m_right(std::move(mRight))
+	{}
 	StringU8 dump_json() override;
 	Env     *env() const override
 	{
@@ -193,7 +189,8 @@ struct AssignmentExpr : Expr
 	{
 		return m_left->range() + m_right->range();
 	}
-	IType *get_type() override;
+	IType       *get_type() override;
+	void         validate_types() override;
 	llvm::Value *codegen_value(CodeGenerator &g) override;
 };
 
@@ -329,20 +326,13 @@ private:
 struct IdentExpr : Expr
 {
 private:
-	Ident        m_ident;
-	Env         *m_env;
-	Cache<IType> m_type_cache;
+	Ident          m_ident;
+	Env           *m_env;
+	Cache<IType>   m_type_cache;
+	Cache<IEntity> m_entity_cache;
 
 public:
-	explicit IdentExpr(Env *env, Ident ident)
-	    : m_env(env)
-	    , m_ident(std::move(ident))
-	    , m_type_cache(
-	          [this]()
-	          {
-		          return recompute_type();
-	          })
-	{}
+	explicit IdentExpr(Env *env, Ident ident);
 
 	Ident        ident() const { return m_ident; }
 	StringU8     dump_json() override;
@@ -351,9 +341,11 @@ public:
 	IType       *get_type() override;
 	void         set_type(IType *type);
 	llvm::Value *codegen_value(CodeGenerator &g) override;
+	std::optional<llvm::Value *> get_address() override;
 
 private:
-	IType *recompute_type();
+	IType   *recompute_type();
+	IEntity *resolve_name();
 };
 
 struct Decl : virtual Ast

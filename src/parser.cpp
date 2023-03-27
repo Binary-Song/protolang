@@ -164,10 +164,8 @@ uptr<ast::Expr> Parser::assignment()
 	{
 		Token           op    = prev();
 		uptr<ast::Expr> right = assignment();
-		return make_uptr(
-		    new ast::BinaryExpr(std::move(left),
-		                        Ident(op.str_data, op.range()),
-		                        std::move(right)));
+		return make_uptr(new ast::AssignmentExpr(
+		    std::move(left), std::move(right)));
 	}
 	return left;
 }

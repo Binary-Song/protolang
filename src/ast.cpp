@@ -291,7 +291,7 @@ IType *IdentExpr::get_type()
 }
 IType *IdentExpr::recompute_type()
 {
-	auto entity = env()->get(ident());
+	auto entity = m_entity_cache.get();
 	if (auto var = dynamic_cast<IVar *>(entity))
 	{
 		// 解决var a = 1 + a; 解析a类型时无限递归报错
@@ -320,6 +320,24 @@ void IdentExpr::set_type(IType *t)
 StringU8 IdentExpr::dump_json()
 {
 	return fmt::format(u8"\"{}\"", m_ident.name);
+}
+IdentExpr::IdentExpr(Env *env, Ident ident)
+    : m_env(env)
+    , m_ident(std::move(ident))
+    , m_type_cache(
+          [this]()
+          {
+	          return recompute_type();
+          })
+    , m_entity_cache(
+          [this]()
+          {
+	          return resolve_name();
+          })
+{}
+IEntity *IdentExpr::resolve_name()
+{
+	return env()->get(ident());
 }
 StringU8 ast::ExprStmt::dump_json()
 {
@@ -552,5 +570,29 @@ IType *AssignmentExpr::get_type()
 {
 	return env()->get_void();
 }
-
+void AssignmentExpr::validate_types()
+{
+	if (!m_left->get_type()->can_accept(m_right->get_type()))
+	{
+		ErrorAssignTypeMismatch e;
+		e.left  = m_left->get_type()->get_type_name();
+		e.right = m_right->get_type()->get_type_name();
+		e.range = range();
+		throw std::move(e);
+	}
+}
+IType *AsExpr::get_type()
+{
+	auto src_type = m_operand->get_type();
+	auto dst_type = m_type->get_type();
+	if (!dst_type->can_accept_explicit(src_type))
+	{
+		ErrorInvalidExplicitCast cast;
+		cast.src   = src_type->get_type_name();
+		cast.dst   = dst_type->get_type_name();
+		cast.range = range();
+		throw std::move(cast);
+	}
+	return m_type->get_type();
+}
 } // namespace protolang::ast

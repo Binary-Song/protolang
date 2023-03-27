@@ -350,23 +350,30 @@ llvm::Value *ast::AsExpr::codegen_value(CodeGenerator &g)
 	assert(c);
 	return c;
 }
-IType *ast::AsExpr::get_type()
-{
-	auto src_type = m_operand->get_type();
-	auto dst_type = m_type->get_type();
-	if (!dst_type->can_accept_explicit(src_type))
-	{
-		ErrorInvalidExplicitCast cast;
-		cast.src   = src_type->get_type_name();
-		cast.dst   = dst_type->get_type_name();
-		cast.range = range();
-		throw std::move(cast);
-	}
-	return m_type->get_type();
-}
+
 llvm::Value *ast::AssignmentExpr::codegen_value(CodeGenerator &g)
 {
-
+	if (m_left->get_address().has_value())
+	{
+		auto addr = m_left->get_address().value();
+		g.builder().CreateStore(m_right->codegen_value(g), addr);
+	}
+	else
+	{
+		ErrorAssignmentToRvalue e;
+		e.range = m_left->range();
+		throw std::move(e);
+	}
 	return nullptr;
+}
+
+std::optional<llvm::Value *> ast::IdentExpr::get_address()
+{
+	auto entity = m_entity_cache.get();
+	if (auto var = dynamic_cast<IVar *>(entity))
+	{
+		return var->get_stack_addr();
+	}
+	return std::nullopt;
 }
 } // namespace protolang
