@@ -72,6 +72,7 @@ struct IType : IEntity
 	static constexpr const char *TYPE_NAME = "type";
 
 	~IType() override                = default;
+
 	virtual bool can_accept(IType *) = 0;
 	bool         can_accept_explicit(IType *t)
 	{

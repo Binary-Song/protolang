@@ -235,7 +235,7 @@ IType *MemberAccessExpr::recompute_type()
 	e.used_here = m_member.range;
 	throw std::move(e);
 }
-llvm::Value *MemberAccessExpr::codegen_value(
+llvm::Value *MemberAccessExpr::codegen_value_no_implicit_cast(
     [[maybe_unused]] CodeGenerator &g)
 {
 	throw ExceptionNotImplemented{};

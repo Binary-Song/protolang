@@ -35,7 +35,8 @@ static std::vector<llvm::Value *> cast_args(
 		auto arg_type   = arg_expr->get_type();
 		auto param_type = func->get_param_type(i);
 
-		auto arg_val_raw = arg_expr->codegen_value(g);
+		auto arg_val_raw =
+		    arg_expr->codegen_value_no_implicit_cast(g);
 
 		auto arg_val_cast =
 		    param_type->cast_implicit(g, arg_val_raw, arg_type);
@@ -63,7 +64,7 @@ static llvm::AllocaInst *alloca_for_local_var(
 	    .CreateAlloca(type, nullptr, name);
 }
 
-llvm::Value *ast::LiteralExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::LiteralExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	// 生成常数
 	if (m_token.type == Token::Type::Fp)
@@ -92,7 +93,7 @@ llvm::Value *ast::LiteralExpr::codegen_value(CodeGenerator &g)
 	else
 		throw ExceptionNotImplemented{};
 }
-llvm::Value *ast::IdentExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::IdentExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	// 变量：引用变量的值，未定义就报错
 	// 函数：重载决策后直接得到IFunc了，不用我来生成，
@@ -109,7 +110,7 @@ llvm::Value *ast::IdentExpr::codegen_value(CodeGenerator &g)
 
 llvm::Value *IVar::codegen_value(CodeGenerator &g)
 {
-	return codegen_value(g, this->get_init()->codegen_value(g));
+	return codegen_value(g, this->get_init()->codegen_value_no_implicit_cast(g));
 }
 llvm::Value *IVar::codegen_value(CodeGenerator &g,
                                  llvm::Value   *init)
@@ -228,7 +229,9 @@ void ast::ExprStmt::codegen(CodeGenerator &g)
 
 void ast::ReturnStmt::codegen(CodeGenerator &g)
 {
-	auto expr_val = get_expr()->codegen_value(g);
+	auto expr_val =
+	    get_expr()->codegen_value_no_implicit_cast(g);
+
 	g.builder().CreateRet(expr_val);
 }
 
@@ -237,19 +240,19 @@ void ast::ReturnVoidStmt::codegen(CodeGenerator &g)
 	g.builder().CreateRetVoid();
 }
 
-llvm::Value *ast::BinaryExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::BinaryExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	return generate_call(
 	    g, m_ovlres_cache.get(), {m_left.get(), m_right.get()});
 }
 
-llvm::Value *ast::UnaryExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::UnaryExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	return generate_call(
 	    g, m_ovlres_cache.get(), {this->m_operand.get()});
 }
 
-llvm::Value *ast::CallExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::CallExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 { // todo:
   // 如果callee不是一个单名，那就根据callee的类型找调用的函数
 	if (auto callee =
@@ -290,7 +293,8 @@ llvm::Type *IFuncType::get_llvm_type(CodeGenerator &g)
 void ast::IfStmt::codegen(CodeGenerator &g)
 {
 	auto bool_type     = env()->get_bool();
-	auto cond_val_raw  = this->m_condition->codegen_value(g);
+	auto cond_val_raw  =
+	    this->m_condition->codegen_value_no_implicit_cast(g);
 	auto cond_val_bool = bool_type->cast_implicit(
 	    g, cond_val_raw, m_condition->get_type());
 	cond_val_bool->setName("cond");
@@ -343,20 +347,22 @@ void ast::IfStmt::generate_branch(
 		g.builder().CreateBr(merge_blk); // 无条件跳转
 }
 
-llvm::Value *ast::AsExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::AsExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	auto c = m_type->get_type()->cast_explicit(
-	    g, m_operand->codegen_value(g), m_operand->get_type());
+	    g,
+	    m_operand->codegen_value_no_implicit_cast(g), m_operand->get_type());
 	assert(c);
 	return c;
 }
 
-llvm::Value *ast::AssignmentExpr::codegen_value(CodeGenerator &g)
+llvm::Value *ast::AssignmentExpr::codegen_value_no_implicit_cast(CodeGenerator &g)
 {
 	if (m_left->get_address().has_value())
 	{
 		auto addr = m_left->get_address().value();
-		g.builder().CreateStore(m_right->codegen_value(g), addr);
+		g.builder().CreateStore(
+		    m_right->codegen_value_no_implicit_cast(g), addr);
 	}
 	else
 	{

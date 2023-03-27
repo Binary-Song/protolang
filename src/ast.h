@@ -95,14 +95,38 @@ private:
 // 表达式，抽象类
 struct Expr : Ast, ITyped
 {
+private:
+	IType *m_implicit_cast;
+
+public:
 	// 表达式默认的语义检查方法是计算一次类型
 	virtual void validate_types() { get_type(); }
-	void codegen(CodeGenerator &g) override { codegen_value(g); }
-	virtual llvm::Value *codegen_value(CodeGenerator &g) = 0;
 	virtual std::optional<llvm::Value *> get_address()
 	{
 		return std::nullopt;
 	}
+	llvm::Value *codegen_value(CodeGenerator &g)
+	{
+		auto val  = codegen_value_no_implicit_cast(g);
+		auto cast = m_implicit_cast->cast_implicit(
+		    g, val, this->get_type());
+		return cast;
+	}
+
+	void codegen(CodeGenerator &g) override
+	{
+		codegen_value(g);
+	}
+
+	/// 在代码生成时，顺便把我cast到这个类型
+	void set_implicit_cast(IType *type)
+	{
+		m_implicit_cast = type;
+	}
+
+private:
+	virtual llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) = 0;
 };
 
 // 二元运算表达式
@@ -139,7 +163,8 @@ public:
 		    m_left->dump_json(),
 		    m_right->dump_json());
 	}
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 };
 
 // 一元运算
@@ -167,7 +192,8 @@ public:
 	}
 	Env   *env() const override { return m_operand->env(); }
 	IType *get_type() override;
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 };
 
 struct AssignmentExpr : Expr
@@ -191,7 +217,8 @@ struct AssignmentExpr : Expr
 	}
 	IType       *get_type() override;
 	void         validate_types() override;
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 };
 
 struct AsExpr : Expr
@@ -212,7 +239,8 @@ struct AsExpr : Expr
 	}
 	Env   *env() const override { return m_operand->env(); }
 	IType *get_type() override;
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 };
 
 struct CallExpr : Expr
@@ -251,7 +279,8 @@ public:
 	SrcRange     range() const override { return m_src_rng; }
 	Env         *env() const override { return m_callee->env(); }
 	IType       *get_type() override;
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 
 private:
 	IType *recompute_type();
@@ -288,7 +317,8 @@ public:
 	}
 	Env         *env() const override { return m_left->env(); }
 	IType       *get_type() override;
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 
 private:
 	IType *recompute_type();
@@ -317,7 +347,8 @@ public:
 	Env     *env() const override { return m_env; }
 	IType   *get_type() override;
 	Token    get_token() const { return m_token; }
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 
 private:
 	IType *recompute_type();
@@ -340,7 +371,8 @@ public:
 	Env         *env() const override { return m_env; }
 	IType       *get_type() override;
 	void         set_type(IType *type);
-	llvm::Value *codegen_value(CodeGenerator &g) override;
+	llvm::Value *codegen_value_no_implicit_cast(
+	    CodeGenerator &g) override;
 	std::optional<llvm::Value *> get_address() override;
 
 private:
@@ -550,7 +582,6 @@ private:
 	uptr<Expr> m_expr;
 
 public:
-public:
 	explicit ReturnStmt(const SrcRange &range, uptr<Expr> expr)
 	    : m_expr(std::move(expr))
 	    , m_range(range)
@@ -562,6 +593,7 @@ public:
 	void     codegen(CodeGenerator &g) override;
 	void     validate_types(IType *return_type) override;
 };
+
 struct ReturnVoidStmt : Stmt
 {
 private:
