@@ -77,7 +77,7 @@ target_include_directories(Protolang PUBLIC
         )
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_definitions(Protolang PUBLIC ${LLVM_DEFINITIONS_LIST})
-llvm_map_components_to_libnames(llvm_libs core irreader x86codegen x86asmparser)
+llvm_map_components_to_libnames(llvm_libs core support irreader x86codegen x86asmparser  )
 target_link_libraries(Protolang PUBLIC lexer ${llvm_libs})
 
 # add defs

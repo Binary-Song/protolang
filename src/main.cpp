@@ -2,11 +2,14 @@
 #include "encoding.h"
 #include "log.h"
 
-int main()
+int main(int argc, char **argv)
 {
 	using namespace protolang;
-	StringU8 input_file_name =
-	    __FILE__ R"(\..\..\test\test3.ptl)";
+
+	if (argc <= 1)
+		std::cerr << "Usage: protolang <source>\n";
+
+	StringU8 input_file_name = to_u8(std::string(argv[1]));
 	protolang::Compiler compiler(input_file_name);
 	try
 	{

@@ -382,4 +382,14 @@ struct ErrorInvalidExplicitCast : Error
 	}
 };
 
+struct ErrorCannotFindTool : Error
+{
+	StringU8 tool;
+
+	void print(Logger &logger) const override
+	{
+		logger.print(fmt::format(u8"Unable to find {}.", tool));
+	}
+};
+
 } // namespace protolang

@@ -14,11 +14,9 @@ namespace protolang
 void CodeGenerator::emit_object(
     const std::filesystem::path &path)
 {
-	llvm::InitializeAllTargetInfos();
-	llvm::InitializeAllTargets();
-	llvm::InitializeAllTargetMCs();
-	llvm::InitializeAllAsmParsers();
-	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeNativeTarget();
+	llvm::InitializeNativeTargetAsmParser();
+	llvm::InitializeNativeTargetAsmPrinter();
 
 	auto target_triple = llvm::sys::getDefaultTargetTriple();
 	this->module().setTargetTriple(

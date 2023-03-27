@@ -19,7 +19,7 @@ std::filesystem::path COFFLinker::link(
 	output += ".exe";
 
 	std::deque<StringU8> args = {
-	    u8R"(C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\lib\x64\msvcrt.lib)",
+	    StringU8(eg.guess_runtime_path()),
 	    u8"/OUT:" + StringU8(output),
 	    u8"/ENTRY:main",
 	};
@@ -28,7 +28,7 @@ std::filesystem::path COFFLinker::link(
 		args.emplace_front(input);
 	}
 
-	auto     linker  = guess_linker_path();
+	auto     linker  = eg.guess_linker_path();
 	StringU8 command = u8'\"' + StringU8(linker) + u8"\" ";
 	for (auto &arg : args)
 	{

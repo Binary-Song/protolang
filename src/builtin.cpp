@@ -463,7 +463,7 @@ llvm::Value *scalar_cast(CodeGenerator &g,
 { 
 	assert(input->getType() == input_type->get_llvm_type(g));
 
-	auto input_llvm_type  = input_type->get_llvm_type(g);
+	// auto input_llvm_type  = input_type->get_llvm_type(g);
 	auto output_llvm_type = output_type->get_llvm_type(g);
 
 	auto input_kind  = input_type->get_scalar_kind();
