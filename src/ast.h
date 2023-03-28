@@ -20,7 +20,7 @@ class Value;
 namespace protolang
 {
 struct IType;
-class Env;
+class Scope;
 class Logger;
 struct CodeGenerator;
 namespace ast
@@ -35,14 +35,14 @@ struct ICompoundStmtContent : IBlockContent,
                               virtual IJsonDumper,
                               virtual ICodeGen
 {
-	virtual void validate_types(IType *return_type) = 0;
+	virtual void validate(IType *return_type) = 0;
 };
 
 struct IStructContent : IBlockContent,
                         virtual IJsonDumper,
                         virtual ICodeGen
 {
-	virtual void validate_types() = 0;
+	virtual void validate() = 0;
 };
 
 ////////////////////////
@@ -51,13 +51,13 @@ struct Ast : virtual IJsonDumper, virtual ICodeGen
 {
 	// 函数
 public:
-	Env *root_env() const;
+	Scope *root_scope() const;
 
 	// 虚函数
 public:
 	~Ast() override                = default;
 	virtual SrcRange range() const = 0;
-	virtual Env     *env() const   = 0;
+	virtual Scope   *scope() const   = 0;
 };
 
 // 类型表达式，这是类型的引用，并不是真正的类型声明，抽象类
@@ -65,26 +65,26 @@ struct TypeExpr : Ast
 {
 	virtual IType *get_type() = 0;
 
-	void validate_types() { get_type(); }
+	void validate() { get_type(); }
 };
 
 // 类型标识符
-struct IdentTypeExpr : TypeExpr
+struct TypeName : TypeExpr
 {
 	// 数据
 private:
 	Ident        m_ident;
-	Env         *m_env;
+	Scope       *m_scope;
 	Cache<IType> m_type_cache;
 
 	// 函数
 public:
-	explicit IdentTypeExpr(Env *env, Ident ident);
+	explicit TypeName(Scope *scope, Ident ident);
 	Ident    ident() const { return m_ident; }
 	// 实现基类成员
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_ident.range; }
-	Env     *env() const override { return m_env; }
+	Scope   *scope() const override { return m_scope; }
 	IType   *get_type() override;
 	void     codegen(CodeGenerator &) override {}
 
@@ -100,7 +100,7 @@ private:
 
 public:
 	// 表达式默认的语义检查方法是计算一次类型
-	virtual void validate_types() { get_type(); }
+	virtual void validate() { get_type(); }
 	virtual std::optional<llvm::Value *> get_address()
 	{
 		return std::nullopt;
@@ -148,10 +148,10 @@ public:
 	{
 		return m_left->range() + m_right->range();
 	}
-	Env *env() const override
+	Scope *scope() const override
 	{
-		assert(m_left->env() == m_right->env());
-		return m_left->env();
+		assert(m_left->scope() == m_right->scope());
+		return m_left->scope();
 	}
 	IType   *get_type() override;
 	StringU8 dump_json() override
@@ -189,7 +189,7 @@ public:
 	{
 		return m_op.range + m_operand->range();
 	}
-	Env   *env() const override { return m_operand->env(); }
+	Scope *scope() const override { return m_operand->scope(); }
 	IType *get_type() override;
 	llvm::Value *codegen_value_no_implicit_cast(
 	    CodeGenerator &g) override;
@@ -205,17 +205,17 @@ struct AssignmentExpr : Expr
 	    , m_right(std::move(mRight))
 	{}
 	StringU8 dump_json() override;
-	Env     *env() const override
+	Scope   *scope() const override
 	{
-		assert(m_left->env() == m_right->env());
-		return m_left->env();
+		assert(m_left->scope() == m_right->scope());
+		return m_left->scope();
 	}
 	SrcRange range() const override
 	{
 		return m_left->range() + m_right->range();
 	}
 	IType       *get_type() override;
-	void         validate_types() override;
+	void         validate() override;
 	llvm::Value *codegen_value_no_implicit_cast(
 	    CodeGenerator &g) override;
 };
@@ -236,7 +236,7 @@ struct AsExpr : Expr
 	{
 		return m_type->range() + m_operand->range();
 	}
-	Env   *env() const override { return m_operand->env(); }
+	Scope *scope() const override { return m_operand->scope(); }
 	IType *get_type() override;
 	llvm::Value *codegen_value_no_implicit_cast(
 	    CodeGenerator &g) override;
@@ -276,7 +276,7 @@ public:
 	}
 	StringU8     dump_json() override;
 	SrcRange     range() const override { return m_src_rng; }
-	Env         *env() const override { return m_callee->env(); }
+	Scope       *scope() const override { return m_callee->scope(); }
 	IType       *get_type() override;
 	llvm::Value *codegen_value_no_implicit_cast(
 	    CodeGenerator &g) override;
@@ -314,7 +314,7 @@ public:
 	{
 		return m_left->range() + m_member.range;
 	}
-	Env         *env() const override { return m_left->env(); }
+	Scope       *scope() const override { return m_left->scope(); }
 	IType       *get_type() override;
 	llvm::Value *codegen_value_no_implicit_cast(
 	    CodeGenerator &g) override;
@@ -327,12 +327,12 @@ struct LiteralExpr : Expr
 {
 public:
 	Token        m_token;
-	Env         *m_env;
+	Scope       *m_scope;
 	Cache<IType> m_type_cache;
 
 public:
-	explicit LiteralExpr(Env *env, Token token)
-	    : m_env(env)
+	explicit LiteralExpr(Scope *scope, Token token)
+	    : m_scope(scope)
 	    , m_token(std::move(token))
 	    , m_type_cache(
 	          [this]()
@@ -343,7 +343,7 @@ public:
 
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_token.range(); }
-	Env     *env() const override { return m_env; }
+	Scope       *scope() const override { return m_scope; }
 	IType   *get_type() override;
 	Token    get_token() const { return m_token; }
 	llvm::Value *codegen_value_no_implicit_cast(
@@ -357,17 +357,17 @@ struct IdentExpr : Expr
 {
 private:
 	Ident          m_ident;
-	Env           *m_env;
+	Scope         *m_scope;
 	Cache<IType>   m_type_cache;
 	Cache<IEntity> m_entity_cache;
 
 public:
-	explicit IdentExpr(Env *env, Ident ident);
+	explicit IdentExpr(Scope *scope, Ident ident);
 
 	Ident        ident() const { return m_ident; }
 	StringU8     dump_json() override;
 	SrcRange     range() const override { return m_ident.range; }
-	Env         *env() const override { return m_env; }
+	Scope       *scope() const override { return m_scope; }
 	IType       *get_type() override;
 	void         set_type(IType *type);
 	llvm::Value *codegen_value_no_implicit_cast(
@@ -381,7 +381,7 @@ private:
 
 struct Decl : virtual Ast
 {
-	virtual void validate_types() = 0;
+	virtual void validate() = 0;
 };
 
 struct VarDecl : Decl, IVar, ICompoundStmtContent
@@ -409,14 +409,14 @@ public:
 	{
 		return m_ident.range + m_init->range();
 	}
-	Env *env() const override
+	Scope *scope() const override
 	{
-		return m_type ? m_type->env() : m_init->env();
+		return m_type ? m_type->scope() : m_init->scope();
 	}
-	void validate_types() override;
-	void validate_types(IType *) override
+	void validate() override;
+	void validate(IType *) override
 	{
-		return validate_types();
+		return validate();
 	}
 	llvm::AllocaInst *get_stack_addr() const override
 	{
@@ -435,14 +435,14 @@ public:
 struct ParamDecl : Decl, IVar
 {
 private:
-	Env           *m_env; // env在函数内部
+	Scope            *m_scope; // scope在函数内部
 	Ident          m_ident;
-	uptr<TypeExpr> m_type; // 注意，它的env在函数外部
+	uptr<TypeExpr> m_type; // 注意，它的scope在函数外部
 	llvm::AllocaInst *m_value = nullptr;
 
 public:
-	ParamDecl(Env *env, Ident ident, uptr<TypeExpr> type)
-	    : m_env(env)
+	ParamDecl(Scope *scope, Ident ident, uptr<TypeExpr> type)
+	    : m_scope(scope)
 	    , m_ident(std::move(ident))
 	    , m_type(std::move(type))
 	{}
@@ -455,8 +455,8 @@ public:
 	{
 		return m_ident.range + m_type->range();
 	}
-	Env *env() const override { return m_env; }
-	void validate_types() override { this->m_type->get_type(); }
+	Scope *scope() const override { return m_scope; }
+	void validate() override { this->m_type->get_type(); }
 	llvm::AllocaInst *get_stack_addr() const override
 	{
 		return m_value;
@@ -474,7 +474,7 @@ public:
 struct Stmt : virtual Ast, ICompoundStmtContent
 {
 	/// 如果语句返回，则返回值类型由return_type给出
-	virtual void validate_types(IType *return_type) = 0;
+	virtual void validate(IType *return_type) = 0;
 };
 
 struct ExprStmt : Stmt
@@ -491,32 +491,32 @@ public:
 	Expr    *get_expr() { return m_expr.get(); }
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_range; }
-	Env     *env() const override { return m_expr->env(); }
-	void validate_types(IType *) override { m_expr->get_type(); }
+	Scope   *scope() const override { return m_expr->scope(); }
+	void validate(IType *) override { m_expr->get_type(); }
 	void codegen(CodeGenerator &g) override;
 };
 
-struct IScope : virtual Ast
+struct IAbstractBlock : virtual Ast
 {
-	virtual void set_outer_env(Env *env) = 0;
-	virtual Env *get_outer_env() const   = 0;
-	virtual void set_inner_env(Env *env) = 0;
-	virtual Env *get_inner_env() const   = 0;
+	virtual void set_outer_scope(Scope *scope) = 0;
+	virtual Scope *get_outer_scope() const   = 0;
+	virtual void set_inner_scope(Scope *scope) = 0;
+	virtual Scope *get_inner_scope() const   = 0;
 
-	template <std::derived_from<IScope> ScopeType>
-	static uptr<ScopeType> nest(Env *outer_env)
+	template <std::derived_from<IAbstractBlock> ScopeType>
+	static uptr<ScopeType> nest(Scope *outer_scope)
 	{
 		auto ptr = make_uptr(new ScopeType());
-		ptr->set_outer_env(outer_env);
-		auto inner_env = create_env(
-		    ptr->get_outer_env(), ptr->get_outer_env()->logger);
-		ptr->set_inner_env(inner_env);
+		ptr->set_outer_scope(outer_scope);
+		auto inner_scope = create_scope(
+		    ptr->get_outer_scope(), ptr->get_outer_scope()->logger);
+		ptr->set_inner_scope(inner_scope);
 		return ptr;
 	}
 };
 
 template <std::derived_from<IBlockContent> TContent>
-struct IBlock : IScope
+struct IBlock : IAbstractBlock
 {
 	virtual void      set_range(const SrcRange &range) = 0;
 	virtual void      add_content(uptr<TContent>)      = 0;
@@ -528,8 +528,8 @@ struct CompoundStmt : Stmt, IBlock<ICompoundStmtContent>
 {
 private:
 	SrcRange m_range;
-	Env     *m_inner_env = nullptr;
-	Env     *m_outer_env = nullptr;
+	Scope     *m_inner_scope = nullptr;
+	Scope     *m_outer_scope = nullptr;
 
 	std::vector<uptr<ICompoundStmtContent>> m_content;
 
@@ -538,11 +538,11 @@ public:
 
 	SrcRange range() const override { return m_range; }
 
-	Env *env() const override { return get_outer_env(); }
-	Env *get_outer_env() const override { return m_outer_env; }
-	Env *get_inner_env() const override { return m_inner_env; }
-	void set_outer_env(Env *env) override { m_outer_env = env; }
-	void set_inner_env(Env *env) override { m_inner_env = env; }
+	Scope *scope() const override { return get_outer_scope(); }
+	Scope *get_outer_scope() const override { return m_outer_scope; }
+	Scope *get_inner_scope() const override { return m_inner_scope; }
+	void set_outer_scope(Scope *scope) override { m_outer_scope = scope; }
+	void set_inner_scope(Scope *scope) override { m_inner_scope = scope; }
 
 	void set_range(const SrcRange &range) override
 	{
@@ -564,11 +564,11 @@ public:
 	{
 		return dump_json_for_vector_of_ptr(m_content);
 	}
-	void validate_types(IType *return_type) override
+	void validate(IType *return_type) override
 	{
 		for (auto &&elem : m_content)
 		{
-			elem->validate_types(return_type);
+			elem->validate(return_type);
 		}
 	}
 	void codegen(CodeGenerator &g) override;
@@ -588,20 +588,20 @@ public:
 	Expr    *get_expr() { return m_expr.get(); }
 	StringU8 dump_json() override;
 	SrcRange range() const override { return m_range; }
-	Env     *env() const override { return m_expr->env(); }
+	Scope   *scope() const override { return m_expr->scope(); }
 	void     codegen(CodeGenerator &g) override;
-	void     validate_types(IType *return_type) override;
+	void     validate(IType *return_type) override;
 };
 
 struct ReturnVoidStmt : Stmt
 {
 private:
-	Env     *m_env;
+	Scope   *m_scope;
 	SrcRange m_range;
 
 public:
-	explicit ReturnVoidStmt(const SrcRange &range, Env *env)
-	    : m_env(env)
+	explicit ReturnVoidStmt(const SrcRange &range, Scope *scope)
+	    : m_scope(scope)
 	    , m_range(range)
 	{}
 	StringU8 dump_json() override
@@ -609,22 +609,22 @@ public:
 		return u8R"({{"obj":"ReturnVoidStmt"}})";
 	}
 	SrcRange range() const override { return m_range; }
-	Env     *env() const override { return m_env; }
+	Scope   *scope() const override { return m_scope; }
 	void     codegen(CodeGenerator &g) override;
-	void     validate_types(IType *return_type) override;
+	void     validate(IType *return_type) override;
 };
 
 struct IfStmt : Stmt
 {
 protected:
-	Env                              *m_env;
+	Scope                            *m_scope;
 	Token                             m_if_token;
 	uptr<Expr>                        m_condition;
 	uptr<CompoundStmt>                m_then;
 	std::optional<uptr<CompoundStmt>> m_else;
 
 public:
-	IfStmt(Env               *env,
+	IfStmt(Scope             *scope,
 	       Token              if_token,
 	       uptr<Expr>         cond,
 	       uptr<CompoundStmt> then);
@@ -642,8 +642,8 @@ public:
 		}
 		return m_if_token.range() + m_then->range();
 	}
-	Env     *env() const override { return m_env; }
-	void     validate_types(IType *return_type) override;
+	Scope   *scope() const override { return m_scope; }
+	void     validate(IType *return_type) override;
 	void     codegen(CodeGenerator &g) override;
 	StringU8 dump_json() override;
 
@@ -659,7 +659,7 @@ private:
 struct FuncDecl : Decl, IFunc
 {
 private:
-	Env                         *m_env = nullptr;
+	Scope                       *m_scope = nullptr;
 	SrcRange                     m_range;
 	Ident                        m_ident;
 	std::vector<uptr<ParamDecl>> m_params;
@@ -669,7 +669,7 @@ private:
 
 public:
 	FuncDecl() = default;
-	FuncDecl(Env                         *env,
+	FuncDecl(Scope                       *scope,
 	         SrcRange                     range,
 	         Ident                        ident,
 	         std::vector<uptr<ParamDecl>> params,
@@ -680,7 +680,7 @@ public:
 	Ident    get_ident() const { return m_ident; }
 	IType   *get_type() override { return this; }
 	SrcRange range() const override { return m_range; }
-	Env     *env() const override { return m_env; }
+	Scope   *scope() const override { return m_scope; }
 
 	IType *get_return_type() override
 	{
@@ -695,7 +695,7 @@ public:
 		return m_params[i]->get_type();
 	}
 	ICodeGen *get_body() override { return m_body.get(); }
-	void      validate_types() override;
+	void      validate() override;
 	StringU8  get_mangled_name() const override
 	{
 		return m_mangled_name;
@@ -724,11 +724,11 @@ struct StructBody : IBlock<IStructContent>
 {
 	std::vector<uptr<IStructContent>> m_content;
 
-	void validate_types()
+	void validate()
 	{
 		for (auto &&elem : m_content)
 		{
-			elem->validate_types();
+			elem->validate();
 		}
 	}
 };
@@ -736,13 +736,13 @@ struct StructBody : IBlock<IStructContent>
 struct StructDecl : Decl, IType
 {
 private:
-	Env             *m_env;
+	Scope           *m_scope;
 	uptr<StructBody> m_body;
 	SrcRange         m_range;
 	Ident            m_ident;
 
 public:
-	StructDecl(Env             *env,
+	StructDecl(Scope           *scope,
 	           const SrcRange  &range,
 	           Ident            ident,
 	           uptr<StructBody> body);
@@ -755,18 +755,18 @@ public:
 		    m_body->dump_json());
 	}
 	SrcRange range() const override { return m_range; }
-	Env     *env() const override { return m_env; }
+	Scope   *scope() const override { return m_scope; }
 	bool accepts_implicit_cast_no_check(IType *iType) override;
 	bool equal(IType *iType) override;
 	StringU8 get_type_name() override;
-	void     validate_types() override;
+	void     validate() override;
 };
 
 struct Program : Ast
 {
 private:
 	std::vector<uptr<Decl>> m_decls;
-	uptr<Env>               m_root_env;
+	uptr<Scope>               m_root_scope;
 	Logger                 &logger;
 
 public:
@@ -775,7 +775,7 @@ public:
 
 	StringU8 dump_json() override;
 	SrcRange range() const override { return {}; }
-	Env     *env() const override { return m_root_env.get(); }
+	Scope   *scope() const override { return m_root_scope.get(); }
 
 	const std::vector<uptr<Decl>> &get_decls() const
 	{
@@ -785,7 +785,7 @@ public:
 	void codegen(CodeGenerator &g, bool &success);
 	void codegen(CodeGenerator &g) override;
 
-	void validate_types(bool &success);
+	void validate(bool &success);
 };
 } // namespace ast
 } // namespace protolang

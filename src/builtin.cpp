@@ -6,7 +6,7 @@
 #include "code_generator.h"
 #include "encoding.h"
 #include "entity_system.h"
-#include "env.h"
+#include "scope.h"
 namespace protolang
 {
 
@@ -569,72 +569,72 @@ unsigned int BoolType::get_bits() const
 using namespace builtin;
 
 template <std::derived_from<IType> Ty>
-auto add_type(Env *env)
+auto add_type(Scope *scope)
 {
 	auto     ptr     = make_uptr(new Ty{});
 	auto     ptr_raw = ptr.get();
 	StringU8 name    = ptr->get_type_name();
-	env->add_keyword(name, std::move(ptr));
+	scope->add_keyword(name, std::move(ptr));
 	return ptr_raw;
 }
 
 template <std::derived_from<IScalarType> ScTy>
-void add_scalar_and_op(Env *env, IType *bool_type)
+void add_scalar_and_op(Scope *scope, IType *bool_type)
 {
-	auto ty_ptr = add_type<ScTy>(env);
-	env->add(Ident(u8"+", SrcRange()),
+	auto ty_ptr = add_type<ScTy>(scope);
+	scope->add(Ident(u8"+", SrcRange()),
 	         make_uptr(new Operator<OperationType::Add>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"-", SrcRange()),
+	scope->add(Ident(u8"-", SrcRange()),
 	         make_uptr(new Operator<OperationType::Sub>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"*", SrcRange()),
+	scope->add(Ident(u8"*", SrcRange()),
 	         make_uptr(new Operator<OperationType::Mul>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"/", SrcRange()),
+	scope->add(Ident(u8"/", SrcRange()),
 	         make_uptr(new Operator<OperationType::Div>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"==", SrcRange()),
+	scope->add(Ident(u8"==", SrcRange()),
 	         make_uptr(new Operator<OperationType::Eq>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"!=", SrcRange()),
+	scope->add(Ident(u8"!=", SrcRange()),
 	         make_uptr(new Operator<OperationType::Ne>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8">", SrcRange()),
+	scope->add(Ident(u8">", SrcRange()),
 	         make_uptr(new Operator<OperationType::Gt>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"<", SrcRange()),
+	scope->add(Ident(u8"<", SrcRange()),
 	         make_uptr(new Operator<OperationType::Lt>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8">=", SrcRange()),
+	scope->add(Ident(u8">=", SrcRange()),
 	         make_uptr(new Operator<OperationType::Ge>{
 	             ty_ptr, bool_type}));
-	env->add(Ident(u8"<=", SrcRange()),
+	scope->add(Ident(u8"<=", SrcRange()),
 	         make_uptr(new Operator<OperationType::Le>{
 	             ty_ptr, bool_type}));
 }
 
-void add_builtins(Env *env)
+void add_builtins(Scope *scope)
 {
 	// void
-	add_type<VoidType>(env);
+	add_type<VoidType>(scope);
 	// bool
-	auto bool_type = add_type<BoolType>(env);
+	auto bool_type = add_type<BoolType>(scope);
 	//   bool ==
-	env->add(Ident(u8"==", SrcRange()),
+	scope->add(Ident(u8"==", SrcRange()),
 	         make_uptr(new Operator<OperationType::Eq>{
 	             bool_type, bool_type}));
 	//   bool !=
-	env->add(Ident(u8"!=", SrcRange()),
+	scope->add(Ident(u8"!=", SrcRange()),
 	         make_uptr(new Operator<OperationType::Ne>{
 	             bool_type, bool_type}));
 	// scalars
-	add_scalar_and_op<IntType<32, true>>(env, bool_type);
-	add_scalar_and_op<IntType<64, true>>(env, bool_type);
-	add_scalar_and_op<IntType<32, false>>(env, bool_type);
-	add_scalar_and_op<IntType<64, false>>(env, bool_type);
-	add_scalar_and_op<FloatType>(env, bool_type);
-	add_scalar_and_op<DoubleType>(env, bool_type);
+	add_scalar_and_op<IntType<32, true>>(scope, bool_type);
+	add_scalar_and_op<IntType<64, true>>(scope, bool_type);
+	add_scalar_and_op<IntType<32, false>>(scope, bool_type);
+	add_scalar_and_op<IntType<64, false>>(scope, bool_type);
+	add_scalar_and_op<FloatType>(scope, bool_type);
+	add_scalar_and_op<DoubleType>(scope, bool_type);
 }
 
 } // namespace protolang

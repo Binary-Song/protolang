@@ -4,7 +4,7 @@
 
 namespace protolang
 {
-class Env;
+class Scope;
 
 namespace builtin
 {
@@ -12,5 +12,5 @@ namespace builtin
 
 } // namespace builtin
 
-void add_builtins(Env *);
+void add_builtins(Scope *);
 } // namespace protolang

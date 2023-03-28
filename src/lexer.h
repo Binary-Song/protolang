@@ -1,7 +1,7 @@
 #pragma once
 #include <sstream>
 #include "lex.yy.h"
-#include "logger.h"
+#include "log.h"
 #include "source_code.h"
 #include "token.h"
 namespace protolang

@@ -5,9 +5,9 @@
 #include "ast.h"
 #include "code_generator.h"
 #include "entity_system.h"
-#include "env.h"
 #include "exceptions.h"
 #include "log.h"
+#include "scope.h"
 
 namespace protolang
 {
@@ -104,7 +104,7 @@ llvm::Value *ast::IdentExpr::codegen_value_no_implicit_cast(
 	// 变量：引用变量的值，未定义就报错
 	// 函数：重载决策后直接得到IFunc了，不用我来生成，
 	// 这里只生成变量引用。
-	auto var = env()->get_backwards<IVar>(
+	auto var = scope()->get_backwards<IVar>(
 	    ident()); // 从环境中找到对应的var，读取
 
 	auto load_inst = g.builder().CreateLoad(

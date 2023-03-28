@@ -1,5 +1,5 @@
 #include <iterator>
-#include "env.h"
+#include "scope.h"
 #include "ast.h"
 #include "builtin.h"
 #include "log.h"
@@ -7,7 +7,7 @@
 namespace protolang
 {
 
-bool Env::check_args(IFuncType                  *func,
+bool Scope::check_args(IFuncType                  *func,
                      const std::vector<IType *> &arg_types,
                      bool                        throw_error,
                      bool                        strict)
@@ -70,7 +70,7 @@ static std::vector<IOp *> get_ops_from_overload_set(
 	return ops;
 }
 
-IOp *Env::overload_resolution(
+IOp *Scope::overload_resolution(
     const Ident                &func_ident,
     const std::vector<IType *> &arg_types)
 {
@@ -132,7 +132,7 @@ IOp *Env::overload_resolution(
 	e.arg_types = arg_type_names(arg_types);
 	throw std::move(e);
 }
-void Env::add_to_overload_set(OverloadSet    *overloads,
+void Scope::add_to_overload_set(OverloadSet    *overloads,
                               IOp            *func,
                               const StringU8 &name)
 {
@@ -161,7 +161,7 @@ static ErrorNameRedef create_name_redef_error(const Ident &ident,
 	return e;
 }
 
-void Env::add_to(const Ident                   &ident,
+void Scope::add_to(const Ident                   &ident,
                  IEntity                       *obj,
                  std::map<StringU8, IEntity *> &to)
 {
@@ -221,7 +221,7 @@ void Env::add_to(const Ident                   &ident,
 	}
 }
 
-StringU8 Env::dump_json()
+StringU8 Scope::dump_json()
 {
 	std::vector<IEntity *> vals;
 	for (auto &&[_, value] : m_symbol_table)
@@ -231,10 +231,10 @@ StringU8 Env::dump_json()
 	return fmt::format(
 	    u8R"({{"obj":"Env","this":{},"sub":{}}})",
 	    dump_json_for_vector_of_ptr(vals),
-	    dump_json_for_vector_of_ptr(this->m_subenvs));
+	    dump_json_for_vector_of_ptr(this->m_children));
 }
 
-void Env::add_built_in_facility()
+void Scope::add_built_in_facility()
 {
 	protolang::add_builtins(this);
 }
@@ -274,7 +274,7 @@ template bool check_forward_ref<false>(const Ident &ref,
 template <std::derived_from<IEntity> T,
           bool                       forward_ref,
           bool                       look_at_kw_table>
-T *Env::get(const Ident &ident) const
+T *Scope::get(const Ident &ident) const
 {
 	StringU8 name = ident.name;
 	IEntity *ent  = nullptr;
@@ -319,17 +319,17 @@ T *Env::get(const Ident &ident) const
 	e.name = ident;
 	throw std::move(e);
 }
-template IEntity *Env::get<IEntity, false>(
+template IEntity *Scope::get<IEntity, false>(
     const Ident &ident) const;
-template IType *Env::get<IType, false>(const Ident &ident) const;
-template IVar  *Env::get<IVar, false>(const Ident &ident) const;
-template OverloadSet *Env::get<OverloadSet, false>(
+template IType *Scope::get<IType, false>(const Ident &ident) const;
+template IVar  *Scope::get<IVar, false>(const Ident &ident) const;
+template OverloadSet *Scope::get<OverloadSet, false>(
     const Ident &ident) const;
-template IEntity *Env::get<IEntity, true>(
+template IEntity *Scope::get<IEntity, true>(
     const Ident &ident) const;
-template IType *Env::get<IType, true>(const Ident &ident) const;
-template IVar  *Env::get<IVar, true>(const Ident &ident) const;
-template OverloadSet *Env::get<OverloadSet, true>(
+template IType *Scope::get<IType, true>(const Ident &ident) const;
+template IVar  *Scope::get<IVar, true>(const Ident &ident) const;
+template OverloadSet *Scope::get<OverloadSet, true>(
     const Ident &ident) const;
 // template I *Env::get<IEntity>(const Ident &ident) const;
 

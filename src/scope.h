@@ -19,43 +19,43 @@ namespace protolang
 template <bool do_throw = false>
 bool check_forward_ref(const Ident &ref, IEntity *ent);
 
-class Env
+class Scope
 {
 public:
 	Logger &logger;
 
 private:
-	Env                          *m_parent;
-	std::vector<uptr<Env>>        m_subenvs;
+	Scope                        *m_parent;
+	std::vector<uptr<Scope>>      m_children;
 	std::vector<uptr<IEntity>>    m_owned_entities;
 	std::map<StringU8, IEntity *> m_symbol_table;
 	std::map<StringU8, IEntity *> m_keyword_symbol_table;
 	StringU8                      m_scope_name;
 
 private:
-	explicit Env(Env *parent, Logger &logger)
+	explicit Scope(Scope *parent, Logger &logger)
 	    : m_parent(parent)
 	    , logger(logger)
 	{}
 
 public:
-	static uptr<Env> create_root(Logger &logger)
+	static uptr<Scope> create_root(Logger &logger)
 
 	{
-		auto env          = make_uptr(new Env(nullptr, logger));
-		env->m_scope_name = u8"";
-		return env;
+		auto scope = make_uptr(new Scope(nullptr, logger));
+		scope->m_scope_name = u8"";
+		return scope;
 	}
 
-	static Env *create(Env *parent, Logger &logger)
+	static Scope *create(Scope *parent, Logger &logger)
 	{
-		auto env     = make_uptr(new Env(parent, logger));
-		auto env_ptr = env.get();
-		parent->m_subenvs.push_back(std::move(env));
-		return env_ptr;
+		auto scope     = make_uptr(new Scope(parent, logger));
+		auto scope_ptr = scope.get();
+		parent->m_children.push_back(std::move(scope));
+		return scope_ptr;
 	}
 
-	const Env *get_root() const
+	const Scope *get_root() const
 	{
 		auto e = this;
 		while (e->m_parent)
@@ -166,8 +166,8 @@ public:
 
 	StringU8 dump_json();
 
-	Env *get_parent() { return m_parent; }
-	Env *get_root()
+	Scope *get_parent() { return m_parent; }
+	Scope *get_root()
 	{
 		auto e = this;
 		while (e->m_parent)
@@ -206,22 +206,22 @@ private:
 
 struct EnvGuard
 {
-	Env *&curr_env;
-	Env  *old_env;
+	Scope *&curr_scope;
+	Scope  *old_scope;
 
-	EnvGuard(Env *&curr_env, Env *new_env)
-	    : curr_env(curr_env)
+	EnvGuard(Scope *&curr_scope, Scope *new_scope)
+	    : curr_scope(curr_scope)
 	{
-		old_env  = curr_env;
-		curr_env = new_env;
+		old_scope  = curr_scope;
+		curr_scope = new_scope;
 	}
 
-	~EnvGuard() { curr_env = old_env; }
+	~EnvGuard() { curr_scope = old_scope; }
 };
 
-inline Env *create_env(Env *parent, Logger &logger)
+inline Scope *create_scope(Scope *parent, Logger &logger)
 {
-	return Env::create(parent, logger);
+	return Scope::create(parent, logger);
 }
 
 } // namespace protolang

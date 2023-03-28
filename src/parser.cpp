@@ -1,9 +1,9 @@
 #include "parser.h"
 #include "ast.h"
 #include "entity_system.h"
-#include "env.h"
 #include "exceptions.h"
 #include "log.h"
+#include "scope.h"
 namespace protolang
 {
 
@@ -43,7 +43,7 @@ uptr<ast::VarDecl> Parser::var_decl()
 	Ident var_ident = Ident(name, name_token.range());
 	auto  decl      = std::make_unique<ast::VarDecl>(
         var_ident, std::move(type), std::move(init));
-	curr_env->add(var_ident, decl.get());
+	curr_scope->add(var_ident, decl.get());
 	return decl;
 }
 
@@ -69,7 +69,7 @@ uptr<ast::Stmt> Parser::return_statement()
 		return make_uptr(
 		    new ast::ReturnStmt(range, std::move(expr)));
 	return make_uptr( //
-	    new ast::ReturnVoidStmt(range, curr_env));
+	    new ast::ReturnVoidStmt(range, curr_scope));
 }
 
 template <std::derived_from<ast::IBlockContent> TContent>
@@ -77,7 +77,7 @@ void Parser::parse_block(
     ast::IBlock<TContent>                       *block,
     std::function<void(ast::IBlock<TContent> *)> elem_handler)
 {
-	EnvGuard guard(curr_env, block->get_inner_env());
+	EnvGuard guard(curr_scope, block->get_inner_scope());
 	auto     left_brace =
 	    eat_given_type_or_panic(Token::Type::LeftBrace, "{");
 	while (!is_curr_of_type(Token::Type::RightBrace))
@@ -93,7 +93,7 @@ void Parser::parse_block(
 uptr<ast::CompoundStmt> Parser::compound_statement()
 {
 	auto compound =
-	    ast::IScope::nest<ast::CompoundStmt>(curr_env);
+	    ast::IAbstractBlock::nest<ast::CompoundStmt>(curr_scope);
 
 	parse_block<ast::ICompoundStmtContent>(
 	    compound.get(),
@@ -114,7 +114,7 @@ uptr<ast::IfStmt> Parser::if_statement()
 	auto then_br = compound_statement();
 
 	auto if_stmt = make_uptr(new ast::IfStmt(
-	    curr_env,
+	    curr_scope,
 	    std::move(if_kw),
 	    std::move(cond),
 	    std::move(then_br))); // 小心！之后用不了move的东西
@@ -140,8 +140,8 @@ uptr<ast::StructBody> Parser::struct_body()
 	//	    });
 	//
 	//	auto struct_body =
-	//	    ast::IBlock::create_with_inner_env<ast::StructBody>(
-	//	        curr_env);
+	//	    ast::IBlock::create_with_inner_scope<ast::StructBody>(
+	//	        curr_scope);
 	//	parse_block(compound.get(),
 	//	            [this](ast::IBlock *b)
 	//	            {
@@ -316,24 +316,24 @@ uptr<ast::Expr> Parser::primary()
 	if (eat_if_is_given_type({Token::Type::Id}))
 	{
 		return uptr<ast::Expr>(new ast::IdentExpr(
-		    curr_env, Ident(prev().str_data, prev().range())));
+		    curr_scope, Ident(prev().str_data, prev().range())));
 	}
 	if (eat_if_is_given_type({Token::Type::Str,
 	                          Token::Type::Int,
 	                          Token::Type::Fp}))
 	{
 		return uptr<ast::Expr>(
-		    new ast::LiteralExpr(curr_env, prev()));
+		    new ast::LiteralExpr(curr_scope, prev()));
 	}
 	if (eat_if_is_given_keyword(KW_FALSE))
 	{
 		return uptr<ast::Expr>(
-		    new ast::LiteralExpr(curr_env, prev()));
+		    new ast::LiteralExpr(curr_scope, prev()));
 	}
 	if (eat_if_is_given_keyword(KW_TRUE))
 	{
 		return uptr<ast::Expr>(
-		    new ast::LiteralExpr(curr_env, prev()));
+		    new ast::LiteralExpr(curr_scope, prev()));
 	}
 	if (eat_if_is_given_type({Token::Type::LeftParen}))
 	{
@@ -419,7 +419,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 		    {Ident(param_name, param_name_token.range()),
 		     std::move(type)});
 		//		params.push_back(std::make_unique<ast::ParamDecl>(
-		//		    curr_env,
+		//		    curr_scope,
 		//		    Ident(param_name, param_name_token.range()),
 		//		    std::move(type)));
 		// 下一个必须是`,`或者`)`
@@ -434,17 +434,17 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	auto return_type = type_expr();
 	auto body        = compound_statement();
 
-	// 创建参数，在inner env里！
+	// 创建参数，在inner scope里！
 	for (auto &&[ident, type_expr] : data)
 	{
 		auto decl = make_uptr(new ast::ParamDecl(
-		    body->get_inner_env(), ident, std::move(type_expr)));
-		body->get_inner_env()->add(ident, decl.get());
+		    body->get_inner_scope(), ident, std::move(type_expr)));
+		body->get_inner_scope()->add(ident, decl.get());
 		params.push_back(std::move(decl));
 	}
 
 	auto decl = std::make_unique<ast::FuncDecl>(
-	    curr_env,
+	    curr_scope,
 	    // note: range 是函数声明的 range
 	    range_union(func_kw_token.range(), return_type->range()),
 	    func_ident,
@@ -452,7 +452,7 @@ uptr<ast::FuncDecl> Parser::func_decl()
 	    std::move(return_type),
 	    std::move(body));
 
-	curr_env->add(func_ident, decl.get());
+	curr_scope->add(func_ident, decl.get());
 	return decl;
 }
 
@@ -464,13 +464,13 @@ uptr<ast::StructDecl> Parser::struct_decl()
 	//	auto body              = struct_body();
 	//	auto decl              =
 	// std::make_unique<ast::StructDecl>(
-	//        curr_env,
+	//        curr_scope,
 	//        range_union(struct_kw_token.range(),
 	//                    struct_name_token.range()),
 	//        Ident{struct_name_token.str_data,
 	//              struct_name_token.range()},
 	//        std::move(body));
-	//	curr_env->add(struct_name_token.str_data, decl.get());
+	//	curr_scope->add(struct_name_token.str_data, decl.get());
 	//	return decl;
 }
 
@@ -478,8 +478,8 @@ uptr<ast::TypeExpr> Parser::type_expr()
 {
 	eat_ident_or_panic("type");
 	auto type_name_token = prev();
-	return std::make_unique<ast::IdentTypeExpr>(
-	    curr_env,
+	return std::make_unique<ast::TypeName>(
+	    curr_scope,
 	    Ident(type_name_token.str_data,
 	          type_name_token.range()));
 }
@@ -504,8 +504,8 @@ uptr<ast::Stmt> Parser::statement()
 }
 uptr<ast::Program> Parser::program()
 {
-	curr_env = root_env;
-	root_env->add_built_in_facility();
+	curr_scope = root_scope;
+	root_scope->add_built_in_facility();
 	std::vector<uptr<ast::Decl>> vec;
 
 	while (!is_curr_eof())

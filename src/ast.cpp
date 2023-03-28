@@ -4,16 +4,16 @@
 #include "builtin.h"
 #include "encoding.h"
 #include "entity_system.h"
-#include "env.h"
 #include "log.h"
 #include "logger.h"
+#include "scope.h"
 namespace protolang::ast
 {
 
 // === IdentTypeExpr ===
-IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
+TypeName::TypeName(Scope *scope, Ident ident)
     : m_ident(std::move(ident))
-    , m_env(env)
+    , m_scope(scope)
     , m_type_cache(
           [this]()
           {
@@ -21,16 +21,16 @@ IdentTypeExpr::IdentTypeExpr(Env *env, Ident ident)
           })
 {}
 
-IType *IdentTypeExpr::get_type()
+IType *TypeName::get_type()
 {
 	return m_type_cache.get();
 }
-IType *IdentTypeExpr::recompute_type()
+IType *TypeName::recompute_type()
 {
-	return this->env()->get<IType>(ident());
+	return this->scope()->get<IType>(ident());
 }
 
-StringU8 IdentTypeExpr::dump_json()
+StringU8 TypeName::dump_json()
 {
 	return fmt::format(
 	    u8R"({{"obj":"IdentTypeExpr","ident":{}}})",
@@ -54,7 +54,7 @@ BinaryExpr::BinaryExpr(uptr<Expr> left,
           {
 	          auto lhs_type = this->m_left->get_type();
 	          auto rhs_type = this->m_right->get_type();
-	          return this->env()->overload_resolution(
+	          return this->scope()->overload_resolution(
 	              m_op, {lhs_type, rhs_type});
           })
 {}
@@ -77,7 +77,7 @@ UnaryExpr::UnaryExpr(bool prefix, uptr<Expr> operand, Ident op)
           [this]()
           {
 	          auto operand_type = m_operand->get_type();
-	          return env()->overload_resolution(m_op,
+	          return scope()->overload_resolution(m_op,
 	                                            {operand_type});
           })
 {}
@@ -111,7 +111,7 @@ CallExpr::CallExpr(const SrcRange         &src_rng,
 	          if (auto ident_expr =
 	                  dynamic_cast<IdentExpr *>(m_callee.get()))
 	          {
-		          IOp *func = env()->overload_resolution(
+		          IOp *func = scope()->overload_resolution(
 		              ident_expr->ident(), get_arg_types());
 		          return func;
 	          }
@@ -158,7 +158,7 @@ IType *CallExpr::recompute_type()
 		// 检查参数类型
 		try
 		{
-			env()->check_args(
+			scope()->check_args(
 			    func_type, get_arg_types(), true, false);
 		}
 		catch (ErrorCallTypeMismatch &e)
@@ -258,19 +258,19 @@ IType *LiteralExpr::recompute_type()
 {
 	if (m_token.type == Token::Type::Int)
 	{
-		return root_env()->get<IType>(
+		return root_scope()->get<IType>(
 		    Ident(u8"int", m_token.range()));
 	}
 	else if (m_token.type == Token::Type::Fp)
 	{
-		return root_env()->get<IType>(
+		return root_scope()->get<IType>(
 		    Ident(u8"double", m_token.range()));
 	}
 	else if (m_token.type == Token::Type::Keyword &&
 	         (m_token.str_data == u8"false" ||
 	          m_token.str_data == u8"true"))
 	{
-		return root_env()->get_bool();
+		return root_scope()->get_bool();
 	}
 
 	assert(false); // 没有这种literal
@@ -321,8 +321,8 @@ StringU8 IdentExpr::dump_json()
 {
 	return fmt::format(u8"\"{}\"", m_ident.name);
 }
-IdentExpr::IdentExpr(Env *env, Ident ident)
-    : m_env(env)
+IdentExpr::IdentExpr(Scope *scope, Ident ident)
+    : m_scope(scope)
     , m_ident(std::move(ident))
     , m_type_cache(
           [this]()
@@ -337,7 +337,7 @@ IdentExpr::IdentExpr(Env *env, Ident ident)
 {}
 IEntity *IdentExpr::resolve_name()
 {
-	return env()->get(ident());
+	return scope()->get(ident());
 }
 StringU8 ast::ExprStmt::dump_json()
 {
@@ -349,7 +349,7 @@ StringU8 ast::ReturnStmt::dump_json()
 	return fmt::format(u8R"({{"obj":"ReturnStmt","expr":{}}})",
 	                   m_expr->dump_json());
 }
-void ast::ReturnStmt::validate_types(IType *return_type)
+void ast::ReturnStmt::validate(IType *return_type)
 {
 	if (!return_type->register_implicit_cast_if_accepts(
 	        this->get_expr()))
@@ -361,9 +361,9 @@ void ast::ReturnStmt::validate_types(IType *return_type)
 		throw std::move(e);
 	}
 }
-void ast::ReturnVoidStmt::validate_types(IType *return_type)
+void ast::ReturnVoidStmt::validate(IType *return_type)
 {
-	auto void_type = env()->get_void();
+	auto void_type = scope()->get_void();
 	if (!return_type->equal(void_type))
 	{
 		ErrorReturnTypeMismatch e;
@@ -382,7 +382,7 @@ StringU8 ast::FuncDecl::dump_json()
 	    m_return_type->dump_json(),
 	    m_body->dump_json());
 }
-void VarDecl::validate_types()
+void VarDecl::validate()
 {
 	assert(m_init || m_type);
 
@@ -414,34 +414,34 @@ StringU8 ParamDecl::dump_json()
 	    m_ident.dump_json(),
 	    m_type->dump_json());
 }
-FuncDecl::FuncDecl(Env                         *env,
+FuncDecl::FuncDecl(Scope                       *scope,
                    SrcRange                     range,
                    Ident                        ident,
                    std::vector<uptr<ParamDecl>> params,
                    uptr<TypeExpr>               return_type,
                    uptr<CompoundStmt>           body)
-    : m_env(env)
+    : m_scope(scope)
     , m_range(range)
     , m_ident(std::move(ident))
     , m_params(std::move(params))
     , m_return_type(std::move(return_type))
     , m_body(std::move(body))
 {}
-void FuncDecl::validate_types()
+void FuncDecl::validate()
 {
 	// todo: params 如果有默认值，可能还得check一下
 	for (auto &&p : m_params)
 	{
-		p->validate_types();
+		p->validate();
 	}
-	m_return_type->validate_types();
-	m_body->validate_types(m_return_type->get_type());
+	m_return_type->validate();
+	m_body->validate(m_return_type->get_type());
 }
-StructDecl::StructDecl(Env             *env,
+StructDecl::StructDecl(Scope           *scope,
                        const SrcRange  &range,
                        Ident            ident,
                        uptr<StructBody> body)
-    : m_env(env)
+    : m_scope(scope)
     , m_range(range)
     , m_ident(std::move(ident))
     , m_body(std::move(body))
@@ -461,29 +461,29 @@ StringU8 StructDecl::get_type_name()
 {
 	return m_ident.name;
 }
-void StructDecl::validate_types()
+void StructDecl::validate()
 {
-	m_body->validate_types();
+	m_body->validate();
 }
 
-Env *Ast::root_env() const
+Scope *Ast::root_scope() const
 {
-	return env()->get_root();
+	return scope()->get_root();
 }
 
 Program::Program(std::vector<uptr<Decl>> decls, Logger &logger)
     : m_decls(std::move(decls))
-    , m_root_env(Env::create_root(logger))
+    , m_root_scope(Scope::create_root(logger))
     , logger(logger)
 {}
-void Program::validate_types(bool &success)
+void Program::validate(bool &success)
 {
 	success = true;
 	try
 	{
 		for (auto &&decl : m_decls)
 		{
-			decl->validate_types();
+			decl->validate();
 		}
 	}
 	catch (Error &e)
@@ -529,19 +529,19 @@ StringU8 Program::dump_json()
 	return fmt::format(u8R"({{"obj":"Program","decls":[{}]}})",
 	                   dump_json_for_vector_of_ptr(m_decls));
 }
-IfStmt::IfStmt(Env               *mEnv,
+IfStmt::IfStmt(Scope             *mEnv,
                Token              if_token,
                uptr<Expr>         mCondition,
                uptr<CompoundStmt> mThen)
-    : m_env(mEnv)
+    : m_scope(mEnv)
     , m_if_token(std::move(if_token))
     , m_condition(std::move(mCondition))
     , m_then(std::move(mThen))
 {}
 
-void IfStmt::validate_types(IType *return_type)
+void IfStmt::validate(IType *return_type)
 {
-	auto bool_type = env()->get_bool();
+	auto bool_type = scope()->get_bool();
 	if (!bool_type->register_implicit_cast_if_accepts(
 	        m_condition.get()))
 	{
@@ -550,9 +550,9 @@ void IfStmt::validate_types(IType *return_type)
 		e.actual_type = m_condition->get_type()->get_type_name();
 		throw std::move(e);
 	}
-	m_then->validate_types(return_type);
+	m_then->validate(return_type);
 	if (m_else.has_value())
-		m_else->get()->validate_types(return_type);
+		m_else->get()->validate(return_type);
 }
 StringU8 IfStmt::dump_json()
 {
@@ -571,9 +571,9 @@ StringU8 AssignmentExpr::dump_json()
 }
 IType *AssignmentExpr::get_type()
 {
-	return env()->get_void();
+	return scope()->get_void();
 }
-void AssignmentExpr::validate_types()
+void AssignmentExpr::validate()
 {
 	if (!m_left->get_type()->register_implicit_cast_if_accepts(
 	        m_right.get()))

@@ -4,7 +4,7 @@
 #include "entity_system.h"
 #include "ast.h"
 #include "code_generator.h"
-#include "env.h"
+#include "scope.h"
 
 namespace protolang
 {

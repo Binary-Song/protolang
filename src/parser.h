@@ -4,10 +4,10 @@
 #include <memory>
 #include <vector>
 #include "ast.h"
-#include "env.h"
 #include "exceptions.h"
 #include "ident.h"
 #include "logger.h"
+#include "scope.h"
 #include "token.h"
 /*
 expression     → assignment
@@ -49,16 +49,16 @@ private:
 	size_t             index = 0;
 	Logger            &logger;
 	std::vector<Token> tokens = {};
-	Env               *root_env;
-	Env               *curr_env = nullptr;
+	Scope               *root_scope;
+	Scope               *curr_scope = nullptr;
 
 public:
 	explicit Parser(Logger            &logger,
 	                std::vector<Token> tokens,
-	                Env               *root_env)
+	                Scope             *root_scope)
 	    : tokens(std::move(tokens))
 	    , logger(logger)
-	    , root_env(root_env)
+	    , root_scope(root_scope)
 	{}
 
 	uptr<ast::Program> parse() { return program(); }

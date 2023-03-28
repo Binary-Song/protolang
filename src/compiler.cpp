@@ -4,12 +4,12 @@
 #include <type_traits>
 #include "compiler.h"
 #include "code_generator.h"
-#include "env.h"
 #include "lexer.h"
 #include "linker.h"
 #include "log.h"
 #include "logger.h"
 #include "parser.h"
+#include "scope.h"
 #include "source_code.h"
 namespace protolang
 {
@@ -47,13 +47,13 @@ void Compiler::compile()
 		throw std::move(e);
 	}
 	// 语法分析
-	auto   root_env = protolang::Env::create_root(logger);
-	Parser parser(logger, std::move(tokens), root_env.get());
+	auto   root_scope = protolang::Scope::create_root(logger);
+	Parser parser(logger, std::move(tokens), root_scope.get());
 	auto   program = parser.parse();
 	// 中间代码生成
 	CodeGenerator g(logger, StringU8{m_input_path.filename()});
 	bool          success = false;
-	program->validate_types(success);
+	program->validate(success);
 	if (!success)
 		return;
 	program->codegen(g, success);
