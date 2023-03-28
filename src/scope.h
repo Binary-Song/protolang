@@ -70,7 +70,7 @@ public:
 		if (m_parent)
 		{
 			auto parent_qualifier = m_parent->get_qualifier();
-			if (parent_qualifier.empty() == false)
+			if (!parent_qualifier.empty())
 				return parent_qualifier + u8"::" + m_scope_name;
 			else
 				return m_scope_name;
